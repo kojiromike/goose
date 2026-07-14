@@ -80,6 +80,7 @@ export interface AcpChatSessionActions {
   ): AcpChatSessionSnapshot | undefined;
 
   setSessionMetadata(sessionId: string, session: Session | undefined): AcpChatSessionSnapshot;
+  clearReportedContextLimit(sessionId: string): AcpChatSessionSnapshot;
   startSessionLoad(sessionId: string): AcpChatSessionSnapshot;
   finishSessionLoad(sessionId: string, session: Session): AcpChatSessionSnapshot;
   failSessionLoad(sessionId: string, sessionLoadError: string): AcpChatSessionSnapshot;
@@ -207,6 +208,17 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
   const setSessionMetadata: AcpChatSessionActions['setSessionMetadata'] = (sessionId, session) => {
     const entry = getOrCreateEntry(sessionId);
     entry.session = session;
+    return notify(sessionId, entry);
+  };
+
+  // A session-reported contextLimit belongs to the model that produced it; drop it
+  // when the session's model/provider changes so stale values cannot resurface in
+  // later snapshots before the new model's first usage_update arrives.
+  const clearReportedContextLimit: AcpChatSessionActions['clearReportedContextLimit'] = (
+    sessionId
+  ) => {
+    const entry = getOrCreateEntry(sessionId);
+    delete entry.tokenState.contextLimit;
     return notify(sessionId, entry);
   };
 
@@ -548,6 +560,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     subscribe,
     deleteSnapshot,
     setSessionMetadata,
+    clearReportedContextLimit,
     startSessionLoad,
     finishSessionLoad,
     failSessionLoad,
@@ -628,6 +641,7 @@ function actionsFromStore(store: AcpChatSessionStoreInternal): AcpChatSessionAct
     applyElicitationRequest: store.applyElicitationRequest,
     setElicitationStatus: store.setElicitationStatus,
     setSessionMetadata: store.setSessionMetadata,
+    clearReportedContextLimit: store.clearReportedContextLimit,
     startSessionLoad: store.startSessionLoad,
     finishSessionLoad: store.finishSessionLoad,
     failSessionLoad: store.failSessionLoad,
