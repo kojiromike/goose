@@ -465,9 +465,10 @@ pub(super) fn send_session_setup_notifications(
     totals: &SessionUsageTotals,
     context_limit: usize,
     supports_goose_custom_notifications: bool,
+    context_limit_override: Option<u64>,
 ) -> Result<(), agent_client_protocol::Error> {
     let session_id = SessionId::new(session.id.clone());
-    let updates = build_usage_updates(session, totals, context_limit);
+    let updates = build_usage_updates(session, totals, context_limit, context_limit_override);
     if supports_goose_custom_notifications {
         cx.send_notification(updates.custom)?;
     }

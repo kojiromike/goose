@@ -756,9 +756,12 @@ pub(super) fn build_usage_updates(
     session: &Session,
     totals: &SessionUsageTotals,
     context_limit: usize,
+    context_limit_override: Option<u64>,
 ) -> UsageUpdates {
     let used = session.usage.total_tokens.unwrap_or(0).max(0) as u64;
-    let ctx_limit = context_limit as u64;
+    // Providers can report a more accurate context limit than the static model
+    // config (e.g. AcpProvider captures the size from the CLI's usage updates).
+    let ctx_limit = context_limit_override.unwrap_or(context_limit as u64);
     let accumulated_input_tokens =
         to_nonnegative_u64(totals.accumulated_usage.input_tokens).unwrap_or(0);
     let accumulated_output_tokens =
@@ -852,6 +855,24 @@ impl GooseAcpAgent {
             .unwrap_or(false)
     }
 
+    pub(super) async fn notify_session_setup(
+        &self,
+        cx: &ConnectionTo<Client>,
+        session: &Session,
+    ) -> Result<(), agent_client_protocol::Error> {
+        let (session, totals, context_limit) =
+            self.prepare_session_setup_by_id(&session.id).await?;
+        send_session_setup_notifications(
+            cx,
+            &session,
+            &totals,
+            context_limit,
+            self.supports_goose_custom_notifications(),
+            self.provider_context_limit(&session.id).await,
+        )
+    }
+
+
     pub(super) async fn prepare_session_setup_by_id(
         &self,
         session_id: &str,
@@ -906,6 +927,20 @@ impl GooseAcpAgent {
                 .unwrap_or_default();
             return Ok((session, totals, context_limit));
         }
+    }
+
+    /// Ask the session's provider for its context limit, which can be more
+    /// accurate than the static model config (e.g. AcpProvider surfaces the
+    /// size captured from the CLI's own usage updates).
+    pub(super) async fn provider_context_limit(&self, session_id: &str) -> Option<u64> {
+        let agent = self.get_session_agent(session_id).await.ok()?;
+        let provider = agent.provider().await.ok()?;
+        let model_config = agent.model_config_for_session(session_id).await.ok()?;
+        provider
+            .get_context_limit(&model_config)
+            .await
+            .ok()
+            .map(|limit| limit as u64)
     }
 
     pub(super) fn supports_recipe_param_requests(&self) -> bool {
@@ -2278,7 +2313,8 @@ impl GooseAcpAgent {
             crate::context_limit::get_context_limit(provider.as_ref(), &model.model_name)
                 .await
                 .internal_err_ctx("Failed to resolve context limit")?;
-        let updates = build_usage_updates(&session, &totals, context_limit);
+        let context_limit_override = self.provider_context_limit(&session_id).await;
+        let updates = build_usage_updates(&session, &totals, context_limit, context_limit_override);
         if self.supports_goose_custom_notifications() {
             cx.send_notification(updates.custom)?;
         }
@@ -3403,7 +3439,7 @@ print(\"hello, world\")
             accumulated_usage: session.accumulated_usage,
             accumulated_cost: session.accumulated_cost,
         };
-        let updates = build_usage_updates(&session, &totals, 258_000);
+        let updates = build_usage_updates(&session, &totals, 258_000, None);
         assert_eq!(updates.custom.session_id, "session-1");
         let usage = match updates.custom.update {
             GooseSessionUpdate::UsageUpdate(usage) => usage,
@@ -3413,6 +3449,45 @@ print(\"hello, world\")
         assert_eq!(usage.context_limit, 258_000);
         assert_eq!(updates.standard.used, 0);
         assert_eq!(updates.standard.size, 258_000);
+    }
+
+    #[test]
+    fn test_build_usage_update_prefers_provider_context_limit() {
+        let mut session = make_session_with_usage(
+            TokenUsage::new(Some(0), Some(0), Some(42)),
+            TokenUsage::default(),
+        );
+        session.model_config = Some(
+            goose_providers::model::ModelConfig::new("test-model")
+                .with_context_limit(Some(128_000)),
+        );
+        let updates = build_usage_updates(
+            &session,
+            &SessionUsageTotals::default(),
+            128_000,
+            Some(1_000_000),
+        );
+        let usage = match updates.custom.update {
+            GooseSessionUpdate::UsageUpdate(usage) => usage,
+            other => panic!("expected usage update, got {other:?}"),
+        };
+        assert_eq!(usage.context_limit, 1_000_000);
+        assert_eq!(updates.standard.size, 1_000_000);
+    }
+
+    #[test]
+    fn test_build_usage_update_override_works_without_model_config() {
+        let session = make_session_with_usage(
+            TokenUsage::new(Some(80), Some(40), Some(120)),
+            TokenUsage::default(),
+        );
+        let updates =
+            build_usage_updates(&session, &SessionUsageTotals::default(), 128_000, Some(200_000));
+        let usage = match updates.custom.update {
+            GooseSessionUpdate::UsageUpdate(usage) => usage,
+            other => panic!("expected usage update, got {other:?}"),
+        };
+        assert_eq!(usage.context_limit, 200_000);
     }
 
     #[test]
