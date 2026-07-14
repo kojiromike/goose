@@ -877,6 +877,7 @@ describe('createAcpSessionNotificationAdapter', () => {
             accumulatedOutputTokens: 15,
             accumulatedTotalTokens: 25,
             accumulatedCost: 0.12,
+            contextLimit: 200,
           },
         },
       ]);
