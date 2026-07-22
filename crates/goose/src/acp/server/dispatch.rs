@@ -53,6 +53,8 @@ impl HandleDispatchFrom<Client> for GooseAcpHandler {
                                         agent.prepare_session_setup_by_id(&session_id).await;
                                     let context_limit_override =
                                         agent.provider_context_limit(&session_id).await;
+                                    let used_override =
+                                        agent.provider_context_used(&session_id).await;
                                     if let Err(error) = session_setup.and_then(|(session, totals, context_limit)| {
                                         send_session_setup_notifications(
                                             &cx_clone,
@@ -61,6 +63,7 @@ impl HandleDispatchFrom<Client> for GooseAcpHandler {
                                             context_limit,
                                             agent.supports_goose_custom_notifications(),
                                             context_limit_override,
+                                            used_override,
                                         )
                                     }) {
                                         tracing::warn!(
@@ -93,6 +96,8 @@ impl HandleDispatchFrom<Client> for GooseAcpHandler {
                                         agent.prepare_session_setup_by_id(&session_id).await;
                                     let context_limit_override =
                                         agent.provider_context_limit(&session_id).await;
+                                    let used_override =
+                                        agent.provider_context_used(&session_id).await;
                                     if let Err(error) = session_setup.and_then(
                                         |(session, totals, context_limit)| {
                                             send_session_setup_notifications(
@@ -102,6 +107,7 @@ impl HandleDispatchFrom<Client> for GooseAcpHandler {
                                                 context_limit,
                                                 agent.supports_goose_custom_notifications(),
                                                 context_limit_override,
+                                                used_override,
                                             )
                                         },
                                     ) {
@@ -451,6 +457,8 @@ impl HandleDispatchFrom<Client> for GooseAcpHandler {
                                         agent.prepare_session_setup_by_id(&session_id).await;
                                     let context_limit_override =
                                         agent.provider_context_limit(&session_id).await;
+                                    let used_override =
+                                        agent.provider_context_used(&session_id).await;
                                     if let Err(error) = session_setup.and_then(|(session, totals, context_limit)| {
                                         send_session_setup_notifications(
                                             &cx_spawn,
@@ -459,6 +467,7 @@ impl HandleDispatchFrom<Client> for GooseAcpHandler {
                                             context_limit,
                                             agent.supports_goose_custom_notifications(),
                                             context_limit_override,
+                                            used_override,
                                         )
                                     }) {
                                         tracing::warn!(
