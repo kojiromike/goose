@@ -1,4 +1,25 @@
 {
+  "acpReadinessPanel.adapterFound": {
+    "defaultMessage": "ACP-Adapter gefunden"
+  },
+  "acpReadinessPanel.adapterNotFound": {
+    "defaultMessage": "ACP-Adapter nicht gefunden"
+  },
+  "acpReadinessPanel.authenticationHelp": {
+    "defaultMessage": "Melden Sie sich über die Anbieter-CLI an und prüfen Sie die Verbindung erneut."
+  },
+  "acpReadinessPanel.checkAgain": {
+    "defaultMessage": "Erneut prüfen"
+  },
+  "acpReadinessPanel.checking": {
+    "defaultMessage": "Wird geprüft..."
+  },
+  "acpReadinessPanel.connected": {
+    "defaultMessage": "Erfolgreich verbunden"
+  },
+  "acpReadinessPanel.connectionNotChecked": {
+    "defaultMessage": "Prüfen Sie Ihre Kontoverbindung, bevor Sie fortfahren."
+  },
   "alertBox.autoCompactAt": {
     "defaultMessage": "Automatisch verdichten bei"
   },
@@ -920,13 +941,12 @@
   "dirSwitcher.enterPath": {
     "defaultMessage": "Pfad eingeben"
   },
-  "dirSwitcher.enterPathPlaceholder": {
-    "defaultMessage": "Absoluten Pfad eingeben (z. B. /home/goose/workspace)"
-  },
   "dirSwitcher.enterPathInvalid": {
     "defaultMessage": "Arbeitsverzeichnis muss ein absoluter Pfad sein"
   },
-
+  "dirSwitcher.enterPathPlaceholder": {
+    "defaultMessage": "Absoluten Pfad eingeben (z. B. /home/goose/workspace)"
+  },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Aktualisieren des Arbeitsverzeichnisses fehlgeschlagen"
   },
@@ -941,18 +961,6 @@
   },
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "Zuletzt verwendete Verzeichnisse"
-  },
-  "gitBranchIndicator.failedToSwitch": {
-    "defaultMessage": "Wechsel zu {branch} fehlgeschlagen"
-  },
-  "gitBranchIndicator.noBranchesFound": {
-    "defaultMessage": "Keine Branches gefunden"
-  },
-  "gitBranchIndicator.searchBranches": {
-    "defaultMessage": "Branches durchsuchen…"
-  },
-  "gitBranchIndicator.uncommittedChanges": {
-    "defaultMessage": "Möglicherweise gibt es noch nicht committete Änderungen."
   },
   "elicitationRequest.accept": {
     "defaultMessage": "Akzeptieren"
@@ -1256,6 +1264,18 @@
   },
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
+  },
+  "gitBranchIndicator.failedToSwitch": {
+    "defaultMessage": "Wechsel zu {branch} fehlgeschlagen"
+  },
+  "gitBranchIndicator.noBranchesFound": {
+    "defaultMessage": "Keine Branches gefunden"
+  },
+  "gitBranchIndicator.searchBranches": {
+    "defaultMessage": "Branches durchsuchen…"
+  },
+  "gitBranchIndicator.uncommittedChanges": {
+    "defaultMessage": "Möglicherweise gibt es noch nicht committete Änderungen."
   },
   "goosehintsModal.close": {
     "defaultMessage": "Schließen"
@@ -2322,6 +2342,9 @@
   "modelsBottomBar.localModelSettingsTitle": {
     "defaultMessage": "Lokale Modelleinstellungen — {modelName}"
   },
+  "modelsBottomBar.recentModels": {
+    "defaultMessage": "Zuletzt verwendet"
+  },
   "modelsBottomBar.resolvedModel": {
     "defaultMessage": "Aufgelöstes Modell"
   },
@@ -2358,8 +2381,38 @@
   "navigation.itemSkills": {
     "defaultMessage": "Skills"
   },
+  "navigationPanel.archive": {
+    "defaultMessage": "Archivieren"
+  },
+  "navigationPanel.archiveFailed": {
+    "defaultMessage": "Sitzung konnte nicht archiviert werden: {error}"
+  },
+  "navigationPanel.archiveSuccess": {
+    "defaultMessage": "„{name}“ archiviert"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "Chats"
+  },
+  "navigationPanel.delete": {
+    "defaultMessage": "Löschen"
+  },
+  "navigationPanel.deleteCancel": {
+    "defaultMessage": "Abbrechen"
+  },
+  "navigationPanel.deleteConfirm": {
+    "defaultMessage": "Löschen"
+  },
+  "navigationPanel.deleteFailed": {
+    "defaultMessage": "Sitzung konnte nicht gelöscht werden: {error}"
+  },
+  "navigationPanel.deleteMessage": {
+    "defaultMessage": "Möchten Sie „{name}“ wirklich löschen? Dies kann nicht rückgängig gemacht werden."
+  },
+  "navigationPanel.deleteSuccess": {
+    "defaultMessage": "Chat gelöscht"
+  },
+  "navigationPanel.deleteTitle": {
+    "defaultMessage": "Chat löschen"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Erstellt"
@@ -2378,6 +2431,12 @@
   },
   "navigationPanel.noChats": {
     "defaultMessage": "Keine aktuellen Chats"
+  },
+  "navigationPanel.rename": {
+    "defaultMessage": "Umbenennen"
+  },
+  "navigationPanel.sessionActions": {
+    "defaultMessage": "Sitzungsaktionen"
   },
   "navigationPanel.statusError": {
     "defaultMessage": "Fehler"
@@ -2694,6 +2753,9 @@
   "promptsSettings.unsavedChanges": {
     "defaultMessage": "Sie haben nicht gespeicherte Änderungen"
   },
+  "providerCard.deprecatedReplacement": {
+    "defaultMessage": "Veraltet — verwenden Sie stattdessen {replacement}."
+  },
   "providerCard.noMetadata": {
     "defaultMessage": "ProviderCard-Fehler: Keine Metadaten bereitgestellt"
   },
@@ -2748,8 +2810,17 @@
   "providerConfigForm.continue": {
     "defaultMessage": "Weiter"
   },
+  "providerConfigForm.deviceCodeAndEnter": {
+    "defaultMessage": "und geben Sie ein:"
+  },
+  "providerConfigForm.deviceCodeCopy": {
+    "defaultMessage": "Kopieren"
+  },
   "providerConfigForm.deviceCodeFlowHint": {
     "defaultMessage": "Ein Browserfenster wird geöffnet. Der Bestätigungscode wird hier angezeigt, damit Sie ihn eingeben und die Anmeldung abschließen können."
+  },
+  "providerConfigForm.deviceCodeVisit": {
+    "defaultMessage": "Besuchen Sie"
   },
   "providerConfigForm.noApiKey": {
     "defaultMessage": "Sie haben keinen API-Schlüssel?"
@@ -2775,6 +2846,9 @@
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Überprüfen Sie Ihre Konfiguration erneut, um diesen Anbieter zu verwenden."
   },
+  "providerConfigurationModal.chooseModel": {
+    "defaultMessage": "Modell auswählen"
+  },
   "providerConfigurationModal.close": {
     "defaultMessage": "Schließen"
   },
@@ -2787,8 +2861,17 @@
   "providerConfigurationModal.deleteConfirmation": {
     "defaultMessage": "Dadurch wird die aktuelle Anbieterkonfiguration dauerhaft gelöscht."
   },
+  "providerConfigurationModal.deviceCodeAndEnter": {
+    "defaultMessage": "und geben Sie ein:"
+  },
+  "providerConfigurationModal.deviceCodeCopy": {
+    "defaultMessage": "Kopieren"
+  },
   "providerConfigurationModal.deviceCodeFlowHint": {
     "defaultMessage": "Ein Browserfenster wird geöffnet. Der Bestätigungscode wird hier angezeigt, damit Sie ihn eingeben und die Anmeldung abschließen können."
+  },
+  "providerConfigurationModal.deviceCodeVisit": {
+    "defaultMessage": "Besuchen Sie"
   },
   "providerConfigurationModal.errorCheckingConfig": {
     "defaultMessage": "Beim Überprüfen dieser Anbieterkonfiguration ist ein Fehler aufgetreten."
@@ -3783,6 +3866,9 @@
   "sessions.acpBadge": {
     "defaultMessage": "ACP"
   },
+  "sessions.action.archive": {
+    "defaultMessage": "Sitzung archivieren"
+  },
   "sessions.action.delete": {
     "defaultMessage": "Sitzung löschen"
   },
@@ -3806,6 +3892,9 @@
   },
   "sessions.action.shareNostr": {
     "defaultMessage": "Verschlüsselten Nostr-Link teilen"
+  },
+  "sessions.action.unarchive": {
+    "defaultMessage": "Aus Archiv wiederherstellen"
   },
   "sessions.cancel": {
     "defaultMessage": "Abbrechen"
@@ -3867,6 +3956,12 @@
   "sessions.loadingMore": {
     "defaultMessage": "Weitere Sitzungen werden geladen..."
   },
+  "sessions.noArchived": {
+    "defaultMessage": "Keine archivierten Sitzungen"
+  },
+  "sessions.noArchivedDesc": {
+    "defaultMessage": "Von Ihnen archivierte Sitzungen werden hier angezeigt."
+  },
   "sessions.save": {
     "defaultMessage": "Speichern"
   },
@@ -3893,6 +3988,18 @@
   },
   "sessions.shareNostr.title": {
     "defaultMessage": "Verschlüsselter Nostr-Freigabelink"
+  },
+  "sessions.tab.active": {
+    "defaultMessage": "Aktiv"
+  },
+  "sessions.tab.archived": {
+    "defaultMessage": "Archiviert"
+  },
+  "sessions.toast.archiveFailed": {
+    "defaultMessage": "Sitzung konnte nicht archiviert werden: {error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "Sitzung archiviert"
   },
   "sessions.toast.copied": {
     "defaultMessage": "In die Zwischenablage kopiert"
@@ -3926,6 +4033,12 @@
   },
   "sessions.toast.shareNostrFailed": {
     "defaultMessage": "Nostr-Freigabelink konnte nicht erstellt werden: {error}"
+  },
+  "sessions.toast.unarchiveFailed": {
+    "defaultMessage": "Sitzung konnte nicht wiederhergestellt werden: {error}"
+  },
+  "sessions.toast.unarchived": {
+    "defaultMessage": "Sitzung wiederhergestellt"
   },
   "sessions.toast.updateFailed": {
     "defaultMessage": "Sitzungsbeschreibung konnte nicht aktualisiert werden: {error}"
@@ -4631,53 +4744,5 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Bild aus Nachricht entfernen"
-  },
-  "modelsBottomBar.recentModels": {
-    "defaultMessage": "Zuletzt verwendet"
-  },
-  "providerConfigurationModal.chooseModel": {
-    "defaultMessage": "Modell auswählen"
-  },
-  "providerCard.deprecatedReplacement": {
-    "defaultMessage": "Veraltet — verwenden Sie stattdessen {replacement}."
-  },
-  "acpReadinessPanel.adapterFound": {
-    "defaultMessage": "ACP-Adapter gefunden"
-  },
-  "acpReadinessPanel.adapterNotFound": {
-    "defaultMessage": "ACP-Adapter nicht gefunden"
-  },
-  "acpReadinessPanel.authenticationHelp": {
-    "defaultMessage": "Melden Sie sich über die Anbieter-CLI an und prüfen Sie die Verbindung erneut."
-  },
-  "acpReadinessPanel.checkAgain": {
-    "defaultMessage": "Erneut prüfen"
-  },
-  "acpReadinessPanel.checking": {
-    "defaultMessage": "Wird geprüft..."
-  },
-  "acpReadinessPanel.connected": {
-    "defaultMessage": "Erfolgreich verbunden"
-  },
-  "acpReadinessPanel.connectionNotChecked": {
-    "defaultMessage": "Prüfen Sie Ihre Kontoverbindung, bevor Sie fortfahren."
-  },
-  "providerConfigForm.deviceCodeAndEnter": {
-    "defaultMessage": "und geben Sie ein:"
-  },
-  "providerConfigForm.deviceCodeCopy": {
-    "defaultMessage": "Kopieren"
-  },
-  "providerConfigForm.deviceCodeVisit": {
-    "defaultMessage": "Besuchen Sie"
-  },
-  "providerConfigurationModal.deviceCodeAndEnter": {
-    "defaultMessage": "und geben Sie ein:"
-  },
-  "providerConfigurationModal.deviceCodeCopy": {
-    "defaultMessage": "Kopieren"
-  },
-  "providerConfigurationModal.deviceCodeVisit": {
-    "defaultMessage": "Besuchen Sie"
   }
 }

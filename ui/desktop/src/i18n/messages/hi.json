@@ -1,4 +1,25 @@
 {
+  "acpReadinessPanel.adapterFound": {
+    "defaultMessage": "ACP अडैप्टर मिल गया"
+  },
+  "acpReadinessPanel.adapterNotFound": {
+    "defaultMessage": "ACP अडैप्टर नहीं मिला"
+  },
+  "acpReadinessPanel.authenticationHelp": {
+    "defaultMessage": "प्रदाता CLI से साइन इन करें, फिर दोबारा जाँचें।"
+  },
+  "acpReadinessPanel.checkAgain": {
+    "defaultMessage": "दोबारा जाँचें"
+  },
+  "acpReadinessPanel.checking": {
+    "defaultMessage": "जाँच की जा रही है..."
+  },
+  "acpReadinessPanel.connected": {
+    "defaultMessage": "सफलतापूर्वक कनेक्ट हो गया"
+  },
+  "acpReadinessPanel.connectionNotChecked": {
+    "defaultMessage": "आगे बढ़ने से पहले अपने खाते का कनेक्शन जाँचें।"
+  },
   "alertBox.autoCompactAt": {
     "defaultMessage": "ऑटो कॉम्पैक्ट पर"
   },
@@ -920,14 +941,12 @@
   "dirSwitcher.enterPath": {
     "defaultMessage": "Enter path"
   },
-  "dirSwitcher.enterPathPlaceholder": {
-    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
-  },
   "dirSwitcher.enterPathInvalid": {
     "defaultMessage": "Working directory must be an absolute path"
   },
-
-
+  "dirSwitcher.enterPathPlaceholder": {
+    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
+  },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "कार्यशील निर्देशिका अद्यतन करने में विफल"
   },
@@ -942,18 +961,6 @@
   },
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "हाल की निर्देशिकाएँ"
-  },
-  "gitBranchIndicator.failedToSwitch": {
-    "defaultMessage": "{branch} पर स्विच नहीं किया जा सका"
-  },
-  "gitBranchIndicator.noBranchesFound": {
-    "defaultMessage": "कोई ब्रांच नहीं मिली"
-  },
-  "gitBranchIndicator.searchBranches": {
-    "defaultMessage": "ब्रांच खोजें…"
-  },
-  "gitBranchIndicator.uncommittedChanges": {
-    "defaultMessage": "आपके कुछ बदलाव कमिट नहीं हुए हो सकते हैं।"
   },
   "elicitationRequest.accept": {
     "defaultMessage": "स्वीकार करो"
@@ -1257,6 +1264,18 @@
   },
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
+  },
+  "gitBranchIndicator.failedToSwitch": {
+    "defaultMessage": "{branch} पर स्विच नहीं किया जा सका"
+  },
+  "gitBranchIndicator.noBranchesFound": {
+    "defaultMessage": "कोई ब्रांच नहीं मिली"
+  },
+  "gitBranchIndicator.searchBranches": {
+    "defaultMessage": "ब्रांच खोजें…"
+  },
+  "gitBranchIndicator.uncommittedChanges": {
+    "defaultMessage": "आपके कुछ बदलाव कमिट नहीं हुए हो सकते हैं।"
   },
   "goosehintsModal.close": {
     "defaultMessage": "बंद करें"
@@ -2323,6 +2342,9 @@
   "modelsBottomBar.localModelSettingsTitle": {
     "defaultMessage": "स्थानीय मॉडल Settings — {modelName}"
   },
+  "modelsBottomBar.recentModels": {
+    "defaultMessage": "हाल के"
+  },
   "modelsBottomBar.resolvedModel": {
     "defaultMessage": "हल किया गया मॉडल"
   },
@@ -2359,8 +2381,38 @@
   "navigation.itemSkills": {
     "defaultMessage": "कौशल"
   },
+  "navigationPanel.archive": {
+    "defaultMessage": "संग्रहित करें"
+  },
+  "navigationPanel.archiveFailed": {
+    "defaultMessage": "सत्र संग्रहित नहीं किया जा सका: {error}"
+  },
+  "navigationPanel.archiveSuccess": {
+    "defaultMessage": "“{name}” संग्रहित किया गया"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "चैट"
+  },
+  "navigationPanel.delete": {
+    "defaultMessage": "हटाएँ"
+  },
+  "navigationPanel.deleteCancel": {
+    "defaultMessage": "रद्द करें"
+  },
+  "navigationPanel.deleteConfirm": {
+    "defaultMessage": "हटाएँ"
+  },
+  "navigationPanel.deleteFailed": {
+    "defaultMessage": "सत्र हटाया नहीं जा सका: {error}"
+  },
+  "navigationPanel.deleteMessage": {
+    "defaultMessage": "क्या आप वाकई “{name}” को हटाना चाहते हैं? इसे पूर्ववत नहीं किया जा सकता।"
+  },
+  "navigationPanel.deleteSuccess": {
+    "defaultMessage": "चैट हटाई गई"
+  },
+  "navigationPanel.deleteTitle": {
+    "defaultMessage": "चैट हटाएँ"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "बनाया गया"
@@ -2379,6 +2431,12 @@
   },
   "navigationPanel.noChats": {
     "defaultMessage": "कोई हालिया चैट नहीं"
+  },
+  "navigationPanel.rename": {
+    "defaultMessage": "नाम बदलें"
+  },
+  "navigationPanel.sessionActions": {
+    "defaultMessage": "सत्र क्रियाएँ"
   },
   "navigationPanel.statusError": {
     "defaultMessage": "त्रुटि"
@@ -2695,6 +2753,9 @@
   "promptsSettings.unsavedChanges": {
     "defaultMessage": "आपके पास सहेजे नहीं गए परिवर्तन हैं"
   },
+  "providerCard.deprecatedReplacement": {
+    "defaultMessage": "अप्रचलित — इसके बजाय {replacement} का उपयोग करें।"
+  },
   "providerCard.noMetadata": {
     "defaultMessage": "प्रदाता कार्ड त्रुटि: कोई मेटाडेटा प्रदान नहीं किया गया"
   },
@@ -2749,8 +2810,17 @@
   "providerConfigForm.continue": {
     "defaultMessage": "जारी रखें"
   },
+  "providerConfigForm.deviceCodeAndEnter": {
+    "defaultMessage": "और दर्ज करें:"
+  },
+  "providerConfigForm.deviceCodeCopy": {
+    "defaultMessage": "कॉपी करें"
+  },
   "providerConfigForm.deviceCodeFlowHint": {
     "defaultMessage": "एक ब्राउज़र विंडो खुलेगी। सत्यापन कोड यहाँ दिखाई देगा, ताकि आप उसे दर्ज करके साइन-इन पूरा कर सकें।"
+  },
+  "providerConfigForm.deviceCodeVisit": {
+    "defaultMessage": "जाएं"
   },
   "providerConfigForm.noApiKey": {
     "defaultMessage": "क्या आपके पास API कुंजी नहीं है?"
@@ -2776,6 +2846,9 @@
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "इस प्रदाता का उपयोग करने के लिए अपनी कॉन्फ़िगरेशन दोबारा जांचें।"
   },
+  "providerConfigurationModal.chooseModel": {
+    "defaultMessage": "मॉडल चुनें"
+  },
   "providerConfigurationModal.close": {
     "defaultMessage": "बंद करें"
   },
@@ -2788,8 +2861,17 @@
   "providerConfigurationModal.deleteConfirmation": {
     "defaultMessage": "यह वर्तमान प्रदाता कॉन्फ़िगरेशन को स्थायी रूप से हटा देगा।"
   },
+  "providerConfigurationModal.deviceCodeAndEnter": {
+    "defaultMessage": "और दर्ज करें:"
+  },
+  "providerConfigurationModal.deviceCodeCopy": {
+    "defaultMessage": "कॉपी करें"
+  },
   "providerConfigurationModal.deviceCodeFlowHint": {
     "defaultMessage": "एक ब्राउज़र विंडो खुलेगी। सत्यापन कोड यहाँ दिखाई देगा, ताकि आप उसे दर्ज करके साइन-इन पूरा कर सकें।"
+  },
+  "providerConfigurationModal.deviceCodeVisit": {
+    "defaultMessage": "जाएं"
   },
   "providerConfigurationModal.errorCheckingConfig": {
     "defaultMessage": "इस प्रदाता कॉन्फ़िगरेशन की जाँच करने में त्रुटि हुई।"
@@ -3784,6 +3866,9 @@
   "sessions.acpBadge": {
     "defaultMessage": "ACP"
   },
+  "sessions.action.archive": {
+    "defaultMessage": "सत्र संग्रहित करें"
+  },
   "sessions.action.delete": {
     "defaultMessage": "सत्र हटाएँ"
   },
@@ -3807,6 +3892,9 @@
   },
   "sessions.action.shareNostr": {
     "defaultMessage": "एन्क्रिप्टेड नोस्ट्र लिंक साझा करें"
+  },
+  "sessions.action.unarchive": {
+    "defaultMessage": "संग्रह से पुनर्स्थापित करें"
   },
   "sessions.cancel": {
     "defaultMessage": "रद्द करें"
@@ -3868,6 +3956,12 @@
   "sessions.loadingMore": {
     "defaultMessage": "अधिक सत्र लोड हो रहे हैं..."
   },
+  "sessions.noArchived": {
+    "defaultMessage": "कोई संग्रहित सत्र नहीं"
+  },
+  "sessions.noArchivedDesc": {
+    "defaultMessage": "आपके द्वारा संग्रहित किए गए सत्र यहाँ दिखाई देंगे।"
+  },
   "sessions.save": {
     "defaultMessage": "सहेजें"
   },
@@ -3894,6 +3988,18 @@
   },
   "sessions.shareNostr.title": {
     "defaultMessage": "एन्क्रिप्टेड नोस्ट्र शेयर लिंक"
+  },
+  "sessions.tab.active": {
+    "defaultMessage": "सक्रिय"
+  },
+  "sessions.tab.archived": {
+    "defaultMessage": "संग्रहित"
+  },
+  "sessions.toast.archiveFailed": {
+    "defaultMessage": "सत्र संग्रहित नहीं किया जा सका: {error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "सत्र संग्रहित किया गया"
   },
   "sessions.toast.copied": {
     "defaultMessage": "क्लिपबोर्ड पर कॉपी किया गया"
@@ -3927,6 +4033,12 @@
   },
   "sessions.toast.shareNostrFailed": {
     "defaultMessage": "Nostr शेयर लिंक बनाने में विफल: {error}"
+  },
+  "sessions.toast.unarchiveFailed": {
+    "defaultMessage": "सत्र पुनर्स्थापित नहीं किया जा सका: {error}"
+  },
+  "sessions.toast.unarchived": {
+    "defaultMessage": "सत्र पुनर्स्थापित किया गया"
   },
   "sessions.toast.updateFailed": {
     "defaultMessage": "सत्र विवरण अद्यतन करने में विफल: {error}"
@@ -4632,53 +4744,5 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "संदेश से छवि हटाएँ"
-  },
-  "modelsBottomBar.recentModels": {
-    "defaultMessage": "हाल के"
-  },
-  "providerConfigurationModal.chooseModel": {
-    "defaultMessage": "मॉडल चुनें"
-  },
-  "providerCard.deprecatedReplacement": {
-    "defaultMessage": "अप्रचलित — इसके बजाय {replacement} का उपयोग करें।"
-  },
-  "acpReadinessPanel.adapterFound": {
-    "defaultMessage": "ACP अडैप्टर मिल गया"
-  },
-  "acpReadinessPanel.adapterNotFound": {
-    "defaultMessage": "ACP अडैप्टर नहीं मिला"
-  },
-  "acpReadinessPanel.authenticationHelp": {
-    "defaultMessage": "प्रदाता CLI से साइन इन करें, फिर दोबारा जाँचें।"
-  },
-  "acpReadinessPanel.checkAgain": {
-    "defaultMessage": "दोबारा जाँचें"
-  },
-  "acpReadinessPanel.checking": {
-    "defaultMessage": "जाँच की जा रही है..."
-  },
-  "acpReadinessPanel.connected": {
-    "defaultMessage": "सफलतापूर्वक कनेक्ट हो गया"
-  },
-  "acpReadinessPanel.connectionNotChecked": {
-    "defaultMessage": "आगे बढ़ने से पहले अपने खाते का कनेक्शन जाँचें।"
-  },
-  "providerConfigForm.deviceCodeAndEnter": {
-    "defaultMessage": "और दर्ज करें:"
-  },
-  "providerConfigForm.deviceCodeCopy": {
-    "defaultMessage": "कॉपी करें"
-  },
-  "providerConfigForm.deviceCodeVisit": {
-    "defaultMessage": "जाएं"
-  },
-  "providerConfigurationModal.deviceCodeAndEnter": {
-    "defaultMessage": "और दर्ज करें:"
-  },
-  "providerConfigurationModal.deviceCodeCopy": {
-    "defaultMessage": "कॉपी करें"
-  },
-  "providerConfigurationModal.deviceCodeVisit": {
-    "defaultMessage": "जाएं"
   }
 }

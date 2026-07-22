@@ -1,4 +1,25 @@
 {
+  "acpReadinessPanel.adapterFound": {
+    "defaultMessage": "Адаптер ACP найден"
+  },
+  "acpReadinessPanel.adapterNotFound": {
+    "defaultMessage": "Адаптер ACP не найден"
+  },
+  "acpReadinessPanel.authenticationHelp": {
+    "defaultMessage": "Войдите через CLI провайдера, затем повторите проверку."
+  },
+  "acpReadinessPanel.checkAgain": {
+    "defaultMessage": "Проверить снова"
+  },
+  "acpReadinessPanel.checking": {
+    "defaultMessage": "Проверка..."
+  },
+  "acpReadinessPanel.connected": {
+    "defaultMessage": "Подключение выполнено"
+  },
+  "acpReadinessPanel.connectionNotChecked": {
+    "defaultMessage": "Проверьте подключение учетной записи, прежде чем продолжить."
+  },
   "alertBox.autoCompactAt": {
     "defaultMessage": "Автосжимать при"
   },
@@ -920,14 +941,12 @@
   "dirSwitcher.enterPath": {
     "defaultMessage": "Enter path"
   },
-  "dirSwitcher.enterPathPlaceholder": {
-    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
-  },
   "dirSwitcher.enterPathInvalid": {
     "defaultMessage": "Working directory must be an absolute path"
   },
-
-
+  "dirSwitcher.enterPathPlaceholder": {
+    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
+  },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Не удалось обновить рабочий каталог"
   },
@@ -942,18 +961,6 @@
   },
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "Недавние каталоги"
-  },
-  "gitBranchIndicator.failedToSwitch": {
-    "defaultMessage": "Не удалось переключиться на {branch}"
-  },
-  "gitBranchIndicator.noBranchesFound": {
-    "defaultMessage": "Ветки не найдены"
-  },
-  "gitBranchIndicator.searchBranches": {
-    "defaultMessage": "Поиск веток…"
-  },
-  "gitBranchIndicator.uncommittedChanges": {
-    "defaultMessage": "Возможно, у вас есть незакоммиченные изменения."
   },
   "elicitationRequest.accept": {
     "defaultMessage": "Принять"
@@ -1257,6 +1264,18 @@
   },
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
+  },
+  "gitBranchIndicator.failedToSwitch": {
+    "defaultMessage": "Не удалось переключиться на {branch}"
+  },
+  "gitBranchIndicator.noBranchesFound": {
+    "defaultMessage": "Ветки не найдены"
+  },
+  "gitBranchIndicator.searchBranches": {
+    "defaultMessage": "Поиск веток…"
+  },
+  "gitBranchIndicator.uncommittedChanges": {
+    "defaultMessage": "Возможно, у вас есть незакоммиченные изменения."
   },
   "goosehintsModal.close": {
     "defaultMessage": "Закрыть"
@@ -2323,6 +2342,9 @@
   "modelsBottomBar.localModelSettingsTitle": {
     "defaultMessage": "Настройки локальной модели — {modelName}"
   },
+  "modelsBottomBar.recentModels": {
+    "defaultMessage": "Недавние"
+  },
   "modelsBottomBar.resolvedModel": {
     "defaultMessage": "Разрешенная модель"
   },
@@ -2359,8 +2381,38 @@
   "navigation.itemSkills": {
     "defaultMessage": "Навыки"
   },
+  "navigationPanel.archive": {
+    "defaultMessage": "Архивировать"
+  },
+  "navigationPanel.archiveFailed": {
+    "defaultMessage": "Не удалось архивировать сеанс: {error}"
+  },
+  "navigationPanel.archiveSuccess": {
+    "defaultMessage": "«{name}» архивирован"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "Чаты"
+  },
+  "navigationPanel.delete": {
+    "defaultMessage": "Удалить"
+  },
+  "navigationPanel.deleteCancel": {
+    "defaultMessage": "Отмена"
+  },
+  "navigationPanel.deleteConfirm": {
+    "defaultMessage": "Удалить"
+  },
+  "navigationPanel.deleteFailed": {
+    "defaultMessage": "Не удалось удалить сеанс: {error}"
+  },
+  "navigationPanel.deleteMessage": {
+    "defaultMessage": "Вы уверены, что хотите удалить «{name}»? Это действие нельзя отменить."
+  },
+  "navigationPanel.deleteSuccess": {
+    "defaultMessage": "Чат удалён"
+  },
+  "navigationPanel.deleteTitle": {
+    "defaultMessage": "Удалить чат"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Создано"
@@ -2379,6 +2431,12 @@
   },
   "navigationPanel.noChats": {
     "defaultMessage": "Нет недавних чатов"
+  },
+  "navigationPanel.rename": {
+    "defaultMessage": "Переименовать"
+  },
+  "navigationPanel.sessionActions": {
+    "defaultMessage": "Действия с сеансом"
   },
   "navigationPanel.statusError": {
     "defaultMessage": "Ошибка"
@@ -2695,6 +2753,9 @@
   "promptsSettings.unsavedChanges": {
     "defaultMessage": "У вас есть несохраненные изменения"
   },
+  "providerCard.deprecatedReplacement": {
+    "defaultMessage": "Устарел — используйте вместо него {replacement}."
+  },
   "providerCard.noMetadata": {
     "defaultMessage": "Ошибка ProviderCard: метаданные не предоставлены"
   },
@@ -2749,8 +2810,17 @@
   "providerConfigForm.continue": {
     "defaultMessage": "Продолжить"
   },
+  "providerConfigForm.deviceCodeAndEnter": {
+    "defaultMessage": "и введите:"
+  },
+  "providerConfigForm.deviceCodeCopy": {
+    "defaultMessage": "Копировать"
+  },
   "providerConfigForm.deviceCodeFlowHint": {
     "defaultMessage": "Откроется окно браузера. Код подтверждения появится здесь — введите его, чтобы завершить вход."
+  },
+  "providerConfigForm.deviceCodeVisit": {
+    "defaultMessage": "Перейдите на"
   },
   "providerConfigForm.noApiKey": {
     "defaultMessage": "Нет API-ключа?"
@@ -2776,6 +2846,9 @@
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Проверьте конфигурацию еще раз, чтобы использовать этого провайдера."
   },
+  "providerConfigurationModal.chooseModel": {
+    "defaultMessage": "Выбрать модель"
+  },
   "providerConfigurationModal.close": {
     "defaultMessage": "Закрыть"
   },
@@ -2788,8 +2861,17 @@
   "providerConfigurationModal.deleteConfirmation": {
     "defaultMessage": "Это навсегда удалит текущую конфигурацию провайдера."
   },
+  "providerConfigurationModal.deviceCodeAndEnter": {
+    "defaultMessage": "и введите:"
+  },
+  "providerConfigurationModal.deviceCodeCopy": {
+    "defaultMessage": "Копировать"
+  },
   "providerConfigurationModal.deviceCodeFlowHint": {
     "defaultMessage": "Откроется окно браузера. Код подтверждения появится здесь — введите его, чтобы завершить вход."
+  },
+  "providerConfigurationModal.deviceCodeVisit": {
+    "defaultMessage": "Перейдите на"
   },
   "providerConfigurationModal.errorCheckingConfig": {
     "defaultMessage": "При проверке конфигурации этого провайдера произошла ошибка."
@@ -3784,6 +3866,9 @@
   "sessions.acpBadge": {
     "defaultMessage": "ACP"
   },
+  "sessions.action.archive": {
+    "defaultMessage": "Архивировать сеанс"
+  },
   "sessions.action.delete": {
     "defaultMessage": "Удалить сеанс"
   },
@@ -3807,6 +3892,9 @@
   },
   "sessions.action.shareNostr": {
     "defaultMessage": "Поделиться зашифрованной ссылкой Nostr"
+  },
+  "sessions.action.unarchive": {
+    "defaultMessage": "Восстановить из архива"
   },
   "sessions.cancel": {
     "defaultMessage": "Отмена"
@@ -3868,6 +3956,12 @@
   "sessions.loadingMore": {
     "defaultMessage": "Загрузка дополнительных сеансов..."
   },
+  "sessions.noArchived": {
+    "defaultMessage": "Нет архивированных сеансов"
+  },
+  "sessions.noArchivedDesc": {
+    "defaultMessage": "Здесь будут отображаться архивированные вами сеансы."
+  },
   "sessions.save": {
     "defaultMessage": "Сохранить"
   },
@@ -3894,6 +3988,18 @@
   },
   "sessions.shareNostr.title": {
     "defaultMessage": "Зашифрованная ссылка общего доступа Nostr"
+  },
+  "sessions.tab.active": {
+    "defaultMessage": "Активные"
+  },
+  "sessions.tab.archived": {
+    "defaultMessage": "Архивированные"
+  },
+  "sessions.toast.archiveFailed": {
+    "defaultMessage": "Не удалось архивировать сеанс: {error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "Сеанс архивирован"
   },
   "sessions.toast.copied": {
     "defaultMessage": "Скопировано в буфер обмена"
@@ -3927,6 +4033,12 @@
   },
   "sessions.toast.shareNostrFailed": {
     "defaultMessage": "Не удалось создать ссылку Nostr: {error}"
+  },
+  "sessions.toast.unarchiveFailed": {
+    "defaultMessage": "Не удалось восстановить сеанс: {error}"
+  },
+  "sessions.toast.unarchived": {
+    "defaultMessage": "Сеанс восстановлен"
   },
   "sessions.toast.updateFailed": {
     "defaultMessage": "Не удалось обновить описание сеанса: {error}"
@@ -4632,53 +4744,5 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Удалить изображение из сообщения"
-  },
-  "modelsBottomBar.recentModels": {
-    "defaultMessage": "Недавние"
-  },
-  "providerConfigurationModal.chooseModel": {
-    "defaultMessage": "Выбрать модель"
-  },
-  "providerCard.deprecatedReplacement": {
-    "defaultMessage": "Устарел — используйте вместо него {replacement}."
-  },
-  "acpReadinessPanel.adapterFound": {
-    "defaultMessage": "Адаптер ACP найден"
-  },
-  "acpReadinessPanel.adapterNotFound": {
-    "defaultMessage": "Адаптер ACP не найден"
-  },
-  "acpReadinessPanel.authenticationHelp": {
-    "defaultMessage": "Войдите через CLI провайдера, затем повторите проверку."
-  },
-  "acpReadinessPanel.checkAgain": {
-    "defaultMessage": "Проверить снова"
-  },
-  "acpReadinessPanel.checking": {
-    "defaultMessage": "Проверка..."
-  },
-  "acpReadinessPanel.connected": {
-    "defaultMessage": "Подключение выполнено"
-  },
-  "acpReadinessPanel.connectionNotChecked": {
-    "defaultMessage": "Проверьте подключение учетной записи, прежде чем продолжить."
-  },
-  "providerConfigForm.deviceCodeAndEnter": {
-    "defaultMessage": "и введите:"
-  },
-  "providerConfigForm.deviceCodeCopy": {
-    "defaultMessage": "Копировать"
-  },
-  "providerConfigForm.deviceCodeVisit": {
-    "defaultMessage": "Перейдите на"
-  },
-  "providerConfigurationModal.deviceCodeAndEnter": {
-    "defaultMessage": "и введите:"
-  },
-  "providerConfigurationModal.deviceCodeCopy": {
-    "defaultMessage": "Копировать"
-  },
-  "providerConfigurationModal.deviceCodeVisit": {
-    "defaultMessage": "Перейдите на"
   }
 }

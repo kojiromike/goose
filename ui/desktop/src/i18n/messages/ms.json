@@ -1,4 +1,25 @@
 {
+  "acpReadinessPanel.adapterFound": {
+    "defaultMessage": "Penyesuai ACP ditemui"
+  },
+  "acpReadinessPanel.adapterNotFound": {
+    "defaultMessage": "Penyesuai ACP tidak ditemui"
+  },
+  "acpReadinessPanel.authenticationHelp": {
+    "defaultMessage": "Log masuk melalui CLI penyedia, kemudian semak semula."
+  },
+  "acpReadinessPanel.checkAgain": {
+    "defaultMessage": "Semak semula"
+  },
+  "acpReadinessPanel.checking": {
+    "defaultMessage": "Menyemak..."
+  },
+  "acpReadinessPanel.connected": {
+    "defaultMessage": "Berjaya disambungkan"
+  },
+  "acpReadinessPanel.connectionNotChecked": {
+    "defaultMessage": "Semak sambungan akaun anda sebelum meneruskan."
+  },
   "alertBox.autoCompactAt": {
     "defaultMessage": "Padatkan automatik pada"
   },
@@ -920,14 +941,12 @@
   "dirSwitcher.enterPath": {
     "defaultMessage": "Enter path"
   },
-  "dirSwitcher.enterPathPlaceholder": {
-    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
-  },
   "dirSwitcher.enterPathInvalid": {
     "defaultMessage": "Working directory must be an absolute path"
   },
-
-
+  "dirSwitcher.enterPathPlaceholder": {
+    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
+  },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Gagal mengemas kini direktori kerja"
   },
@@ -942,18 +961,6 @@
   },
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "Direktori terkini"
-  },
-  "gitBranchIndicator.failedToSwitch": {
-    "defaultMessage": "Gagal beralih ke {branch}"
-  },
-  "gitBranchIndicator.noBranchesFound": {
-    "defaultMessage": "Tiada cabang ditemui"
-  },
-  "gitBranchIndicator.searchBranches": {
-    "defaultMessage": "Cari cabang…"
-  },
-  "gitBranchIndicator.uncommittedChanges": {
-    "defaultMessage": "Anda mungkin mempunyai perubahan yang belum dikomit."
   },
   "elicitationRequest.accept": {
     "defaultMessage": "Terima"
@@ -1257,6 +1264,18 @@
   },
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
+  },
+  "gitBranchIndicator.failedToSwitch": {
+    "defaultMessage": "Gagal beralih ke {branch}"
+  },
+  "gitBranchIndicator.noBranchesFound": {
+    "defaultMessage": "Tiada cabang ditemui"
+  },
+  "gitBranchIndicator.searchBranches": {
+    "defaultMessage": "Cari cabang…"
+  },
+  "gitBranchIndicator.uncommittedChanges": {
+    "defaultMessage": "Anda mungkin mempunyai perubahan yang belum dikomit."
   },
   "goosehintsModal.close": {
     "defaultMessage": "Tutup"
@@ -2323,6 +2342,9 @@
   "modelsBottomBar.localModelSettingsTitle": {
     "defaultMessage": "Tetapan Model Tempatan — {modelName}"
   },
+  "modelsBottomBar.recentModels": {
+    "defaultMessage": "Terkini"
+  },
   "modelsBottomBar.resolvedModel": {
     "defaultMessage": "Model diselesaikan"
   },
@@ -2359,8 +2381,38 @@
   "navigation.itemSkills": {
     "defaultMessage": "Kemahiran"
   },
+  "navigationPanel.archive": {
+    "defaultMessage": "Arkibkan"
+  },
+  "navigationPanel.archiveFailed": {
+    "defaultMessage": "Gagal mengarkibkan sesi: {error}"
+  },
+  "navigationPanel.archiveSuccess": {
+    "defaultMessage": "“{name}” diarkibkan"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "Sembang"
+  },
+  "navigationPanel.delete": {
+    "defaultMessage": "Padam"
+  },
+  "navigationPanel.deleteCancel": {
+    "defaultMessage": "Batal"
+  },
+  "navigationPanel.deleteConfirm": {
+    "defaultMessage": "Padam"
+  },
+  "navigationPanel.deleteFailed": {
+    "defaultMessage": "Gagal memadam sesi: {error}"
+  },
+  "navigationPanel.deleteMessage": {
+    "defaultMessage": "Adakah anda pasti mahu memadam “{name}”? Tindakan ini tidak boleh dibuat asal."
+  },
+  "navigationPanel.deleteSuccess": {
+    "defaultMessage": "Sembang dipadam"
+  },
+  "navigationPanel.deleteTitle": {
+    "defaultMessage": "Padam sembang"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Dicipta"
@@ -2379,6 +2431,12 @@
   },
   "navigationPanel.noChats": {
     "defaultMessage": "Tiada sembang terkini"
+  },
+  "navigationPanel.rename": {
+    "defaultMessage": "Namakan semula"
+  },
+  "navigationPanel.sessionActions": {
+    "defaultMessage": "Tindakan sesi"
   },
   "navigationPanel.statusError": {
     "defaultMessage": "Ralat"
@@ -2695,6 +2753,9 @@
   "promptsSettings.unsavedChanges": {
     "defaultMessage": "Anda mempunyai perubahan yang belum disimpan"
   },
+  "providerCard.deprecatedReplacement": {
+    "defaultMessage": "Tidak digunakan lagi — gunakan {replacement} sebagai gantinya."
+  },
   "providerCard.noMetadata": {
     "defaultMessage": "Ralat ProviderCard: Tiada metadata disediakan"
   },
@@ -2749,8 +2810,17 @@
   "providerConfigForm.continue": {
     "defaultMessage": "Teruskan"
   },
+  "providerConfigForm.deviceCodeAndEnter": {
+    "defaultMessage": "dan masukkan:"
+  },
+  "providerConfigForm.deviceCodeCopy": {
+    "defaultMessage": "Salin"
+  },
   "providerConfigForm.deviceCodeFlowHint": {
     "defaultMessage": "Tetingkap pelayar akan dibuka. Kod pengesahan akan dipaparkan di sini supaya anda boleh memasukkannya untuk melengkapkan log masuk."
+  },
+  "providerConfigForm.deviceCodeVisit": {
+    "defaultMessage": "Lawati"
   },
   "providerConfigForm.noApiKey": {
     "defaultMessage": "Tidak mempunyai kunci API?"
@@ -2776,6 +2846,9 @@
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Semak semula konfigurasi anda untuk menggunakan penyedia ini."
   },
+  "providerConfigurationModal.chooseModel": {
+    "defaultMessage": "Pilih Model"
+  },
   "providerConfigurationModal.close": {
     "defaultMessage": "Tutup"
   },
@@ -2788,8 +2861,17 @@
   "providerConfigurationModal.deleteConfirmation": {
     "defaultMessage": "Ini akan memadamkan konfigurasi penyedia semasa secara kekal."
   },
+  "providerConfigurationModal.deviceCodeAndEnter": {
+    "defaultMessage": "dan masukkan:"
+  },
+  "providerConfigurationModal.deviceCodeCopy": {
+    "defaultMessage": "Salin"
+  },
   "providerConfigurationModal.deviceCodeFlowHint": {
     "defaultMessage": "Tetingkap pelayar akan dibuka. Kod pengesahan akan dipaparkan di sini supaya anda boleh memasukkannya untuk melengkapkan log masuk."
+  },
+  "providerConfigurationModal.deviceCodeVisit": {
+    "defaultMessage": "Lawati"
   },
   "providerConfigurationModal.errorCheckingConfig": {
     "defaultMessage": "Terdapat ralat semasa menyemak konfigurasi penyedia ini."
@@ -3784,6 +3866,9 @@
   "sessions.acpBadge": {
     "defaultMessage": "ACP"
   },
+  "sessions.action.archive": {
+    "defaultMessage": "Arkibkan sesi"
+  },
   "sessions.action.delete": {
     "defaultMessage": "Padam sesi"
   },
@@ -3807,6 +3892,9 @@
   },
   "sessions.action.shareNostr": {
     "defaultMessage": "Kongsi pautan Nostr tersulit"
+  },
+  "sessions.action.unarchive": {
+    "defaultMessage": "Pulihkan daripada arkib"
   },
   "sessions.cancel": {
     "defaultMessage": "Batal"
@@ -3868,6 +3956,12 @@
   "sessions.loadingMore": {
     "defaultMessage": "Memuatkan lebih banyak sesi..."
   },
+  "sessions.noArchived": {
+    "defaultMessage": "Tiada sesi diarkibkan"
+  },
+  "sessions.noArchivedDesc": {
+    "defaultMessage": "Sesi yang anda arkibkan akan dipaparkan di sini."
+  },
   "sessions.save": {
     "defaultMessage": "Simpan"
   },
@@ -3894,6 +3988,18 @@
   },
   "sessions.shareNostr.title": {
     "defaultMessage": "Pautan Kongsi Nostr Tersulit"
+  },
+  "sessions.tab.active": {
+    "defaultMessage": "Aktif"
+  },
+  "sessions.tab.archived": {
+    "defaultMessage": "Diarkibkan"
+  },
+  "sessions.toast.archiveFailed": {
+    "defaultMessage": "Gagal mengarkibkan sesi: {error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "Sesi diarkibkan"
   },
   "sessions.toast.copied": {
     "defaultMessage": "Disalin ke papan keratan"
@@ -3927,6 +4033,12 @@
   },
   "sessions.toast.shareNostrFailed": {
     "defaultMessage": "Gagal mencipta pautan kongsi Nostr: {error}"
+  },
+  "sessions.toast.unarchiveFailed": {
+    "defaultMessage": "Gagal memulihkan sesi: {error}"
+  },
+  "sessions.toast.unarchived": {
+    "defaultMessage": "Sesi dipulihkan"
   },
   "sessions.toast.updateFailed": {
     "defaultMessage": "Gagal mengemas kini penerangan sesi: {error}"
@@ -4632,53 +4744,5 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Alih keluar imej daripada mesej"
-  },
-  "modelsBottomBar.recentModels": {
-    "defaultMessage": "Terkini"
-  },
-  "providerConfigurationModal.chooseModel": {
-    "defaultMessage": "Pilih Model"
-  },
-  "providerCard.deprecatedReplacement": {
-    "defaultMessage": "Tidak digunakan lagi — gunakan {replacement} sebagai gantinya."
-  },
-  "acpReadinessPanel.adapterFound": {
-    "defaultMessage": "Penyesuai ACP ditemui"
-  },
-  "acpReadinessPanel.adapterNotFound": {
-    "defaultMessage": "Penyesuai ACP tidak ditemui"
-  },
-  "acpReadinessPanel.authenticationHelp": {
-    "defaultMessage": "Log masuk melalui CLI penyedia, kemudian semak semula."
-  },
-  "acpReadinessPanel.checkAgain": {
-    "defaultMessage": "Semak semula"
-  },
-  "acpReadinessPanel.checking": {
-    "defaultMessage": "Menyemak..."
-  },
-  "acpReadinessPanel.connected": {
-    "defaultMessage": "Berjaya disambungkan"
-  },
-  "acpReadinessPanel.connectionNotChecked": {
-    "defaultMessage": "Semak sambungan akaun anda sebelum meneruskan."
-  },
-  "providerConfigForm.deviceCodeAndEnter": {
-    "defaultMessage": "dan masukkan:"
-  },
-  "providerConfigForm.deviceCodeCopy": {
-    "defaultMessage": "Salin"
-  },
-  "providerConfigForm.deviceCodeVisit": {
-    "defaultMessage": "Lawati"
-  },
-  "providerConfigurationModal.deviceCodeAndEnter": {
-    "defaultMessage": "dan masukkan:"
-  },
-  "providerConfigurationModal.deviceCodeCopy": {
-    "defaultMessage": "Salin"
-  },
-  "providerConfigurationModal.deviceCodeVisit": {
-    "defaultMessage": "Lawati"
   }
 }

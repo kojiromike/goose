@@ -1,4 +1,25 @@
 {
+  "acpReadinessPanel.adapterFound": {
+    "defaultMessage": "已找到 ACP 轉接器"
+  },
+  "acpReadinessPanel.adapterNotFound": {
+    "defaultMessage": "找不到 ACP 轉接器"
+  },
+  "acpReadinessPanel.authenticationHelp": {
+    "defaultMessage": "請透過提供者 CLI 登入，然後再次檢查。"
+  },
+  "acpReadinessPanel.checkAgain": {
+    "defaultMessage": "再次檢查"
+  },
+  "acpReadinessPanel.checking": {
+    "defaultMessage": "正在檢查…"
+  },
+  "acpReadinessPanel.connected": {
+    "defaultMessage": "連線成功"
+  },
+  "acpReadinessPanel.connectionNotChecked": {
+    "defaultMessage": "請先檢查帳戶連線，然後再繼續。"
+  },
   "alertBox.autoCompactAt": {
     "defaultMessage": "自動壓縮於"
   },
@@ -920,14 +941,12 @@
   "dirSwitcher.enterPath": {
     "defaultMessage": "Enter path"
   },
-  "dirSwitcher.enterPathPlaceholder": {
-    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
-  },
   "dirSwitcher.enterPathInvalid": {
     "defaultMessage": "Working directory must be an absolute path"
   },
-
-
+  "dirSwitcher.enterPathPlaceholder": {
+    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
+  },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "無法更新工作目錄"
   },
@@ -942,18 +961,6 @@
   },
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "最近的目錄"
-  },
-  "gitBranchIndicator.failedToSwitch": {
-    "defaultMessage": "無法切換至 {branch}"
-  },
-  "gitBranchIndicator.noBranchesFound": {
-    "defaultMessage": "找不到分支"
-  },
-  "gitBranchIndicator.searchBranches": {
-    "defaultMessage": "搜尋分支…"
-  },
-  "gitBranchIndicator.uncommittedChanges": {
-    "defaultMessage": "你可能有尚未提交的變更。"
   },
   "elicitationRequest.accept": {
     "defaultMessage": "接受"
@@ -1257,6 +1264,18 @@
   },
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
+  },
+  "gitBranchIndicator.failedToSwitch": {
+    "defaultMessage": "無法切換至 {branch}"
+  },
+  "gitBranchIndicator.noBranchesFound": {
+    "defaultMessage": "找不到分支"
+  },
+  "gitBranchIndicator.searchBranches": {
+    "defaultMessage": "搜尋分支…"
+  },
+  "gitBranchIndicator.uncommittedChanges": {
+    "defaultMessage": "你可能有尚未提交的變更。"
   },
   "goosehintsModal.close": {
     "defaultMessage": "關閉"
@@ -2323,6 +2342,9 @@
   "modelsBottomBar.localModelSettingsTitle": {
     "defaultMessage": "本機模型設定 — {modelName}"
   },
+  "modelsBottomBar.recentModels": {
+    "defaultMessage": "最近"
+  },
   "modelsBottomBar.resolvedModel": {
     "defaultMessage": "已解析的模型"
   },
@@ -2359,8 +2381,38 @@
   "navigation.itemSkills": {
     "defaultMessage": "技能"
   },
+  "navigationPanel.archive": {
+    "defaultMessage": "封存"
+  },
+  "navigationPanel.archiveFailed": {
+    "defaultMessage": "封存工作階段失敗：{error}"
+  },
+  "navigationPanel.archiveSuccess": {
+    "defaultMessage": "已封存「{name}」"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "交談"
+  },
+  "navigationPanel.delete": {
+    "defaultMessage": "刪除"
+  },
+  "navigationPanel.deleteCancel": {
+    "defaultMessage": "取消"
+  },
+  "navigationPanel.deleteConfirm": {
+    "defaultMessage": "刪除"
+  },
+  "navigationPanel.deleteFailed": {
+    "defaultMessage": "刪除工作階段失敗：{error}"
+  },
+  "navigationPanel.deleteMessage": {
+    "defaultMessage": "確定要刪除「{name}」嗎？此操作無法復原。"
+  },
+  "navigationPanel.deleteSuccess": {
+    "defaultMessage": "已刪除聊天"
+  },
+  "navigationPanel.deleteTitle": {
+    "defaultMessage": "刪除聊天"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "建立時間"
@@ -2379,6 +2431,12 @@
   },
   "navigationPanel.noChats": {
     "defaultMessage": "沒有最近的交談"
+  },
+  "navigationPanel.rename": {
+    "defaultMessage": "重新命名"
+  },
+  "navigationPanel.sessionActions": {
+    "defaultMessage": "工作階段動作"
   },
   "navigationPanel.statusError": {
     "defaultMessage": "錯誤"
@@ -2695,6 +2753,9 @@
   "promptsSettings.unsavedChanges": {
     "defaultMessage": "您有未儲存的變更"
   },
+  "providerCard.deprecatedReplacement": {
+    "defaultMessage": "已棄用 — 請改用 {replacement}。"
+  },
   "providerCard.noMetadata": {
     "defaultMessage": "ProviderCard 錯誤：未提供中繼資料"
   },
@@ -2749,8 +2810,17 @@
   "providerConfigForm.continue": {
     "defaultMessage": "繼續"
   },
+  "providerConfigForm.deviceCodeAndEnter": {
+    "defaultMessage": "並輸入："
+  },
+  "providerConfigForm.deviceCodeCopy": {
+    "defaultMessage": "複製"
+  },
   "providerConfigForm.deviceCodeFlowHint": {
     "defaultMessage": "將開啟瀏覽器視窗。驗證碼會顯示在此處，輸入驗證碼即可完成登入。"
+  },
+  "providerConfigForm.deviceCodeVisit": {
+    "defaultMessage": "前往"
   },
   "providerConfigForm.noApiKey": {
     "defaultMessage": "沒有 API 金鑰嗎？"
@@ -2776,6 +2846,9 @@
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "再次檢查您的組態以使用此提供者。"
   },
+  "providerConfigurationModal.chooseModel": {
+    "defaultMessage": "選擇模型"
+  },
   "providerConfigurationModal.close": {
     "defaultMessage": "關閉"
   },
@@ -2788,8 +2861,17 @@
   "providerConfigurationModal.deleteConfirmation": {
     "defaultMessage": "這將永久刪除目前的提供者組態。"
   },
+  "providerConfigurationModal.deviceCodeAndEnter": {
+    "defaultMessage": "並輸入："
+  },
+  "providerConfigurationModal.deviceCodeCopy": {
+    "defaultMessage": "複製"
+  },
   "providerConfigurationModal.deviceCodeFlowHint": {
     "defaultMessage": "將開啟瀏覽器視窗。驗證碼會顯示在此處，輸入驗證碼即可完成登入。"
+  },
+  "providerConfigurationModal.deviceCodeVisit": {
+    "defaultMessage": "前往"
   },
   "providerConfigurationModal.errorCheckingConfig": {
     "defaultMessage": "檢查此提供者組態時發生錯誤。"
@@ -3784,6 +3866,9 @@
   "sessions.acpBadge": {
     "defaultMessage": "ACP"
   },
+  "sessions.action.archive": {
+    "defaultMessage": "封存工作階段"
+  },
   "sessions.action.delete": {
     "defaultMessage": "刪除工作階段"
   },
@@ -3807,6 +3892,9 @@
   },
   "sessions.action.shareNostr": {
     "defaultMessage": "分享加密的 Nostr 連結"
+  },
+  "sessions.action.unarchive": {
+    "defaultMessage": "從封存還原"
   },
   "sessions.cancel": {
     "defaultMessage": "取消"
@@ -3868,6 +3956,12 @@
   "sessions.loadingMore": {
     "defaultMessage": "正在載入更多工作階段…"
   },
+  "sessions.noArchived": {
+    "defaultMessage": "沒有已封存的工作階段"
+  },
+  "sessions.noArchivedDesc": {
+    "defaultMessage": "您封存的工作階段將顯示在此處。"
+  },
   "sessions.save": {
     "defaultMessage": "儲存"
   },
@@ -3894,6 +3988,18 @@
   },
   "sessions.shareNostr.title": {
     "defaultMessage": "加密的 Nostr 分享連結"
+  },
+  "sessions.tab.active": {
+    "defaultMessage": "使用中"
+  },
+  "sessions.tab.archived": {
+    "defaultMessage": "已封存"
+  },
+  "sessions.toast.archiveFailed": {
+    "defaultMessage": "封存工作階段失敗：{error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "工作階段已封存"
   },
   "sessions.toast.copied": {
     "defaultMessage": "已複製到剪貼簿"
@@ -3927,6 +4033,12 @@
   },
   "sessions.toast.shareNostrFailed": {
     "defaultMessage": "無法建立 Nostr 分享連結：{error}"
+  },
+  "sessions.toast.unarchiveFailed": {
+    "defaultMessage": "還原工作階段失敗：{error}"
+  },
+  "sessions.toast.unarchived": {
+    "defaultMessage": "工作階段已還原"
   },
   "sessions.toast.updateFailed": {
     "defaultMessage": "無法更新工作階段描述：{error}"
@@ -4632,53 +4744,5 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "從訊息中移除圖片"
-  },
-  "modelsBottomBar.recentModels": {
-    "defaultMessage": "最近"
-  },
-  "providerConfigurationModal.chooseModel": {
-    "defaultMessage": "選擇模型"
-  },
-  "providerCard.deprecatedReplacement": {
-    "defaultMessage": "已棄用 — 請改用 {replacement}。"
-  },
-  "acpReadinessPanel.adapterFound": {
-    "defaultMessage": "已找到 ACP 轉接器"
-  },
-  "acpReadinessPanel.adapterNotFound": {
-    "defaultMessage": "找不到 ACP 轉接器"
-  },
-  "acpReadinessPanel.authenticationHelp": {
-    "defaultMessage": "請透過提供者 CLI 登入，然後再次檢查。"
-  },
-  "acpReadinessPanel.checkAgain": {
-    "defaultMessage": "再次檢查"
-  },
-  "acpReadinessPanel.checking": {
-    "defaultMessage": "正在檢查…"
-  },
-  "acpReadinessPanel.connected": {
-    "defaultMessage": "連線成功"
-  },
-  "acpReadinessPanel.connectionNotChecked": {
-    "defaultMessage": "請先檢查帳戶連線，然後再繼續。"
-  },
-  "providerConfigForm.deviceCodeAndEnter": {
-    "defaultMessage": "並輸入："
-  },
-  "providerConfigForm.deviceCodeCopy": {
-    "defaultMessage": "複製"
-  },
-  "providerConfigForm.deviceCodeVisit": {
-    "defaultMessage": "前往"
-  },
-  "providerConfigurationModal.deviceCodeAndEnter": {
-    "defaultMessage": "並輸入："
-  },
-  "providerConfigurationModal.deviceCodeCopy": {
-    "defaultMessage": "複製"
-  },
-  "providerConfigurationModal.deviceCodeVisit": {
-    "defaultMessage": "前往"
   }
 }

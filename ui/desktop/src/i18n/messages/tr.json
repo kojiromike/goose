@@ -1,4 +1,25 @@
 {
+  "acpReadinessPanel.adapterFound": {
+    "defaultMessage": "ACP bağdaştırıcısı bulundu"
+  },
+  "acpReadinessPanel.adapterNotFound": {
+    "defaultMessage": "ACP bağdaştırıcısı bulunamadı"
+  },
+  "acpReadinessPanel.authenticationHelp": {
+    "defaultMessage": "Sağlayıcı CLI üzerinden oturum açın, ardından tekrar kontrol edin."
+  },
+  "acpReadinessPanel.checkAgain": {
+    "defaultMessage": "Tekrar kontrol et"
+  },
+  "acpReadinessPanel.checking": {
+    "defaultMessage": "Kontrol ediliyor..."
+  },
+  "acpReadinessPanel.connected": {
+    "defaultMessage": "Başarıyla bağlanıldı"
+  },
+  "acpReadinessPanel.connectionNotChecked": {
+    "defaultMessage": "Devam etmeden önce hesap bağlantınızı kontrol edin."
+  },
   "alertBox.autoCompactAt": {
     "defaultMessage": "Otomatik sıkıştırma eşiği"
   },
@@ -920,14 +941,12 @@
   "dirSwitcher.enterPath": {
     "defaultMessage": "Enter path"
   },
-  "dirSwitcher.enterPathPlaceholder": {
-    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
-  },
   "dirSwitcher.enterPathInvalid": {
     "defaultMessage": "Working directory must be an absolute path"
   },
-
-
+  "dirSwitcher.enterPathPlaceholder": {
+    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
+  },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Çalışma dizini güncellenemedi"
   },
@@ -942,18 +961,6 @@
   },
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "Son dizinler"
-  },
-  "gitBranchIndicator.failedToSwitch": {
-    "defaultMessage": "{branch} dalına geçilemedi"
-  },
-  "gitBranchIndicator.noBranchesFound": {
-    "defaultMessage": "Dal bulunamadı"
-  },
-  "gitBranchIndicator.searchBranches": {
-    "defaultMessage": "Dal ara…"
-  },
-  "gitBranchIndicator.uncommittedChanges": {
-    "defaultMessage": "Commit edilmemiş değişiklikleriniz olabilir."
   },
   "elicitationRequest.accept": {
     "defaultMessage": "Kabul et"
@@ -1257,6 +1264,18 @@
   },
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
+  },
+  "gitBranchIndicator.failedToSwitch": {
+    "defaultMessage": "{branch} dalına geçilemedi"
+  },
+  "gitBranchIndicator.noBranchesFound": {
+    "defaultMessage": "Dal bulunamadı"
+  },
+  "gitBranchIndicator.searchBranches": {
+    "defaultMessage": "Dal ara…"
+  },
+  "gitBranchIndicator.uncommittedChanges": {
+    "defaultMessage": "Commit edilmemiş değişiklikleriniz olabilir."
   },
   "goosehintsModal.close": {
     "defaultMessage": "Kapat"
@@ -2323,6 +2342,9 @@
   "modelsBottomBar.localModelSettingsTitle": {
     "defaultMessage": "Yerel Model Ayarları — {modelName}"
   },
+  "modelsBottomBar.recentModels": {
+    "defaultMessage": "Son kullanılan"
+  },
   "modelsBottomBar.resolvedModel": {
     "defaultMessage": "Çözümlenen model"
   },
@@ -2359,8 +2381,38 @@
   "navigation.itemSkills": {
     "defaultMessage": "Beceriler"
   },
+  "navigationPanel.archive": {
+    "defaultMessage": "Arşivle"
+  },
+  "navigationPanel.archiveFailed": {
+    "defaultMessage": "Oturum arşivlenemedi: {error}"
+  },
+  "navigationPanel.archiveSuccess": {
+    "defaultMessage": "“{name}” arşivlendi"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "Sohbetler"
+  },
+  "navigationPanel.delete": {
+    "defaultMessage": "Sil"
+  },
+  "navigationPanel.deleteCancel": {
+    "defaultMessage": "İptal"
+  },
+  "navigationPanel.deleteConfirm": {
+    "defaultMessage": "Sil"
+  },
+  "navigationPanel.deleteFailed": {
+    "defaultMessage": "Oturum silinemedi: {error}"
+  },
+  "navigationPanel.deleteMessage": {
+    "defaultMessage": "“{name}” sohbetini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
+  },
+  "navigationPanel.deleteSuccess": {
+    "defaultMessage": "Sohbet silindi"
+  },
+  "navigationPanel.deleteTitle": {
+    "defaultMessage": "Sohbeti sil"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Oluşturuldu"
@@ -2379,6 +2431,12 @@
   },
   "navigationPanel.noChats": {
     "defaultMessage": "Son sohbet yok"
+  },
+  "navigationPanel.rename": {
+    "defaultMessage": "Yeniden adlandır"
+  },
+  "navigationPanel.sessionActions": {
+    "defaultMessage": "Oturum işlemleri"
   },
   "navigationPanel.statusError": {
     "defaultMessage": "Hata"
@@ -2695,6 +2753,9 @@
   "promptsSettings.unsavedChanges": {
     "defaultMessage": "Kaydedilmemiş değişiklikleriniz var"
   },
+  "providerCard.deprecatedReplacement": {
+    "defaultMessage": "Kullanımdan kaldırıldı — bunun yerine {replacement} kullanın."
+  },
   "providerCard.noMetadata": {
     "defaultMessage": "ProviderCard hatası: Meta veri sağlanmadı"
   },
@@ -2749,8 +2810,17 @@
   "providerConfigForm.continue": {
     "defaultMessage": "Devam et"
   },
+  "providerConfigForm.deviceCodeAndEnter": {
+    "defaultMessage": "ve girin:"
+  },
+  "providerConfigForm.deviceCodeCopy": {
+    "defaultMessage": "Kopyala"
+  },
   "providerConfigForm.deviceCodeFlowHint": {
     "defaultMessage": "Bir tarayıcı penceresi açılacak. Doğrulama kodu burada görünecek; oturum açmayı tamamlamak için kodu girin."
+  },
+  "providerConfigForm.deviceCodeVisit": {
+    "defaultMessage": "Ziyaret edin"
   },
   "providerConfigForm.noApiKey": {
     "defaultMessage": "API anahtarınız yok mu?"
@@ -2776,6 +2846,9 @@
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Bu sağlayıcıyı kullanmak için yapılandırmanızı tekrar kontrol edin."
   },
+  "providerConfigurationModal.chooseModel": {
+    "defaultMessage": "Modeli seçin"
+  },
   "providerConfigurationModal.close": {
     "defaultMessage": "Kapat"
   },
@@ -2788,8 +2861,17 @@
   "providerConfigurationModal.deleteConfirmation": {
     "defaultMessage": "Bu, mevcut sağlayıcı yapılandırmasını kalıcı olarak silecektir."
   },
+  "providerConfigurationModal.deviceCodeAndEnter": {
+    "defaultMessage": "ve girin:"
+  },
+  "providerConfigurationModal.deviceCodeCopy": {
+    "defaultMessage": "Kopyala"
+  },
   "providerConfigurationModal.deviceCodeFlowHint": {
     "defaultMessage": "Bir tarayıcı penceresi açılacak. Doğrulama kodu burada görünecek; oturum açmayı tamamlamak için kodu girin."
+  },
+  "providerConfigurationModal.deviceCodeVisit": {
+    "defaultMessage": "Ziyaret edin"
   },
   "providerConfigurationModal.errorCheckingConfig": {
     "defaultMessage": "Bu sağlayıcı yapılandırması kontrol edilirken bir hata oluştu."
@@ -3784,6 +3866,9 @@
   "sessions.acpBadge": {
     "defaultMessage": "ACP"
   },
+  "sessions.action.archive": {
+    "defaultMessage": "Oturumu arşivle"
+  },
   "sessions.action.delete": {
     "defaultMessage": "Oturumu sil"
   },
@@ -3807,6 +3892,9 @@
   },
   "sessions.action.shareNostr": {
     "defaultMessage": "Şifrelenmiş Nostr bağlantısını paylaşın"
+  },
+  "sessions.action.unarchive": {
+    "defaultMessage": "Arşivden geri yükle"
   },
   "sessions.cancel": {
     "defaultMessage": "İptal"
@@ -3868,6 +3956,12 @@
   "sessions.loadingMore": {
     "defaultMessage": "Daha fazla oturum yükleniyor..."
   },
+  "sessions.noArchived": {
+    "defaultMessage": "Arşivlenmiş oturum yok"
+  },
+  "sessions.noArchivedDesc": {
+    "defaultMessage": "Arşivlediğiniz oturumlar burada görünecek."
+  },
   "sessions.save": {
     "defaultMessage": "Kaydet"
   },
@@ -3894,6 +3988,18 @@
   },
   "sessions.shareNostr.title": {
     "defaultMessage": "Şifreli Nostr Paylaşım Bağlantısı"
+  },
+  "sessions.tab.active": {
+    "defaultMessage": "Etkin"
+  },
+  "sessions.tab.archived": {
+    "defaultMessage": "Arşivlenmiş"
+  },
+  "sessions.toast.archiveFailed": {
+    "defaultMessage": "Oturum arşivlenemedi: {error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "Oturum arşivlendi"
   },
   "sessions.toast.copied": {
     "defaultMessage": "Panoya kopyalandı"
@@ -3927,6 +4033,12 @@
   },
   "sessions.toast.shareNostrFailed": {
     "defaultMessage": "Nostr paylaşım bağlantısı oluşturulamadı: {error}"
+  },
+  "sessions.toast.unarchiveFailed": {
+    "defaultMessage": "Oturum geri yüklenemedi: {error}"
+  },
+  "sessions.toast.unarchived": {
+    "defaultMessage": "Oturum geri yüklendi"
   },
   "sessions.toast.updateFailed": {
     "defaultMessage": "Oturum açıklaması güncellenemedi: {error}"
@@ -4632,53 +4744,5 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Görseli mesajdan kaldır"
-  },
-  "modelsBottomBar.recentModels": {
-    "defaultMessage": "Son kullanılan"
-  },
-  "providerConfigurationModal.chooseModel": {
-    "defaultMessage": "Modeli seçin"
-  },
-  "providerCard.deprecatedReplacement": {
-    "defaultMessage": "Kullanımdan kaldırıldı — bunun yerine {replacement} kullanın."
-  },
-  "acpReadinessPanel.adapterFound": {
-    "defaultMessage": "ACP bağdaştırıcısı bulundu"
-  },
-  "acpReadinessPanel.adapterNotFound": {
-    "defaultMessage": "ACP bağdaştırıcısı bulunamadı"
-  },
-  "acpReadinessPanel.authenticationHelp": {
-    "defaultMessage": "Sağlayıcı CLI üzerinden oturum açın, ardından tekrar kontrol edin."
-  },
-  "acpReadinessPanel.checkAgain": {
-    "defaultMessage": "Tekrar kontrol et"
-  },
-  "acpReadinessPanel.checking": {
-    "defaultMessage": "Kontrol ediliyor..."
-  },
-  "acpReadinessPanel.connected": {
-    "defaultMessage": "Başarıyla bağlanıldı"
-  },
-  "acpReadinessPanel.connectionNotChecked": {
-    "defaultMessage": "Devam etmeden önce hesap bağlantınızı kontrol edin."
-  },
-  "providerConfigForm.deviceCodeAndEnter": {
-    "defaultMessage": "ve girin:"
-  },
-  "providerConfigForm.deviceCodeCopy": {
-    "defaultMessage": "Kopyala"
-  },
-  "providerConfigForm.deviceCodeVisit": {
-    "defaultMessage": "Ziyaret edin"
-  },
-  "providerConfigurationModal.deviceCodeAndEnter": {
-    "defaultMessage": "ve girin:"
-  },
-  "providerConfigurationModal.deviceCodeCopy": {
-    "defaultMessage": "Kopyala"
-  },
-  "providerConfigurationModal.deviceCodeVisit": {
-    "defaultMessage": "Ziyaret edin"
   }
 }
