@@ -17,6 +17,8 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  Archive,
+  ArchiveRestore,
 } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
@@ -27,6 +29,7 @@ import { SearchView } from '../conversation/SearchView';
 import { MainPanelLayout } from '../Layout/MainPanelLayout';
 import { groupSessionsByDate, sessionActivityAt, type DateGroup } from '../../utils/dateUtils';
 import { errorMessage } from '../../utils/conversionUtils';
+import { cn } from '../../utils';
 import { Skeleton } from '../ui/skeleton';
 import { toast } from 'react-toastify';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
@@ -45,6 +48,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import {
+  acpArchiveSession,
   acpDeleteSession,
   acpExportSession,
   acpForkSession,
@@ -52,6 +56,8 @@ import {
   acpListSessions,
   acpRenameSession,
   acpShareSessionNostr,
+  acpUnarchiveSession,
+  type ArchivedFilter,
   type SessionListItem,
 } from '../../acp/sessions';
 import type { SessionExportFormat } from '@aaif/goose-sdk';
@@ -59,6 +65,13 @@ import { acpChatSessionActions } from '../../acp/chatSessionStore';
 import { cancelAcpPermissionRequestsForSession } from '../../acp/permissionRequests';
 import { cancelAcpElicitationRequestsForSession } from '../../acp/elicitationRequests';
 import { getSearchShortcutText } from '../../utils/keyboardShortcuts';
+
+// In the Active view a keyword search still surfaces archived matches so a
+// deliberately hidden session remains findable; the Archived view is scoped.
+function archivedFilterFor(keyword: string, archivedView: boolean): ArchivedFilter {
+  if (archivedView) return 'archived';
+  return keyword ? 'all' : 'active';
+}
 
 const i18n = defineMessages({
   editSessionTitle: { id: 'sessions.edit.title', defaultMessage: 'Edit Session Description' },
@@ -166,6 +179,16 @@ const i18n = defineMessages({
     defaultMessage:
       'Anyone with this link can fetch and decrypt the session. Treat it like a secret.',
   },
+  archiveSession: { id: 'sessions.action.archive', defaultMessage: 'Archive session' },
+  unarchiveSession: { id: 'sessions.action.unarchive', defaultMessage: 'Restore from archive' },
+  archiveSuccess: { id: 'sessions.toast.archived', defaultMessage: 'Session archived' },
+  archiveFailed: { id: 'sessions.toast.archiveFailed', defaultMessage: 'Failed to archive session: {error}' },
+  unarchiveSuccess: { id: 'sessions.toast.unarchived', defaultMessage: 'Session restored' },
+  unarchiveFailed: { id: 'sessions.toast.unarchiveFailed', defaultMessage: 'Failed to restore session: {error}' },
+  activeTab: { id: 'sessions.tab.active', defaultMessage: 'Active' },
+  archivedTab: { id: 'sessions.tab.archived', defaultMessage: 'Archived' },
+  noArchived: { id: 'sessions.noArchived', defaultMessage: 'No archived sessions' },
+  noArchivedDesc: { id: 'sessions.noArchivedDesc', defaultMessage: 'Sessions you archive will appear here.' },
   close: { id: 'sessions.close', defaultMessage: 'Close' },
   scheduledJobs: {
     id: 'sessions.scheduledJobs',
@@ -363,6 +386,9 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
   const debouncedSearchTermRef = useRef(debouncedSearchTerm);
   debouncedSearchTermRef.current = debouncedSearchTerm;
 
+    const [archivedView, setArchivedView] = useState(false);
+    const archivedFilterRef = useRef<ArchivedFilter>('active');
+
   const containerRef = useRef<HTMLDivElement>(null);
   const loadGenerationRef = useRef(0);
   const hasLoadedRef = useRef(false);
@@ -398,13 +424,19 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
   }, [debouncedSearchTerm, memoizedAllDateGroups.length]);
 
   const loadRemainingSessionPages = useCallback(
-    async (initialCursor: string, loadId: number, keyword: string, includeAcp: boolean) => {
+    async (
+      initialCursor: string,
+      loadId: number,
+      keyword: string,
+      includeAcp: boolean,
+      archived: ArchivedFilter = archivedFilterRef.current
+    ) => {
       let cursor: string | null = initialCursor;
       setIsPrefetchingSessions(true);
 
       try {
         while (cursor && loadGenerationRef.current === loadId) {
-          const resp = await acpListSessions(cursor, { keyword, includeAcp });
+          const resp = await acpListSessions(cursor, { keyword, includeAcp, archived });
           if (loadGenerationRef.current !== loadId) return;
 
           cursor = resp.nextCursor;
@@ -429,8 +461,10 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
   const loadSessions = useCallback(
     async (
       keyword: string = debouncedSearchTermRef.current,
-      includeAcp: boolean = includeAcpSessionsRef.current
+      includeAcp: boolean = includeAcpSessionsRef.current,
+      archived: ArchivedFilter = archivedFilterRef.current
     ) => {
+      archivedFilterRef.current = archived;
       const loadId = loadGenerationRef.current + 1;
       loadGenerationRef.current = loadId;
       // Only show the skeleton on the first load; subsequent loads (e.g. typing a
@@ -444,7 +478,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
         setShowContent(false);
       }
       try {
-        const resp = await acpListSessions(undefined, { keyword, includeAcp });
+        const resp = await acpListSessions(undefined, { keyword, includeAcp, archived });
         if (loadGenerationRef.current !== loadId) return;
         hasLoadedRef.current = true;
 
@@ -453,7 +487,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
         });
 
         if (resp.nextCursor) {
-          void loadRemainingSessionPages(resp.nextCursor, loadId, keyword, includeAcp);
+          void loadRemainingSessionPages(resp.nextCursor, loadId, keyword, includeAcp, archived);
         }
       } catch (err) {
         if (loadGenerationRef.current !== loadId) return;
@@ -485,12 +519,16 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
   );
 
   useEffect(() => {
-    loadSessions(debouncedSearchTerm, includeAcpSessions);
+    loadSessions(
+      debouncedSearchTerm,
+      includeAcpSessions,
+      archivedFilterFor(debouncedSearchTerm, archivedView)
+    );
     return () => {
       // Bump the generation so any in-flight load for the previous keyword is discarded.
       loadGenerationRef.current += 1;
     };
-  }, [loadSessions, debouncedSearchTerm, includeAcpSessions]);
+  }, [loadSessions, debouncedSearchTerm, includeAcpSessions, archivedView]);
 
   // Hide Nostr sharing when explicitly disabled via env var (restricted/enterprise bundles)
   useEffect(() => {
@@ -604,6 +642,36 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
     },
     [loadSessions, intl]
   );
+
+    const handleToggleArchive = useCallback(
+      async (session: SessionListItem) => {
+        const isArchived = !!session.archivedAt;
+        // Optimistically drop the row: it leaves the current view either way.
+        setSessions((prev) => prev.filter((s) => s.id !== session.id));
+        try {
+          if (isArchived) {
+            await acpUnarchiveSession(session.id);
+            toast.success(intl.formatMessage(i18n.unarchiveSuccess));
+          } else {
+            await acpArchiveSession(session.id);
+            toast.success(intl.formatMessage(i18n.archiveSuccess));
+          }
+          window.dispatchEvent(
+            new CustomEvent(AppEvents.SESSION_ARCHIVED, {
+              detail: { sessionId: session.id, archived: !isArchived },
+            })
+          );
+        } catch (error) {
+          toast.error(
+            intl.formatMessage(isArchived ? i18n.unarchiveFailed : i18n.archiveFailed, {
+              error: errorMessage(error, 'Unknown error'),
+            })
+          );
+          await loadSessions();
+        }
+      },
+      [intl, loadSessions]
+    );
 
   const handleConfirmDelete = useCallback(async () => {
     if (!sessionToDelete) return;
@@ -780,6 +848,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
     onExportClick,
     onShareClick,
     onOpenInNewWindow,
+      onToggleArchive,
     isSharing,
   }: {
     session: SessionListItem;
@@ -789,6 +858,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
     onExportClick: (session: SessionListItem, format: SessionExportFormat) => void;
     onShareClick: (session: SessionListItem, e: React.MouseEvent) => void;
     onOpenInNewWindow: (session: SessionListItem, e: React.MouseEvent) => void;
+      onToggleArchive: (session: SessionListItem) => void;
     isSharing: boolean;
   }) {
     const handleEditClick = useCallback(
@@ -814,6 +884,14 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
       },
       [onDeleteClick, session]
     );
+
+      const handleArchiveClick = useCallback(
+        (e: React.MouseEvent) => {
+          e.stopPropagation();
+          onToggleArchive(session);
+        },
+        [onToggleArchive, session]
+      );
 
     const handleCardClick = useCallback(() => {
       onSelectSession(session.id);
@@ -901,6 +979,19 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
             title={intl.formatMessage(i18n.deleteSession)}
           >
             <Trash2 className="w-3 h-3 text-red-500 hover:text-red-600" />
+          </button>
+          <button
+            onClick={handleArchiveClick}
+            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+            title={intl.formatMessage(
+              session.archivedAt ? i18n.unarchiveSession : i18n.archiveSession
+            )}
+          >
+            {session.archivedAt ? (
+              <ArchiveRestore className="w-3 h-3 text-text-secondary hover:text-text-primary" />
+            ) : (
+              <Archive className="w-3 h-3 text-text-secondary hover:text-text-primary" />
+            )}
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -1010,8 +1101,12 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
       return (
         <div className="flex flex-col justify-center h-full text-text-secondary">
           <MessageSquareText className="h-12 w-12 mb-4" />
-          <p className="text-lg mb-2">{intl.formatMessage(i18n.noSessions)}</p>
-          <p className="text-sm">{intl.formatMessage(i18n.noSessionsDesc)}</p>
+            <p className="text-lg mb-2">
+              {intl.formatMessage(archivedView ? i18n.noArchived : i18n.noSessions)}
+            </p>
+            <p className="text-sm">
+              {intl.formatMessage(archivedView ? i18n.noArchivedDesc : i18n.noSessionsDesc)}
+            </p>
         </div>
       );
     }
@@ -1034,6 +1129,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
                   onExportClick={handleExportSession}
                   onShareClick={handleShareSessionNostr}
                   onOpenInNewWindow={handleOpenInNewWindow}
+                    onToggleArchive={handleToggleArchive}
                   isSharing={sharingSessionId === session.id}
                 />
               ))}
@@ -1150,6 +1246,32 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
                 />
                 {intl.formatMessage(i18n.includeAcpSessions)}
               </label>
+              <div className="inline-flex items-center gap-1 rounded-full bg-background-secondary p-0.5 self-start">
+                <button
+                  type="button"
+                  onClick={() => setArchivedView(false)}
+                  className={cn(
+                    'rounded-full px-3 py-1 text-sm transition-colors',
+                    archivedView
+                      ? 'text-text-secondary hover:text-text-primary'
+                      : 'bg-background-primary text-text-primary shadow-sm'
+                  )}
+                >
+                  {intl.formatMessage(i18n.activeTab)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setArchivedView(true)}
+                  className={cn(
+                    'rounded-full px-3 py-1 text-sm transition-colors',
+                    archivedView
+                      ? 'bg-background-primary text-text-primary shadow-sm'
+                      : 'text-text-secondary hover:text-text-primary'
+                  )}
+                >
+                  {intl.formatMessage(i18n.archivedTab)}
+                </button>
+              </div>
             </div>
           </div>
 
