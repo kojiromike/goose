@@ -298,6 +298,7 @@ impl GooseAcpAgent {
         args: LoadSessionRequest,
     ) -> Result<LoadSessionResponse, agent_client_protocol::Error> {
         debug!(?args, "load session request");
+        validate_cwd_is_absolute(&args.cwd)?;
 
         let session_id_str = args.session_id.0.to_string();
 

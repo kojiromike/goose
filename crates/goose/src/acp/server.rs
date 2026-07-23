@@ -791,12 +791,18 @@ pub(super) fn effective_session_cwd(host_cwd: Option<&Path>, requested: &Path) -
     host_cwd.unwrap_or(requested).to_path_buf()
 }
 
-pub(super) fn validate_absolute_cwd(cwd: &Path) -> Result<(), agent_client_protocol::Error> {
+pub(super) fn validate_cwd_is_absolute(cwd: &Path) -> Result<(), agent_client_protocol::Error> {
     if !cwd.is_absolute() {
         return Err(
             agent_client_protocol::Error::invalid_params().data("cwd must be an absolute path")
         );
     }
+
+    Ok(())
+}
+
+pub(super) fn validate_absolute_cwd(cwd: &Path) -> Result<(), agent_client_protocol::Error> {
+    validate_cwd_is_absolute(cwd)?;
 
     if !cwd.exists() || !cwd.is_dir() {
         return Err(agent_client_protocol::Error::invalid_params().data("invalid directory path"));
@@ -1138,6 +1144,30 @@ impl GooseAcpAgent {
         self.spawn_provider_inventory_refresh(session, &agent);
 
         Ok((agent, agent_result.extension_results))
+    }
+
+    async fn validate_session_working_dir(
+        &self,
+        session_id: &str,
+    ) -> Result<(), agent_client_protocol::Error> {
+        let session = self
+            .session_manager
+            .get_session(session_id, false)
+            .await
+            .map_err(|_| {
+                agent_client_protocol::Error::resource_not_found(Some(session_id.to_string()))
+                    .data(format!("Session not found: {}", session_id))
+            })?;
+
+        let working_dir = &session.working_dir;
+        if !working_dir.exists() || !working_dir.is_dir() {
+            return Err(agent_client_protocol::Error::invalid_params().data(format!(
+                "Working directory no longer exists: {}. Update the session's working directory before continuing.",
+                working_dir.display()
+            )));
+        }
+
+        Ok(())
     }
 
     async fn prepare_session_for_activation(
@@ -2100,6 +2130,11 @@ impl GooseAcpAgent {
             run_id: run_id.clone(),
             cancel_token: cancel_token.clone(),
         };
+
+        if let Err(error) = self.validate_session_working_dir(&session_id).await {
+            self.clear_active_run(&session_id, &run_id).await;
+            return Err(error);
+        }
 
         if cancel_token.is_cancelled() {
             self.clear_active_run(&session_id, &run_id).await;

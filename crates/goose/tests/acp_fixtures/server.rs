@@ -103,6 +103,16 @@ impl AcpServerConnection {
     pub fn cx(&self) -> &ConnectionTo<Agent> {
         &self.cx
     }
+
+    #[allow(dead_code)]
+    pub fn drain_session_updates(&self) -> Vec<SessionUpdate> {
+        self.updates
+            .lock()
+            .unwrap()
+            .drain(..)
+            .map(|n| n.update)
+            .collect()
+    }
 }
 
 pub async fn assert_session_response_precedes_available_commands(
