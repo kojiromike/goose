@@ -312,7 +312,9 @@ impl GooseAcpAgent {
             })?;
 
         let cwd = effective_session_cwd(self.session_cwd.as_deref(), &args.cwd);
-        validate_absolute_cwd(&cwd)?;
+        if cwd != session.working_dir {
+            validate_absolute_cwd(&cwd)?;
+        }
 
         session = self
             .prepare_session_for_activation(session, cwd, args.mcp_servers, true)
