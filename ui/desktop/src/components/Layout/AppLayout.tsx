@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { IpcRendererEvent } from 'electron';
 import { Outlet, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -56,6 +56,65 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
 
   const { isNavExpanded, setIsNavExpanded } = useNavigationContext();
 
+  const [navWidth, setNavWidth] = useState<number | null>(null);
+  const navWidthRef = useRef<number | null>(null);
+  const navRef = useRef<HTMLDivElement>(null);
+  const dragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const clampWidth = (width: number) =>
+    Math.min(NAV_DIMENSIONS.MAX_NAV_WIDTH, Math.max(NAV_DIMENSIONS.MIN_NAV_WIDTH, width));
+
+  useEffect(() => {
+    window.electron.getSetting('navExpandedWidth').then((width) => {
+      if (width !== null) {
+        setNavWidth(clampWidth(width));
+      }
+    });
+  }, []);
+
+  const onMouseMove = useCallback((e: MouseEvent) => {
+    if (!dragStateRef.current) return;
+    const newWidth = clampWidth(
+      dragStateRef.current.startWidth + (e.clientX - dragStateRef.current.startX)
+    );
+    navWidthRef.current = newWidth;
+    setNavWidth(newWidth);
+  }, []);
+
+  const onMouseUp = useCallback(() => {
+    dragStateRef.current = null;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+    if (navWidthRef.current !== null) {
+      window.electron.setSetting('navExpandedWidth', navWidthRef.current);
+    }
+  }, [onMouseMove]);
+
+  const onHandleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const currentWidth =
+        navRef.current?.getBoundingClientRect().width ?? NAV_DIMENSIONS.NAV_WIDTH;
+      dragStateRef.current = { startX: e.clientX, startWidth: currentWidth };
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    },
+    [onMouseMove, onMouseUp]
+  );
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [onMouseMove, onMouseUp]);
+
   if (!chatContext) {
     throw new Error('AppLayoutContent must be used within ChatProvider');
   }
@@ -91,16 +150,25 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
           rounded outlined card floating on it with breathing room. */}
       <div className="flex flex-1 w-full h-full min-h-0 flex-row">
         <motion.div
+          ref={navRef}
           key="nav"
           initial={false}
-          animate={{ width: isNavExpanded ? NAV_DIMENSIONS.NAV_WIDTH : 0 }}
+          animate={{ width: isNavExpanded ? (navWidth ?? NAV_DIMENSIONS.NAV_WIDTH) : 0 }}
           transition={{ type: 'spring', stiffness: 400, damping: 40 }}
-          style={{ height: '100%' }}
+          style={{ height: '100%', maxWidth: NAV_DIMENSIONS.MAX_NAV_WIDTH }}
           className="relative flex-shrink-0 overflow-hidden h-full p-2"
         >
           <div className="w-full h-full overflow-hidden rounded-xl border border-border-primary">
             <Navigation />
           </div>
+          {isNavExpanded && (
+            <div
+              onMouseDown={onHandleMouseDown}
+              className="absolute top-0 right-0 w-2 h-full z-20 cursor-col-resize group flex items-center justify-center"
+            >
+              <div className="w-px h-full bg-border-subtle opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+          )}
         </motion.div>
 
         {/* Main content — no border / no card; just flows on the canvas. */}

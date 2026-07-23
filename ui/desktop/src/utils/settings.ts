@@ -48,6 +48,7 @@ export interface Settings {
   responseStyle: string;
   showPricing: boolean;
   seenAnnouncementIds: string[];
+  navExpandedWidth: number | null;
 }
 
 export type SettingKey = keyof Settings;
@@ -88,6 +89,7 @@ export const defaultSettings: Settings = {
   responseStyle: 'concise',
   showPricing: true,
   seenAnnouncementIds: [],
+  navExpandedWidth: null,
 };
 
 export function getKeyboardShortcuts(settings: Settings): KeyboardShortcuts {

@@ -1,6 +1,10 @@
 export const NAV_DIMENSIONS = {
-  /** Width of the navigation sidebar */
+  /** Default width of the navigation sidebar */
   NAV_WIDTH: 240,
+  /** Smallest width the sidebar can be dragged to */
+  MIN_NAV_WIDTH: 200,
+  /** Largest width the sidebar can be dragged to */
+  MAX_NAV_WIDTH: 600,
 } as const;
 
 export const Z_INDEX = {
