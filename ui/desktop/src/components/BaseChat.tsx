@@ -591,6 +591,7 @@ export default function BaseChat({
             onSteerQueuedMessage={onSteerQueuedMessage}
             pauseQueueOnStop={pauseQueueOnStop}
             queueProcessingBlocked={queueProcessingBlocked || acpRecovering}
+            submissionDisabled={workingDirMissing}
             commandHistory={commandHistory}
             initialValue={initialPrompt}
             setView={setView}

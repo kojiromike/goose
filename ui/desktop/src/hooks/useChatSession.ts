@@ -136,13 +136,14 @@ export function useChatSession({
   );
 
   const submitToAcpSession = useCallback(
-    async (targetSessionId: string, userMessage: Message) => {
+    async (targetSessionId: string, userMessage: Message, messagesBeforeSubmit: Message[]) => {
       await acpChatSessionController.submitMessage(targetSessionId, userMessage, {
         getCurrentSnapshot: () =>
           targetSessionId === sessionId
             ? getCurrentSnapshot()
             : acpChatSessionStore.getSnapshot(targetSessionId),
         onFinish,
+        messagesBeforeSubmit,
       });
     },
     [getCurrentSnapshot, onFinish, sessionId]
@@ -206,7 +207,7 @@ export function useChatSession({
         acpChatSessionActions.setMessages(sessionId, messagesForStore);
       }
 
-      await submitToAcpSession(sessionId, newMessage);
+      await submitToAcpSession(sessionId, newMessage, currentMessages);
     },
     [getCurrentSnapshot, sessionId, submitToAcpSession]
   );
