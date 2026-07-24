@@ -1,4 +1,25 @@
 {
+  "acpReadinessPanel.adapterFound": {
+    "defaultMessage": "Adattatore ACP trovato"
+  },
+  "acpReadinessPanel.adapterNotFound": {
+    "defaultMessage": "Adattatore ACP non trovato"
+  },
+  "acpReadinessPanel.authenticationHelp": {
+    "defaultMessage": "Accedi tramite la CLI del provider, quindi verifica di nuovo."
+  },
+  "acpReadinessPanel.checkAgain": {
+    "defaultMessage": "Verifica di nuovo"
+  },
+  "acpReadinessPanel.checking": {
+    "defaultMessage": "Verifica in corso..."
+  },
+  "acpReadinessPanel.connected": {
+    "defaultMessage": "Connessione riuscita"
+  },
+  "acpReadinessPanel.connectionNotChecked": {
+    "defaultMessage": "Verifica la connessione del tuo account prima di continuare."
+  },
   "alertBox.autoCompactAt": {
     "defaultMessage": "Compattazione automatica a"
   },
@@ -125,8 +146,14 @@
   "backButton.back": {
     "defaultMessage": "Indietro"
   },
+  "baseChat.chooseWorkingDir": {
+    "defaultMessage": "Scegli la directory di lavoro…"
+  },
   "baseChat.failedToLoadSession": {
     "defaultMessage": "Impossibile caricare la sessione"
+  },
+  "baseChat.goBack": {
+    "defaultMessage": "Indietro"
   },
   "baseChat.goHome": {
     "defaultMessage": "Vai alla home"
@@ -136,6 +163,15 @@
   },
   "baseChat.retry": {
     "defaultMessage": "Riprova"
+  },
+  "baseChat.updateWorkingDirFailed": {
+    "defaultMessage": "Impossibile aggiornare la directory di lavoro"
+  },
+  "baseChat.workingDirMissingBody": {
+    "defaultMessage": "Questa sessione lavorava in {dir}, che non esiste più. Scegli una nuova directory di lavoro per continuare. La conversazione e gli strumenti erano configurati sul vecchio percorso, quindi i risultati potrebbero differire dopo il cambio."
+  },
+  "baseChat.workingDirMissingTitle": {
+    "defaultMessage": "La directory di lavoro non è disponibile"
   },
   "bottomMenuExtensionSelection.extensionUpdated": {
     "defaultMessage": "Estensione aggiornata"
@@ -920,14 +956,12 @@
   "dirSwitcher.enterPath": {
     "defaultMessage": "Enter path"
   },
-  "dirSwitcher.enterPathPlaceholder": {
-    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
-  },
   "dirSwitcher.enterPathInvalid": {
     "defaultMessage": "Working directory must be an absolute path"
   },
-
-
+  "dirSwitcher.enterPathPlaceholder": {
+    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
+  },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Impossibile aggiornare la cartella di lavoro"
   },
@@ -942,18 +976,6 @@
   },
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "Cartelle recenti"
-  },
-  "gitBranchIndicator.failedToSwitch": {
-    "defaultMessage": "Impossibile passare a {branch}"
-  },
-  "gitBranchIndicator.noBranchesFound": {
-    "defaultMessage": "Nessun branch trovato"
-  },
-  "gitBranchIndicator.searchBranches": {
-    "defaultMessage": "Cerca branch…"
-  },
-  "gitBranchIndicator.uncommittedChanges": {
-    "defaultMessage": "Potresti avere modifiche non incluse in un commit."
   },
   "elicitationRequest.accept": {
     "defaultMessage": "Accetta"
@@ -1257,6 +1279,18 @@
   },
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
+  },
+  "gitBranchIndicator.failedToSwitch": {
+    "defaultMessage": "Impossibile passare a {branch}"
+  },
+  "gitBranchIndicator.noBranchesFound": {
+    "defaultMessage": "Nessun branch trovato"
+  },
+  "gitBranchIndicator.searchBranches": {
+    "defaultMessage": "Cerca branch…"
+  },
+  "gitBranchIndicator.uncommittedChanges": {
+    "defaultMessage": "Potresti avere modifiche non incluse in un commit."
   },
   "goosehintsModal.close": {
     "defaultMessage": "Chiudi"
@@ -2323,6 +2357,9 @@
   "modelsBottomBar.localModelSettingsTitle": {
     "defaultMessage": "Impostazioni modello locale — {modelName}"
   },
+  "modelsBottomBar.recentModels": {
+    "defaultMessage": "Recenti"
+  },
   "modelsBottomBar.resolvedModel": {
     "defaultMessage": "Modello risolto"
   },
@@ -2695,6 +2732,9 @@
   "promptsSettings.unsavedChanges": {
     "defaultMessage": "Hai modifiche non salvate"
   },
+  "providerCard.deprecatedReplacement": {
+    "defaultMessage": "Deprecato — usa invece {replacement}."
+  },
   "providerCard.noMetadata": {
     "defaultMessage": "Errore ProviderCard: nessun metadato fornito"
   },
@@ -2749,8 +2789,17 @@
   "providerConfigForm.continue": {
     "defaultMessage": "Continua"
   },
+  "providerConfigForm.deviceCodeAndEnter": {
+    "defaultMessage": "e inserisci:"
+  },
+  "providerConfigForm.deviceCodeCopy": {
+    "defaultMessage": "Copia"
+  },
   "providerConfigForm.deviceCodeFlowHint": {
     "defaultMessage": "Si aprirà una finestra del browser. Il codice di verifica verrà visualizzato qui, così potrai inserirlo per completare l'accesso."
+  },
+  "providerConfigForm.deviceCodeVisit": {
+    "defaultMessage": "Visita"
   },
   "providerConfigForm.noApiKey": {
     "defaultMessage": "Non hai una chiave API?"
@@ -2776,6 +2825,9 @@
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Controlla di nuovo la tua configurazione per usare questo provider."
   },
+  "providerConfigurationModal.chooseModel": {
+    "defaultMessage": "Scegli modello"
+  },
   "providerConfigurationModal.close": {
     "defaultMessage": "Chiudi"
   },
@@ -2788,8 +2840,17 @@
   "providerConfigurationModal.deleteConfirmation": {
     "defaultMessage": "Questa operazione eliminerà definitivamente la configurazione attuale del provider."
   },
+  "providerConfigurationModal.deviceCodeAndEnter": {
+    "defaultMessage": "e inserisci:"
+  },
+  "providerConfigurationModal.deviceCodeCopy": {
+    "defaultMessage": "Copia"
+  },
   "providerConfigurationModal.deviceCodeFlowHint": {
     "defaultMessage": "Si aprirà una finestra del browser. Il codice di verifica verrà visualizzato qui, così potrai inserirlo per completare l'accesso."
+  },
+  "providerConfigurationModal.deviceCodeVisit": {
+    "defaultMessage": "Visita"
   },
   "providerConfigurationModal.errorCheckingConfig": {
     "defaultMessage": "Si è verificato un errore durante la verifica della configurazione di questo provider."
@@ -4632,53 +4693,5 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Rimuovi immagine dal messaggio"
-  },
-  "modelsBottomBar.recentModels": {
-    "defaultMessage": "Recenti"
-  },
-  "providerConfigurationModal.chooseModel": {
-    "defaultMessage": "Scegli modello"
-  },
-  "providerCard.deprecatedReplacement": {
-    "defaultMessage": "Deprecato — usa invece {replacement}."
-  },
-  "acpReadinessPanel.adapterFound": {
-    "defaultMessage": "Adattatore ACP trovato"
-  },
-  "acpReadinessPanel.adapterNotFound": {
-    "defaultMessage": "Adattatore ACP non trovato"
-  },
-  "acpReadinessPanel.authenticationHelp": {
-    "defaultMessage": "Accedi tramite la CLI del provider, quindi verifica di nuovo."
-  },
-  "acpReadinessPanel.checkAgain": {
-    "defaultMessage": "Verifica di nuovo"
-  },
-  "acpReadinessPanel.checking": {
-    "defaultMessage": "Verifica in corso..."
-  },
-  "acpReadinessPanel.connected": {
-    "defaultMessage": "Connessione riuscita"
-  },
-  "acpReadinessPanel.connectionNotChecked": {
-    "defaultMessage": "Verifica la connessione del tuo account prima di continuare."
-  },
-  "providerConfigForm.deviceCodeAndEnter": {
-    "defaultMessage": "e inserisci:"
-  },
-  "providerConfigForm.deviceCodeCopy": {
-    "defaultMessage": "Copia"
-  },
-  "providerConfigForm.deviceCodeVisit": {
-    "defaultMessage": "Visita"
-  },
-  "providerConfigurationModal.deviceCodeAndEnter": {
-    "defaultMessage": "e inserisci:"
-  },
-  "providerConfigurationModal.deviceCodeCopy": {
-    "defaultMessage": "Copia"
-  },
-  "providerConfigurationModal.deviceCodeVisit": {
-    "defaultMessage": "Visita"
   }
 }

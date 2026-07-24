@@ -1,4 +1,25 @@
 {
+  "acpReadinessPanel.adapterFound": {
+    "defaultMessage": "已找到 ACP 适配器"
+  },
+  "acpReadinessPanel.adapterNotFound": {
+    "defaultMessage": "未找到 ACP 适配器"
+  },
+  "acpReadinessPanel.authenticationHelp": {
+    "defaultMessage": "请通过提供商 CLI 登录，然后再次检查。"
+  },
+  "acpReadinessPanel.checkAgain": {
+    "defaultMessage": "再次检查"
+  },
+  "acpReadinessPanel.checking": {
+    "defaultMessage": "正在检查…"
+  },
+  "acpReadinessPanel.connected": {
+    "defaultMessage": "连接成功"
+  },
+  "acpReadinessPanel.connectionNotChecked": {
+    "defaultMessage": "请先检查账户连接，然后再继续。"
+  },
   "alertBox.autoCompactAt": {
     "defaultMessage": "自动压缩阈值"
   },
@@ -125,8 +146,14 @@
   "backButton.back": {
     "defaultMessage": "返回"
   },
+  "baseChat.chooseWorkingDir": {
+    "defaultMessage": "选择工作目录…"
+  },
   "baseChat.failedToLoadSession": {
     "defaultMessage": "加载会话失败"
+  },
+  "baseChat.goBack": {
+    "defaultMessage": "返回"
   },
   "baseChat.goHome": {
     "defaultMessage": "回到首页"
@@ -136,6 +163,15 @@
   },
   "baseChat.retry": {
     "defaultMessage": "重试"
+  },
+  "baseChat.updateWorkingDirFailed": {
+    "defaultMessage": "无法更新工作目录"
+  },
+  "baseChat.workingDirMissingBody": {
+    "defaultMessage": "此会话之前在 {dir} 中工作，该目录已不存在。请选择新的工作目录以继续。对话和工具是基于旧路径设置的，切换后结果可能有所不同。"
+  },
+  "baseChat.workingDirMissingTitle": {
+    "defaultMessage": "工作目录不可用"
   },
   "bottomMenuExtensionSelection.extensionUpdated": {
     "defaultMessage": "扩展已更新"
@@ -920,14 +956,12 @@
   "dirSwitcher.enterPath": {
     "defaultMessage": "Enter path"
   },
-  "dirSwitcher.enterPathPlaceholder": {
-    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
-  },
   "dirSwitcher.enterPathInvalid": {
     "defaultMessage": "Working directory must be an absolute path"
   },
-
-
+  "dirSwitcher.enterPathPlaceholder": {
+    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
+  },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "更新工作目录失败"
   },
@@ -942,18 +976,6 @@
   },
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "最近的目录"
-  },
-  "gitBranchIndicator.failedToSwitch": {
-    "defaultMessage": "无法切换到 {branch}"
-  },
-  "gitBranchIndicator.noBranchesFound": {
-    "defaultMessage": "未找到分支"
-  },
-  "gitBranchIndicator.searchBranches": {
-    "defaultMessage": "搜索分支…"
-  },
-  "gitBranchIndicator.uncommittedChanges": {
-    "defaultMessage": "你可能有尚未提交的更改。"
   },
   "elicitationRequest.accept": {
     "defaultMessage": "接受"
@@ -1257,6 +1279,18 @@
   },
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
+  },
+  "gitBranchIndicator.failedToSwitch": {
+    "defaultMessage": "无法切换到 {branch}"
+  },
+  "gitBranchIndicator.noBranchesFound": {
+    "defaultMessage": "未找到分支"
+  },
+  "gitBranchIndicator.searchBranches": {
+    "defaultMessage": "搜索分支…"
+  },
+  "gitBranchIndicator.uncommittedChanges": {
+    "defaultMessage": "你可能有尚未提交的更改。"
   },
   "goosehintsModal.close": {
     "defaultMessage": "关闭"
@@ -2323,6 +2357,9 @@
   "modelsBottomBar.localModelSettingsTitle": {
     "defaultMessage": "本地模型设置 — {modelName}"
   },
+  "modelsBottomBar.recentModels": {
+    "defaultMessage": "最近"
+  },
   "modelsBottomBar.resolvedModel": {
     "defaultMessage": "解析后的模型"
   },
@@ -2695,6 +2732,9 @@
   "promptsSettings.unsavedChanges": {
     "defaultMessage": "你有未保存的更改"
   },
+  "providerCard.deprecatedReplacement": {
+    "defaultMessage": "已弃用 — 请改用 {replacement}。"
+  },
   "providerCard.noMetadata": {
     "defaultMessage": "ProviderCard 错误：未提供元数据"
   },
@@ -2749,8 +2789,17 @@
   "providerConfigForm.continue": {
     "defaultMessage": "继续"
   },
+  "providerConfigForm.deviceCodeAndEnter": {
+    "defaultMessage": "并输入："
+  },
+  "providerConfigForm.deviceCodeCopy": {
+    "defaultMessage": "复制"
+  },
   "providerConfigForm.deviceCodeFlowHint": {
     "defaultMessage": "将打开浏览器窗口。验证码会显示在此处，输入验证码即可完成登录。"
+  },
+  "providerConfigForm.deviceCodeVisit": {
+    "defaultMessage": "访问"
   },
   "providerConfigForm.noApiKey": {
     "defaultMessage": "没有 API 密钥？"
@@ -2776,6 +2825,9 @@
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "再次检查你的配置以使用此提供商。"
   },
+  "providerConfigurationModal.chooseModel": {
+    "defaultMessage": "选择模型"
+  },
   "providerConfigurationModal.close": {
     "defaultMessage": "关闭"
   },
@@ -2788,8 +2840,17 @@
   "providerConfigurationModal.deleteConfirmation": {
     "defaultMessage": "这将永久删除当前的提供商配置。"
   },
+  "providerConfigurationModal.deviceCodeAndEnter": {
+    "defaultMessage": "并输入："
+  },
+  "providerConfigurationModal.deviceCodeCopy": {
+    "defaultMessage": "复制"
+  },
   "providerConfigurationModal.deviceCodeFlowHint": {
     "defaultMessage": "将打开浏览器窗口。验证码会显示在此处，输入验证码即可完成登录。"
+  },
+  "providerConfigurationModal.deviceCodeVisit": {
+    "defaultMessage": "访问"
   },
   "providerConfigurationModal.errorCheckingConfig": {
     "defaultMessage": "检查此提供商配置时出错。"
@@ -4632,53 +4693,5 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "从消息中移除图片"
-  },
-  "modelsBottomBar.recentModels": {
-    "defaultMessage": "最近"
-  },
-  "providerConfigurationModal.chooseModel": {
-    "defaultMessage": "选择模型"
-  },
-  "providerCard.deprecatedReplacement": {
-    "defaultMessage": "已弃用 — 请改用 {replacement}。"
-  },
-  "acpReadinessPanel.adapterFound": {
-    "defaultMessage": "已找到 ACP 适配器"
-  },
-  "acpReadinessPanel.adapterNotFound": {
-    "defaultMessage": "未找到 ACP 适配器"
-  },
-  "acpReadinessPanel.authenticationHelp": {
-    "defaultMessage": "请通过提供商 CLI 登录，然后再次检查。"
-  },
-  "acpReadinessPanel.checkAgain": {
-    "defaultMessage": "再次检查"
-  },
-  "acpReadinessPanel.checking": {
-    "defaultMessage": "正在检查…"
-  },
-  "acpReadinessPanel.connected": {
-    "defaultMessage": "连接成功"
-  },
-  "acpReadinessPanel.connectionNotChecked": {
-    "defaultMessage": "请先检查账户连接，然后再继续。"
-  },
-  "providerConfigForm.deviceCodeAndEnter": {
-    "defaultMessage": "并输入："
-  },
-  "providerConfigForm.deviceCodeCopy": {
-    "defaultMessage": "复制"
-  },
-  "providerConfigForm.deviceCodeVisit": {
-    "defaultMessage": "访问"
-  },
-  "providerConfigurationModal.deviceCodeAndEnter": {
-    "defaultMessage": "并输入："
-  },
-  "providerConfigurationModal.deviceCodeCopy": {
-    "defaultMessage": "复制"
-  },
-  "providerConfigurationModal.deviceCodeVisit": {
-    "defaultMessage": "访问"
   }
 }

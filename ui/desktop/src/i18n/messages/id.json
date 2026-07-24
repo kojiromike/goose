@@ -1,4 +1,25 @@
 {
+  "acpReadinessPanel.adapterFound": {
+    "defaultMessage": "Adaptor ACP ditemukan"
+  },
+  "acpReadinessPanel.adapterNotFound": {
+    "defaultMessage": "Adaptor ACP tidak ditemukan"
+  },
+  "acpReadinessPanel.authenticationHelp": {
+    "defaultMessage": "Masuk melalui CLI penyedia, lalu periksa lagi."
+  },
+  "acpReadinessPanel.checkAgain": {
+    "defaultMessage": "Periksa lagi"
+  },
+  "acpReadinessPanel.checking": {
+    "defaultMessage": "Memeriksa..."
+  },
+  "acpReadinessPanel.connected": {
+    "defaultMessage": "Berhasil terhubung"
+  },
+  "acpReadinessPanel.connectionNotChecked": {
+    "defaultMessage": "Periksa koneksi akun Anda sebelum melanjutkan."
+  },
   "alertBox.autoCompactAt": {
     "defaultMessage": "Padatkan otomatis pada"
   },
@@ -125,8 +146,14 @@
   "backButton.back": {
     "defaultMessage": "Kembali"
   },
+  "baseChat.chooseWorkingDir": {
+    "defaultMessage": "Pilih direktori kerja…"
+  },
   "baseChat.failedToLoadSession": {
     "defaultMessage": "Gagal Memuat Sesi"
+  },
+  "baseChat.goBack": {
+    "defaultMessage": "Kembali"
   },
   "baseChat.goHome": {
     "defaultMessage": "Ke beranda"
@@ -136,6 +163,15 @@
   },
   "baseChat.retry": {
     "defaultMessage": "Coba lagi"
+  },
+  "baseChat.updateWorkingDirFailed": {
+    "defaultMessage": "Gagal memperbarui direktori kerja"
+  },
+  "baseChat.workingDirMissingBody": {
+    "defaultMessage": "Sesi ini bekerja di {dir}, yang sudah tidak ada. Pilih direktori kerja baru untuk melanjutkan. Percakapan dan alat disiapkan untuk jalur lama, jadi hasil dapat berbeda setelah beralih."
+  },
+  "baseChat.workingDirMissingTitle": {
+    "defaultMessage": "Direktori kerja tidak tersedia"
   },
   "bottomMenuExtensionSelection.extensionUpdated": {
     "defaultMessage": "Ekstensi Diperbarui"
@@ -920,14 +956,12 @@
   "dirSwitcher.enterPath": {
     "defaultMessage": "Enter path"
   },
-  "dirSwitcher.enterPathPlaceholder": {
-    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
-  },
   "dirSwitcher.enterPathInvalid": {
     "defaultMessage": "Working directory must be an absolute path"
   },
-
-
+  "dirSwitcher.enterPathPlaceholder": {
+    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
+  },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Gagal memperbarui direktori kerja"
   },
@@ -942,18 +976,6 @@
   },
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "Direktori terbaru"
-  },
-  "gitBranchIndicator.failedToSwitch": {
-    "defaultMessage": "Gagal beralih ke {branch}"
-  },
-  "gitBranchIndicator.noBranchesFound": {
-    "defaultMessage": "Tidak ada branch yang ditemukan"
-  },
-  "gitBranchIndicator.searchBranches": {
-    "defaultMessage": "Cari branch…"
-  },
-  "gitBranchIndicator.uncommittedChanges": {
-    "defaultMessage": "Anda mungkin memiliki perubahan yang belum di-commit."
   },
   "elicitationRequest.accept": {
     "defaultMessage": "Terima"
@@ -1257,6 +1279,18 @@
   },
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
+  },
+  "gitBranchIndicator.failedToSwitch": {
+    "defaultMessage": "Gagal beralih ke {branch}"
+  },
+  "gitBranchIndicator.noBranchesFound": {
+    "defaultMessage": "Tidak ada branch yang ditemukan"
+  },
+  "gitBranchIndicator.searchBranches": {
+    "defaultMessage": "Cari branch…"
+  },
+  "gitBranchIndicator.uncommittedChanges": {
+    "defaultMessage": "Anda mungkin memiliki perubahan yang belum di-commit."
   },
   "goosehintsModal.close": {
     "defaultMessage": "Tutup"
@@ -2323,6 +2357,9 @@
   "modelsBottomBar.localModelSettingsTitle": {
     "defaultMessage": "Pengaturan Model Lokal — {modelName}"
   },
+  "modelsBottomBar.recentModels": {
+    "defaultMessage": "Terbaru"
+  },
   "modelsBottomBar.resolvedModel": {
     "defaultMessage": "Model yang diselesaikan"
   },
@@ -2695,6 +2732,9 @@
   "promptsSettings.unsavedChanges": {
     "defaultMessage": "Anda memiliki perubahan yang belum disimpan"
   },
+  "providerCard.deprecatedReplacement": {
+    "defaultMessage": "Tidak digunakan lagi — gunakan {replacement} sebagai gantinya."
+  },
   "providerCard.noMetadata": {
     "defaultMessage": "Kesalahan ProviderCard: Tidak ada metadata yang disediakan"
   },
@@ -2749,8 +2789,17 @@
   "providerConfigForm.continue": {
     "defaultMessage": "Lanjutkan"
   },
+  "providerConfigForm.deviceCodeAndEnter": {
+    "defaultMessage": "dan masukkan:"
+  },
+  "providerConfigForm.deviceCodeCopy": {
+    "defaultMessage": "Salin"
+  },
   "providerConfigForm.deviceCodeFlowHint": {
     "defaultMessage": "Jendela browser akan terbuka. Kode verifikasi akan muncul di sini agar Anda dapat memasukkannya untuk menyelesaikan proses masuk."
+  },
+  "providerConfigForm.deviceCodeVisit": {
+    "defaultMessage": "Kunjungi"
   },
   "providerConfigForm.noApiKey": {
     "defaultMessage": "Tidak punya kunci API?"
@@ -2776,6 +2825,9 @@
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Periksa kembali konfigurasi Anda untuk menggunakan penyedia ini."
   },
+  "providerConfigurationModal.chooseModel": {
+    "defaultMessage": "Pilih Model"
+  },
   "providerConfigurationModal.close": {
     "defaultMessage": "Tutup"
   },
@@ -2788,8 +2840,17 @@
   "providerConfigurationModal.deleteConfirmation": {
     "defaultMessage": "Tindakan ini akan menghapus konfigurasi penyedia saat ini secara permanen."
   },
+  "providerConfigurationModal.deviceCodeAndEnter": {
+    "defaultMessage": "dan masukkan:"
+  },
+  "providerConfigurationModal.deviceCodeCopy": {
+    "defaultMessage": "Salin"
+  },
   "providerConfigurationModal.deviceCodeFlowHint": {
     "defaultMessage": "Jendela browser akan terbuka. Kode verifikasi akan muncul di sini agar Anda dapat memasukkannya untuk menyelesaikan proses masuk."
+  },
+  "providerConfigurationModal.deviceCodeVisit": {
+    "defaultMessage": "Kunjungi"
   },
   "providerConfigurationModal.errorCheckingConfig": {
     "defaultMessage": "Terjadi kesalahan saat memeriksa konfigurasi penyedia ini."
@@ -4632,53 +4693,5 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Hapus gambar dari pesan"
-  },
-  "modelsBottomBar.recentModels": {
-    "defaultMessage": "Terbaru"
-  },
-  "providerConfigurationModal.chooseModel": {
-    "defaultMessage": "Pilih Model"
-  },
-  "providerCard.deprecatedReplacement": {
-    "defaultMessage": "Tidak digunakan lagi — gunakan {replacement} sebagai gantinya."
-  },
-  "acpReadinessPanel.adapterFound": {
-    "defaultMessage": "Adaptor ACP ditemukan"
-  },
-  "acpReadinessPanel.adapterNotFound": {
-    "defaultMessage": "Adaptor ACP tidak ditemukan"
-  },
-  "acpReadinessPanel.authenticationHelp": {
-    "defaultMessage": "Masuk melalui CLI penyedia, lalu periksa lagi."
-  },
-  "acpReadinessPanel.checkAgain": {
-    "defaultMessage": "Periksa lagi"
-  },
-  "acpReadinessPanel.checking": {
-    "defaultMessage": "Memeriksa..."
-  },
-  "acpReadinessPanel.connected": {
-    "defaultMessage": "Berhasil terhubung"
-  },
-  "acpReadinessPanel.connectionNotChecked": {
-    "defaultMessage": "Periksa koneksi akun Anda sebelum melanjutkan."
-  },
-  "providerConfigForm.deviceCodeAndEnter": {
-    "defaultMessage": "dan masukkan:"
-  },
-  "providerConfigForm.deviceCodeCopy": {
-    "defaultMessage": "Salin"
-  },
-  "providerConfigForm.deviceCodeVisit": {
-    "defaultMessage": "Kunjungi"
-  },
-  "providerConfigurationModal.deviceCodeAndEnter": {
-    "defaultMessage": "dan masukkan:"
-  },
-  "providerConfigurationModal.deviceCodeCopy": {
-    "defaultMessage": "Salin"
-  },
-  "providerConfigurationModal.deviceCodeVisit": {
-    "defaultMessage": "Kunjungi"
   }
 }
