@@ -2124,6 +2124,11 @@ impl GooseAcpAgent {
         let run_id = format!("run_{}", Uuid::new_v4());
         let cancel_token = CancellationToken::new();
 
+        // Validate before activating the agent: a session whose working directory is
+        // missing defers activation, and get_session_agent would otherwise start its
+        // stdio extensions against the wrong root before this check rejects the prompt.
+        self.validate_session_working_dir(&session_id).await?;
+
         // Resolve the agent before claiming the run so the registry can record
         // which agent owns it; registration stays atomic, so the cross-connection
         // guard still admits only one run per session.
@@ -2145,11 +2150,6 @@ impl GooseAcpAgent {
             run_id: run_id.clone(),
             cancel_token: cancel_token.clone(),
         };
-
-        if let Err(error) = self.validate_session_working_dir(&session_id).await {
-            self.clear_active_run(&session_id, &run_id).await;
-            return Err(error);
-        }
 
         if cancel_token.is_cancelled() {
             self.clear_active_run(&session_id, &run_id).await;

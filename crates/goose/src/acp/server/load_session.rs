@@ -8,6 +8,7 @@ use super::tool_calls::conversion::{
 use super::tool_calls::enrichment::tool_chain_summary;
 use super::*;
 use agent_client_protocol::schema::v1::ToolCall;
+use goose_providers::thinking::ThinkingEffortSupport;
 
 fn replay_audience_annotations(audience: &[Role]) -> Annotations {
     Annotations::new().audience(
@@ -327,34 +328,46 @@ impl GooseAcpAgent {
             self.requests_tool_call_label_enrichment(),
             replay_tail_from_meta(args.meta.as_ref()),
         )?;
-        let (agent, extension_results) = self.prepare_acp_session_agent(cx, &session).await?;
-        self.apply_session_recipe(&agent, &session).await?;
-        self.register_acp_session(session_id_str.clone(), agent.clone())
-            .await;
-        let provider = agent
-            .provider()
-            .await
-            .internal_err_ctx("Failed to get provider while loading ACP session")?;
-        resume_saved_provider_session(&provider, session.conversation.as_ref()).await;
-        self.resend_pending_tool_permissions(cx, &agent, &session)?;
+        // Defer agent and extension activation when the stored working directory is
+        // missing. Starting stdio MCP servers here would spawn them against the goose
+        // process directory (child_process_client skips current_dir when the path is
+        // absent), launching against the wrong root before the user can repoint. The
+        // agent activates lazily once the directory exists, via
+        // session/update-working-dir or the next prompt.
+        let working_dir_missing = !session.working_dir.exists() || !session.working_dir.is_dir();
 
-        session = self
-            .session_manager
-            .get_session(&session_id_str, false)
-            .await
-            .internal_err_ctx("Failed to reload session")?;
+        let (extension_results, effort_support) = if working_dir_missing {
+            (Vec::new(), ThinkingEffortSupport::Unspecified)
+        } else {
+            let (agent, extension_results) = self.prepare_acp_session_agent(cx, &session).await?;
+            self.apply_session_recipe(&agent, &session).await?;
+            self.register_acp_session(session_id_str.clone(), agent.clone())
+                .await;
+            let provider = agent
+                .provider()
+                .await
+                .internal_err_ctx("Failed to get provider while loading ACP session")?;
+            resume_saved_provider_session(&provider, session.conversation.as_ref()).await;
+            self.resend_pending_tool_permissions(cx, &agent, &session)?;
 
-        agent
-            .extension_manager
-            .update_working_dir(&session.working_dir)
-            .await;
+            session = self
+                .session_manager
+                .get_session(&session_id_str, false)
+                .await
+                .internal_err_ctx("Failed to reload session")?;
 
-        let (mode_state, config_options) = build_session_setup_config(
-            &self.provider_inventory,
-            &session,
-            &agent_thinking_effort_support(&agent).await,
-        )
-        .await?;
+            agent
+                .extension_manager
+                .update_working_dir(&session.working_dir)
+                .await;
+
+            let effort_support = agent_thinking_effort_support(&agent).await;
+            (extension_results, effort_support)
+        };
+
+        let (mode_state, config_options) =
+            build_session_setup_config(&self.provider_inventory, &session, &effort_support)
+                .await?;
 
         let mut response = LoadSessionResponse::new().modes(mode_state);
         if let Some(co) = config_options {
