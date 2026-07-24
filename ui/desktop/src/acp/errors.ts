@@ -28,8 +28,15 @@ export function isRecipeParameterScopesUnsupported(
   return error instanceof RecipeParameterScopesUnsupportedError;
 }
 
+// Kept in sync with WORKING_DIR_MISSING_REASON in crates/goose/src/acp/server.rs.
+const WORKING_DIR_MISSING_REASON = 'working_dir_missing';
+
 export function isRecipeParamsCancelled(error: unknown): boolean {
   return asAcpJsonRpcError(error)?.data?.reason === RECIPE_PARAMS_CANCELLED_REASON;
+}
+
+export function isWorkingDirMissingError(error: unknown): boolean {
+  return asAcpJsonRpcError(error)?.data?.reason === WORKING_DIR_MISSING_REASON;
 }
 
 export function parseAcpCreditsExhaustedError(error: unknown): AcpCreditsExhaustedError | null {

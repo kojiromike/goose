@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { RequestError } from '@agentclientprotocol/sdk';
-import { formatAcpError, parseAcpCreditsExhaustedError } from '../errors';
+import {
+  formatAcpError,
+  isWorkingDirMissingError,
+  parseAcpCreditsExhaustedError,
+} from '../errors';
 
 describe('formatAcpError', () => {
   it('explains how to recover from an authentication error', () => {
@@ -53,5 +57,33 @@ describe('parseAcpCreditsExhaustedError', () => {
         },
       })
     ).toBeNull();
+  });
+});
+
+describe('isWorkingDirMissingError', () => {
+  it('detects the structured working-dir-missing reason', () => {
+    expect(
+      isWorkingDirMissingError({
+        code: -32602,
+        message: 'Working directory no longer exists: /gone.',
+        data: {
+          reason: 'working_dir_missing',
+          workingDir: '/gone',
+        },
+      })
+    ).toBe(true);
+  });
+
+  it('detects the reason on wrapped JSON-RPC errors', () => {
+    expect(
+      isWorkingDirMissingError({
+        error: { code: -32602, message: 'gone', data: { reason: 'working_dir_missing' } },
+      })
+    ).toBe(true);
+  });
+
+  it('ignores unrelated errors', () => {
+    expect(isWorkingDirMissingError({ code: -32602, message: 'bad', data: {} })).toBe(false);
+    expect(isWorkingDirMissingError(new Error('nope'))).toBe(false);
   });
 });

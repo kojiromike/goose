@@ -18,6 +18,7 @@ import {
 import { cancelAcpElicitationRequestsForSession } from './elicitationRequests';
 import {
   formatAcpError,
+  isWorkingDirMissingError,
   parseAcpCreditsExhaustedError,
   type AcpCreditsExhaustedError,
 } from './errors';
@@ -214,8 +215,14 @@ async function submitMessage(
       return;
     }
 
+    if (isWorkingDirMissingError(error)) {
+      acpChatSessionActions.markSessionWorkingDirMissing(sessionId);
+    }
+
     const submitError = formatAcpError(error);
-    if (acpChatSessionActions.finishPromptAttemptIfCurrent(sessionId, promptAttemptId)) {
+    if (
+      acpChatSessionActions.finishPromptAttemptIfCurrent(sessionId, promptAttemptId, submitError)
+    ) {
       void options.onFinish(submitError);
     }
   }
