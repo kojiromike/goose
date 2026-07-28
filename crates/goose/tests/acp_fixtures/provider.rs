@@ -36,6 +36,34 @@ struct RespawnParams {
     disable_session_naming: bool,
 }
 
+fn provider_config(
+    work_dir: std::path::PathBuf,
+    mcp_servers: Vec<McpServer>,
+    sink: NotificationSink,
+) -> AcpProviderConfig {
+    AcpProviderConfig {
+        command: "unused".into(),
+        args: vec![],
+        env: vec![],
+        env_remove: vec![],
+        work_dir,
+        mcp_servers,
+        session_mode_id: None,
+        session_config_options: vec![],
+        model_config_option_id: None,
+        mode_mapping: GooseMode::VARIANTS
+            .iter()
+            .map(|v| {
+                let mode = GooseMode::from_str(v).unwrap();
+                (mode, vec![mode.to_string()])
+            })
+            .collect(),
+        notification_callback: Some(Arc::new(move |n| {
+            sink.lock().unwrap().push(n.update.clone());
+        })),
+    }
+}
+
 #[allow(dead_code)]
 pub struct AcpProviderConnection {
     /// Option so close_session can trigger session/close via Drop.
@@ -194,34 +222,11 @@ impl Connection for AcpProviderConnection {
 
         let notification_sink: NotificationSink = Arc::new(std::sync::Mutex::new(Vec::new()));
         let session_models: SessionModels = Arc::new(std::sync::Mutex::new(HashMap::new()));
-        let sink_clone = notification_sink.clone();
-        let provider_config = AcpProviderConfig {
-            command: "unused".into(),
-            args: vec![],
-            env: vec![],
-            env_remove: vec![],
-            work_dir: cwd_path.clone(),
-            mcp_servers,
-            session_mode_id: None,
-            session_config_options: vec![],
-            model_config_option_id: None,
-            mode_mapping: GooseMode::VARIANTS
-                .iter()
-                .map(|v| {
-                    let mode = GooseMode::from_str(v).unwrap();
-                    (mode, vec![mode.to_string()])
-                })
-                .collect(),
-            notification_callback: Some(Arc::new(move |n| {
-                sink_clone.lock().unwrap().push(n.update.clone());
-            })),
-        };
-
         let transport: DynConnectTo<Client> = DynConnectTo::new(transport.into_byte_streams());
         let provider = AcpProvider::connect_with_transport(
             "acp-test".to_string(),
             goose_mode,
-            provider_config,
+            provider_config(cwd_path.clone(), mcp_servers, notification_sink.clone()),
             transport,
             None,
         )
@@ -295,28 +300,11 @@ impl Connection for AcpProviderConnection {
         )
         .await;
 
-        let sink_clone = self.notification_sink.clone();
-        let provider_config = AcpProviderConfig {
-            command: "unused".into(),
-            args: vec![],
-            env: vec![],
-            env_remove: vec![],
-            work_dir: self.work_dir.clone(),
+        let config = provider_config(
+            self.work_dir.clone(),
             mcp_servers,
-            session_mode_id: None,
-            session_config_options: vec![],
-            model_config_option_id: None,
-            mode_mapping: GooseMode::VARIANTS
-                .iter()
-                .map(|v| {
-                    let mode = GooseMode::from_str(v).unwrap();
-                    (mode, vec![mode.to_string()])
-                })
-                .collect(),
-            notification_callback: Some(Arc::new(move |n| {
-                sink_clone.lock().unwrap().push(n.update.clone());
-            })),
-        };
+            self.notification_sink.clone(),
+        );
 
         self.notification_sink.lock().unwrap().clear();
 
@@ -324,7 +312,7 @@ impl Connection for AcpProviderConnection {
         let provider = AcpProvider::connect_with_transport(
             "acp-test".to_string(),
             self.respawn.goose_mode,
-            provider_config,
+            config,
             transport,
             Some(agent_client_protocol::schema::v1::SessionId::new(
                 session_id.to_string(),
@@ -353,7 +341,31 @@ impl Connection for AcpProviderConnection {
     }
 
     async fn list_sessions(&self) -> anyhow::Result<ListSessionsResponse> {
-        Err(anyhow::anyhow!("not implemented for AcpProviderConnection"))
+        // query_sessions must not establish a session, so it needs its own
+        // connection to an equivalent server over the same data root.
+        let (transport, _handle, _permission_manager) = spawn_acp_server_in_process(
+            &self.respawn.openai_uri,
+            &self.respawn.builtins,
+            self.data_root.as_path(),
+            self.respawn.goose_mode,
+            self.respawn.provider_factory.clone(),
+            &self.respawn.current_model,
+            self.respawn.disable_session_naming,
+        )
+        .await;
+
+        let transport: DynConnectTo<Client> = DynConnectTo::new(transport);
+        let sessions = AcpProvider::query_sessions_with_transport(
+            provider_config(
+                self.work_dir.clone(),
+                vec![],
+                self.notification_sink.clone(),
+            ),
+            None,
+            transport,
+        )
+        .await?;
+        Ok(ListSessionsResponse::new(sessions))
     }
 
     async fn close_session(&self, _session_id: &str) -> anyhow::Result<()> {
