@@ -3,9 +3,10 @@
 #[path = "acp_common_tests/mod.rs"]
 mod common_tests;
 use agent_client_protocol::schema::v1::{
-    ContentBlock, ListSessionsRequest, ListSessionsResponse, NewSessionRequest, PromptRequest,
-    SessionConfigKind, SessionConfigOptionCategory, SessionConfigOptionValue, SessionInfo,
-    SetSessionConfigOptionRequest, StopReason, TextContent,
+    ContentBlock, ListSessionsRequest, ListSessionsResponse, NewSessionRequest,
+    NewSessionResponse, PromptRequest, SessionConfigKind, SessionConfigOptionCategory,
+    SessionConfigOptionValue, SessionInfo, SetSessionConfigOptionRequest, StopReason,
+    TextContent,
 };
 use agent_client_protocol::ErrorCode;
 use common_tests::fixtures::server::{
@@ -36,7 +37,7 @@ use goose::custom_requests::{
 };
 use goose::recipe::{Recipe, Settings};
 use goose::recipe_deeplink;
-use goose::session::{SessionManager, SessionType};
+use goose::session::{AcpResumeState, SessionManager, SessionType};
 use std::path::Path;
 
 tests_config_option_set_error!(AcpServerConnection);
@@ -276,6 +277,50 @@ fn test_list_sessions_emits_computed_snippet() {
             last_message_snippet(&response.sessions[0]),
             Some("**raw** _markdown_ subtitle")
         );
+    });
+}
+
+/// The resume id has to survive on the session itself: the provider is built
+/// long after `session/new` returns, and rebuilt on every model or mode change.
+#[test]
+fn test_new_session_persists_resume_id() {
+    run_test(async {
+        let data_root = tempfile::tempdir().unwrap();
+        let cwd = tempfile::tempdir().unwrap();
+        let conn = new_connection(data_root.path()).await;
+        let session_manager = SessionManager::new(data_root.path().to_path_buf());
+
+        let mut meta = serde_json::Map::new();
+        meta.insert(
+            "resumeAcpSessionId".to_string(),
+            serde_json::Value::String("claude-session-abc".to_string()),
+        );
+        let resumed: NewSessionResponse = conn
+            .cx()
+            .send_request(NewSessionRequest::new(cwd.path()).meta(meta))
+            .block_task()
+            .await
+            .unwrap();
+        let resumed = session_manager
+            .get_session(&resumed.session_id.0, false)
+            .await
+            .unwrap();
+        assert_eq!(
+            AcpResumeState::session_id_from(&resumed.extension_data).as_deref(),
+            Some("claude-session-abc")
+        );
+
+        let fresh: NewSessionResponse = conn
+            .cx()
+            .send_request(NewSessionRequest::new(cwd.path()))
+            .block_task()
+            .await
+            .unwrap();
+        let fresh = session_manager
+            .get_session(&fresh.session_id.0, false)
+            .await
+            .unwrap();
+        assert_eq!(AcpResumeState::session_id_from(&fresh.extension_data), None);
     });
 }
 

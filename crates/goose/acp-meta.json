@@ -276,6 +276,11 @@
       "responseType": "ImportSessionResponse_unstable"
     },
     {
+      "method": "_goose/unstable/providers/sessions/list",
+      "requestType": "ProviderSessionsListRequest_unstable",
+      "responseType": "ProviderSessionsListResponse_unstable"
+    },
+    {
       "method": "_goose/unstable/session/share/nostr",
       "requestType": "ShareSessionNostrRequest_unstable",
       "responseType": "ShareSessionNostrResponse_unstable"

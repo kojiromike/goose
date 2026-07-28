@@ -144,6 +144,8 @@ import type {
   ProviderSecretDeleteRequest_unstable,
   ProviderSecretsListRequest_unstable,
   ProviderSecretsListResponse_unstable,
+  ProviderSessionsListRequest_unstable,
+  ProviderSessionsListResponse_unstable,
   ProviderSetupCatalogListRequest_unstable,
   ProviderSetupCatalogListResponse_unstable,
   ProviderSupportedModelsListRequest_unstable,
@@ -247,6 +249,7 @@ import {
   zProviderConfigStatusResponse_unstable,
   zProviderReadinessCheckResponse_unstable,
   zProviderSecretsListResponse_unstable,
+  zProviderSessionsListResponse_unstable,
   zProviderSetupCatalogListResponse_unstable,
   zProviderSupportedModelsListResponse_unstable,
   zReadResourceResponse_unstable,
@@ -842,6 +845,18 @@ export class GooseExtClient {
     return zImportSessionResponse_unstable.parse(
       raw,
     ) as ImportSessionResponse_unstable;
+  }
+
+  async providersSessionsList_unstable(
+    params: ProviderSessionsListRequest_unstable,
+  ): Promise<ProviderSessionsListResponse_unstable> {
+    const raw = await this.conn.request(
+      "_goose/unstable/providers/sessions/list",
+      params,
+    );
+    return zProviderSessionsListResponse_unstable.parse(
+      raw,
+    ) as ProviderSessionsListResponse_unstable;
   }
 
   async sessionShareNostr_unstable(

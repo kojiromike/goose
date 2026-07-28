@@ -3,7 +3,7 @@ use crate::acp::server::{meta_string, validate_absolute_cwd, ResultExt};
 use crate::agents::ExtensionLoadResult;
 use crate::config::{Config, GooseMode};
 use crate::recipe::{Recipe, Settings};
-use crate::session::{ExtensionData, Session, SessionType};
+use crate::session::{AcpResumeState, ExtensionData, ExtensionState, Session, SessionType};
 
 use super::GooseAcpAgent;
 use agent_client_protocol::schema::v1::{Meta, NewSessionRequest, NewSessionResponse, SessionId};
@@ -150,13 +150,23 @@ impl GooseAcpAgent {
 
         let goose_extensions = meta_goose_extensions(args.meta.as_ref())?;
         let recipe_extensions = rendered.as_ref().and_then(|r| r.extensions.as_deref());
-        let extension_data = self.build_enabled_extensions_data(
+        let mut extension_data = self.build_enabled_extensions_data(
             config,
             session,
             args.mcp_servers,
             goose_extensions,
             recipe_extensions,
         )?;
+
+        // Persisted rather than passed down: the provider is built later, from
+        // the reloaded session, and again on every model or mode change. Losing
+        // it would silently start a fresh agent session and drop the context
+        // the user asked to resume.
+        if let Some(resume_session_id) = meta_string(args.meta.as_ref(), "resumeAcpSessionId")? {
+            AcpResumeState::new(resume_session_id)
+                .to_extension_data(&mut extension_data)
+                .internal_err_ctx("Failed to record resume session")?;
+        }
 
         self.apply_initial_session_config(
             &session.id,

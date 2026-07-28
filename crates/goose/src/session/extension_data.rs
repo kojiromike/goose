@@ -98,6 +98,30 @@ impl TodoState {
     }
 }
 
+/// Agent-side session this goose session resumes, for ACP providers that back
+/// goose with an external agent holding its own conversation state.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AcpResumeState {
+    pub session_id: String,
+}
+
+impl ExtensionState for AcpResumeState {
+    const EXTENSION_NAME: &'static str = "acp_resume";
+    const VERSION: &'static str = "v0";
+}
+
+impl AcpResumeState {
+    pub fn new(session_id: String) -> Self {
+        Self { session_id }
+    }
+
+    /// The agent-side session id to resume, if this session was created from a
+    /// resume request.
+    pub fn session_id_from(extension_data: &ExtensionData) -> Option<String> {
+        <Self as ExtensionState>::from_extension_data(extension_data).map(|state| state.session_id)
+    }
+}
+
 /// Enabled extensions state implementation for storing which extensions are active
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnabledExtensionsState {

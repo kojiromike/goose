@@ -3532,6 +3532,72 @@
       "x-side": "agent",
       "x-method": "_goose/unstable/session/import"
     },
+    "ProviderSessionsListRequest_unstable": {
+      "type": "object",
+      "properties": {
+        "providerId": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Working directory to scope the listing to; omit to list every session\nthe agent holds. Agents are not required to honour it, so goose filters\nthe results itself.",
+          "default": null
+        }
+      },
+      "required": [
+        "providerId"
+      ],
+      "description": "List the sessions an external agent provider already holds, so the user can\nresume one instead of starting fresh. Only ACP-backed providers whose agent\nadvertises `sessionCapabilities.list` can answer this.",
+      "x-side": "agent",
+      "x-method": "_goose/unstable/providers/sessions/list"
+    },
+    "ProviderSessionsListResponse_unstable": {
+      "type": "object",
+      "properties": {
+        "sessions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProviderSessionEntry"
+          }
+        }
+      },
+      "required": [
+        "sessions"
+      ],
+      "x-side": "agent",
+      "x-method": "_goose/unstable/providers/sessions/list"
+    },
+    "ProviderSessionEntry": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "updatedAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "sessionId",
+        "cwd"
+      ],
+      "description": "One resumable session as reported by the external agent."
+    },
     "ShareSessionNostrRequest_unstable": {
       "type": "object",
       "properties": {
@@ -7432,6 +7498,15 @@
                 {
                   "allOf": [
                     {
+                      "$ref": "#/$defs/ProviderSessionsListRequest_unstable"
+                    }
+                  ],
+                  "description": "Params for _goose/unstable/providers/sessions/list",
+                  "title": "ProviderSessionsListRequest_unstable"
+                },
+                {
+                  "allOf": [
+                    {
                       "$ref": "#/$defs/ShareSessionNostrRequest_unstable"
                     }
                   ],
@@ -8255,6 +8330,14 @@
                         }
                       ],
                       "title": "ImportSessionResponse_unstable"
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/ProviderSessionsListResponse_unstable"
+                        }
+                      ],
+                      "title": "ProviderSessionsListResponse_unstable"
                     },
                     {
                       "allOf": [

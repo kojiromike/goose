@@ -1683,6 +1683,40 @@ pub struct ProviderSupportedModelsListResponse {
     pub models: Vec<String>,
 }
 
+/// List the sessions an external agent provider already holds, so the user can
+/// resume one instead of starting fresh. Only ACP-backed providers whose agent
+/// advertises `sessionCapabilities.list` can answer this.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcRequest)]
+#[request(
+    method = "_goose/unstable/providers/sessions/list",
+    response = ProviderSessionsListResponse
+)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderSessionsListRequest {
+    pub provider_id: String,
+    /// Working directory to scope the listing to; omit to list every session
+    /// the agent holds. Agents are not required to honour it, so goose filters
+    /// the results itself.
+    #[serde(default)]
+    pub cwd: Option<String>,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcResponse)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderSessionsListResponse {
+    pub sessions: Vec<ProviderSessionEntry>,
+}
+
+/// One resumable session as reported by the external agent.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderSessionEntry {
+    pub session_id: String,
+    pub cwd: String,
+    pub title: Option<String>,
+    pub updated_at: Option<String>,
+}
+
 /// Trigger a background refresh of provider inventories.
 #[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcRequest)]
 #[request(

@@ -468,6 +468,14 @@ impl GooseAcpAgent {
         self.on_import_session(req).await
     }
 
+    #[custom_method(ProviderSessionsListRequest)]
+    async fn dispatch_list_provider_sessions(
+        &self,
+        req: ProviderSessionsListRequest,
+    ) -> Result<ProviderSessionsListResponse, agent_client_protocol::Error> {
+        self.on_list_provider_sessions(req).await
+    }
+
     #[custom_method(ShareSessionNostrRequest)]
     async fn dispatch_share_session_nostr(
         &self,

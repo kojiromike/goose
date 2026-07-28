@@ -46,6 +46,63 @@ impl goose_providers::base::ProviderDescriptor for ClaudeAcpProvider {
     }
 }
 
+fn mode_mapping() -> HashMap<GooseMode, Vec<String>> {
+    HashMap::from([
+        // Closest to "autonomous": bypassPermissions skips confirmations.
+        (GooseMode::Auto, vec!["bypassPermissions".to_string()]),
+        // Claude Code's default matches "ask before risky actions".
+        (GooseMode::Approve, vec!["default".to_string()]),
+        // acceptEdits auto-accepts file edits but still prompts for risky ops.
+        (GooseMode::SmartApprove, vec!["acceptEdits".to_string()]),
+        // Plan mode disables tool execution, aligning with chat-only intent.
+        (GooseMode::Chat, vec!["plan".to_string()]),
+    ])
+}
+
+fn provider_config(
+    extensions: &[crate::config::ExtensionConfig],
+    working_dir: PathBuf,
+    goose_mode: GooseMode,
+) -> Result<AcpProviderConfig> {
+    // with_npm() includes npm global bin dir (desktop app PATH may not)
+    let resolved_command = SearchPaths::builder()
+        .with_npm()
+        .resolve(CLAUDE_ACP_BINARY)?;
+    let mode_mapping = mode_mapping();
+
+    Ok(AcpProviderConfig {
+        command: resolved_command,
+        args: vec![],
+        env: vec![],
+        // Prevent nested-session detection in claude-agent-acp (wraps Claude Code)
+        env_remove: vec!["CLAUDECODE".to_string()],
+        work_dir: working_dir,
+        mcp_servers: extension_configs_to_mcp_servers(extensions),
+        session_mode_id: mode_mapping[&goose_mode].first().cloned(),
+        session_config_options: vec![],
+        // claude-agent-acp advertises the model as a "model" select config
+        // option and applies session/set_config_option for it via
+        // query.setModel, so forward the picker's selection.
+        model_config_option_id: Some("model".to_string()),
+        mode_mapping,
+        notification_callback: None,
+    })
+}
+
+impl ClaudeAcpProvider {
+    /// Sessions the Claude adapter already has on disk, for a resume picker.
+    /// Runs without establishing a session, so it leaves no trace in the
+    /// user's Claude history.
+    pub async fn list_sessions(
+        working_dir: PathBuf,
+        cwd: Option<PathBuf>,
+    ) -> Result<Vec<agent_client_protocol::schema::v1::SessionInfo>> {
+        let goose_mode = Config::global().get_goose_mode().unwrap_or(GooseMode::Auto);
+        let config = provider_config(&[], working_dir, goose_mode)?;
+        AcpProvider::query_sessions(config, cwd).await
+    }
+}
+
 impl ProviderDef for ClaudeAcpProvider {
     type Provider = AcpProvider;
 
@@ -62,44 +119,22 @@ impl ProviderDef for ClaudeAcpProvider {
         _tls_config: Option<crate::providers::api_client::TlsConfig>,
     ) -> BoxFuture<'static, Result<AcpProvider>> {
         Box::pin(async move {
-            let config = Config::global();
-            // with_npm() includes npm global bin dir (desktop app PATH may not)
-            let resolved_command = SearchPaths::builder()
-                .with_npm()
-                .resolve(CLAUDE_ACP_BINARY)?;
-            let goose_mode = config.get_goose_mode().unwrap_or(GooseMode::Auto);
-
-            let mode_mapping = HashMap::from([
-                // Closest to "autonomous": bypassPermissions skips confirmations.
-                (GooseMode::Auto, vec!["bypassPermissions".to_string()]),
-                // Claude Code's default matches "ask before risky actions".
-                (GooseMode::Approve, vec!["default".to_string()]),
-                // acceptEdits auto-accepts file edits but still prompts for risky ops.
-                (GooseMode::SmartApprove, vec!["acceptEdits".to_string()]),
-                // Plan mode disables tool execution, aligning with chat-only intent.
-                (GooseMode::Chat, vec!["plan".to_string()]),
-            ]);
-
-            let provider_config = AcpProviderConfig {
-                command: resolved_command,
-                args: vec![],
-                env: vec![],
-                // Prevent nested-session detection in claude-agent-acp (wraps Claude Code)
-                env_remove: vec!["CLAUDECODE".to_string()],
-                work_dir: working_dir,
-                mcp_servers: extension_configs_to_mcp_servers(&extensions),
-                session_mode_id: mode_mapping[&goose_mode].first().cloned(),
-                session_config_options: vec![],
-                // claude-agent-acp advertises the model as a "model" select
-                // config option and applies session/set_config_option for it
-                // via query.setModel, so forward the picker's selection.
-                model_config_option_id: Some("model".to_string()),
-                mode_mapping,
-                notification_callback: None,
-            };
-
+            let goose_mode = Config::global().get_goose_mode().unwrap_or(GooseMode::Auto);
+            let provider_config = provider_config(&extensions, working_dir, goose_mode)?;
             let metadata = Self::metadata();
-            AcpProvider::connect(metadata.name, goose_mode, provider_config).await
+
+            match crate::acp::resume_context::current_resume_session_id() {
+                Some(session_id) => {
+                    AcpProvider::connect_resuming(
+                        metadata.name,
+                        goose_mode,
+                        provider_config,
+                        session_id,
+                    )
+                    .await
+                }
+                None => AcpProvider::connect(metadata.name, goose_mode, provider_config).await,
+            }
         })
     }
 }
