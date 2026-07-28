@@ -38,7 +38,8 @@ use completion::GooseCompleter;
 use goose::agents::extension::{Envs, ExtensionConfig, PLATFORM_EXTENSIONS};
 use goose::agents::types::RetryConfig;
 use goose::agents::{
-    context_management_unsupported_message, Agent, SessionConfig, COMPACT_TRIGGERS,
+    compaction_unsupported_message, stale_provider_context_message, Agent, SessionConfig,
+    COMPACT_TRIGGERS,
 };
 use goose::config::extensions::name_to_key;
 use goose::config::{Config, GooseMode};
@@ -1163,13 +1164,7 @@ impl CliSession {
 
     async fn handle_clear(&mut self) -> Result<()> {
         let provider = self.agent.provider().await?;
-        if provider.manages_own_context() {
-            output::render_error(&context_management_unsupported_message(
-                "clear",
-                provider.get_name(),
-            ));
-            return Ok(());
-        }
+        let provider_reset = provider.reset_context().await;
 
         if let Err(e) = self
             .agent
@@ -1179,6 +1174,16 @@ impl CliSession {
             .await
         {
             output::render_error(&format!("Failed to clear session: {}", e));
+            return Ok(());
+        }
+
+        if let Err(e) = provider_reset {
+            self.messages.clear();
+            tracing::warn!(provider = provider.get_name(), error = %e, "provider-side context reset failed");
+            output::render_error(&stale_provider_context_message(
+                provider.get_name(),
+                &e.to_string(),
+            ));
             return Ok(());
         }
 
@@ -1394,10 +1399,7 @@ impl CliSession {
     async fn handle_compact(&mut self) -> Result<()> {
         let provider = self.agent.provider().await?;
         if provider.manages_own_context() {
-            output::render_error(&context_management_unsupported_message(
-                "compact",
-                provider.get_name(),
-            ));
+            output::render_error(&compaction_unsupported_message(provider.get_name()));
             return Ok(());
         }
 
