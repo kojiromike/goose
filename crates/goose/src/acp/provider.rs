@@ -1662,9 +1662,6 @@ async fn handle_requests(
                     Ok(session) => {
                         *session_state.active_id.lock().unwrap() = Some(session.session_id.clone());
                         session_ids.push(session.session_id.clone());
-                        if let Ok(mut guard) = active_session.lock() {
-                            *guard = Some(session.session_id.clone());
-                        }
                         if let Some(config_options) = session.config_options.as_deref() {
                             publish_effort_state(&session_state.effort, config_options);
                         }
@@ -1679,6 +1676,13 @@ async fn handle_requests(
                     }
                     Err(error) => Err(acp_method_error(AGENT_METHOD_NAMES.session_new, error)),
                 };
+                // A session that failed setup is never returned to the caller, so it
+                // never becomes the session goose prompts against.
+                if let Ok(session) = result.as_ref() {
+                    if let Ok(mut guard) = active_session.lock() {
+                        *guard = Some(session.session_id.clone());
+                    }
+                }
                 log_undelivered(response_tx.send(result), AGENT_METHOD_NAMES.session_new);
             }
             ClientRequest::LoadSession {
