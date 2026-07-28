@@ -1665,14 +1665,19 @@ async fn handle_requests(
                         if let Some(config_options) = session.config_options.as_deref() {
                             publish_effort_state(&session_state.effort, config_options);
                         }
-                        apply_session_config_options(
+                        // A `?` here would tear down the whole client loop instead of
+                        // reporting the failure to the caller through response_tx.
+                        match apply_session_config_options(
                             &config,
                             &cx,
                             session.session_id.clone(),
                             &session_state.effort,
                         )
-                        .await?;
-                        apply_session_mode(&config, &goose_mode, &cx, session).await
+                        .await
+                        {
+                            Ok(()) => apply_session_mode(&config, &goose_mode, &cx, session).await,
+                            Err(err) => Err(err),
+                        }
                     }
                     Err(error) => Err(acp_method_error(AGENT_METHOD_NAMES.session_new, error)),
                 };
