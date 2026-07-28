@@ -16,6 +16,8 @@ import { ChatState } from '../types/chatState';
 import 'react-toastify/dist/ReactToastify.css';
 import { View, ViewOptions } from '../utils/navigationUtils';
 import { useConfig } from './ConfigContext';
+import { useModelAndProvider } from './ModelAndProviderContext';
+import { ResumeProviderSessionModal } from './sessions/ResumeProviderSessionModal';
 import { getEffectiveWorkingDir, getInitialWorkingDir } from '../utils/workingDir';
 import { createSession } from '../sessions';
 import LoadingGoose from './LoadingGoose';
@@ -32,7 +34,14 @@ const i18n = defineMessages({
   goodMorning: { id: 'hub.goodMorning', defaultMessage: 'Good morning' },
   goodAfternoon: { id: 'hub.goodAfternoon', defaultMessage: 'Good afternoon' },
   goodEvening: { id: 'hub.goodEvening', defaultMessage: 'Good evening' },
+  resumeProviderSession: {
+    id: 'hub.resumeProviderSession',
+    defaultMessage: 'Resume a Claude Code session',
+  },
 });
+
+/** The only provider whose agent can hand goose an existing session so far. */
+const RESUMABLE_PROVIDER_ID = 'claude-acp';
 
 function useClock(): { time: string; meridiem: string; hour: number } {
   const [now, setNow] = useState(() => new Date());
@@ -56,9 +65,11 @@ export default function Hub({
 }) {
   const intl = useIntl();
   const { extensionsList } = useConfig();
+  const { currentProvider } = useModelAndProvider();
   const [workingDir, setWorkingDir] = useState(getInitialWorkingDir());
   const userSelectedWorkingDirRef = useRef(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
+  const [showResumeModal, setShowResumeModal] = useState(false);
   const [nextChatExtensionDraft, setNextChatExtensionDraft] =
     useState<NextChatExtensionDraft | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -104,6 +115,41 @@ export default function Hub({
     setWorkingDir(dir);
   }, []);
 
+  const extensionOptions = useCallback(() => {
+    const selectedExtensions = nextChatExtensionDraft
+      ? selectNextChatExtensions(extensionsList, nextChatExtensionDraft)
+      : [];
+    return selectedExtensions.length > 0
+      ? { extensionConfigs: selectedExtensions }
+      : { allExtensions: extensionsList };
+  }, [extensionsList, nextChatExtensionDraft]);
+
+  // Resuming carries the agent's own context, so the session opens without a
+  // first message — the user picks up the conversation where they left it.
+  const handleResumeProviderSession = async (resumeAcpSessionId: string) => {
+    if (isCreatingSession) return;
+    setIsCreatingSession(true);
+
+    try {
+      const session = await createSession(workingDir, {
+        ...extensionOptions(),
+        resumeAcpSessionId,
+      });
+      setNextChatExtensionDraft(null);
+      setShowResumeModal(false);
+
+      window.dispatchEvent(new CustomEvent(AppEvents.SESSION_CREATED));
+      window.dispatchEvent(
+        new CustomEvent(AppEvents.ADD_ACTIVE_SESSION, { detail: { sessionId: session.id } })
+      );
+
+      setView('pair', { disableAnimation: true, resumeSessionId: session.id });
+    } catch (error) {
+      console.error('Failed to resume provider session:', error);
+      setIsCreatingSession(false);
+    }
+  };
+
   const handleSubmit = async (input: UserInput) => {
     const { msg: userMessage, images } = input;
     if (!(images.length > 0 || userMessage.trim()) || isCreatingSession) return;
@@ -111,18 +157,10 @@ export default function Hub({
     setIsCreatingSession(true);
 
     try {
-      const selectedExtensions = nextChatExtensionDraft
-        ? selectNextChatExtensions(extensionsList, nextChatExtensionDraft)
-        : [];
-      const sessionOptions =
-        selectedExtensions.length > 0
-          ? { extensionConfigs: selectedExtensions }
-          : { allExtensions: extensionsList };
-
       // Resolve the effective directory at submit time: the IPC lookup may still
       // be pending when the user submits, and an explicit pick must win.
       const dir = userSelectedWorkingDirRef.current ? workingDir : await getEffectiveWorkingDir();
-      const session = await createSession(dir, sessionOptions);
+      const session = await createSession(dir, extensionOptions());
       setNextChatExtensionDraft(null);
 
       window.dispatchEvent(new CustomEvent(AppEvents.SESSION_CREATED));
@@ -177,7 +215,27 @@ export default function Hub({
             onNextChatExtensionDraftChange={handleNextChatExtensionDraftChange}
           />
         </ChatInputCard>
+
+        {currentProvider === RESUMABLE_PROVIDER_ID && (
+          <button
+            type="button"
+            onClick={() => setShowResumeModal(true)}
+            disabled={isCreatingSession}
+            className="mt-3 text-sm text-text-secondary hover:text-text-primary disabled:opacity-50"
+          >
+            {intl.formatMessage(i18n.resumeProviderSession)}
+          </button>
+        )}
       </div>
+
+      <ResumeProviderSessionModal
+        isOpen={showResumeModal}
+        onClose={() => setShowResumeModal(false)}
+        providerId={RESUMABLE_PROVIDER_ID}
+        workingDir={workingDir}
+        onSelect={handleResumeProviderSession}
+        isResuming={isCreatingSession}
+      />
 
       {isCreatingSession && (
         <div className="absolute bottom-4 left-4 z-20 pointer-events-none">

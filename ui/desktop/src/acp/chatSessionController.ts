@@ -49,7 +49,8 @@ export interface AcpChatSessionController {
   createSession(
     cwd: string,
     gooseExtensions: GooseExtension[],
-    recipe?: AcpRecipeOptions
+    recipe?: AcpRecipeOptions,
+    resumeAcpSessionId?: string
   ): Promise<Session>;
   loadSession(sessionId: string, options?: AcpLoadSessionOptions): Promise<void>;
   restoreSession(sessionId: string): Promise<void>;
@@ -115,9 +116,15 @@ async function forkSessionWithEditedMessage(
 async function createSession(
   cwd: string,
   gooseExtensions: GooseExtension[],
-  recipe?: AcpRecipeOptions
+  recipe?: AcpRecipeOptions,
+  resumeAcpSessionId?: string
 ): Promise<Session> {
-  const { sessionId, sessionInfo, meta } = await acpNewSession(cwd, gooseExtensions, recipe);
+  const { sessionId, sessionInfo, meta } = await acpNewSession(
+    cwd,
+    gooseExtensions,
+    recipe,
+    resumeAcpSessionId
+  );
   const session = sessionInfoToSession(sessionInfo, meta);
 
   showExtensionLoadResults(meta.extensionResults);
