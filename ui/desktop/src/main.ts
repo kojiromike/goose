@@ -1984,6 +1984,7 @@ const validSettingKeys: Set<string> = new Set([
   'language',
   'responseStyle',
   'showPricing',
+  'enterInsertsNewline',
   'seenAnnouncementIds',
   'disableAutoDownload',
   'recentModels',

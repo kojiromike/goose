@@ -53,6 +53,7 @@ export interface Settings {
   language: LanguageSetting;
   responseStyle: string;
   showPricing: boolean;
+  enterInsertsNewline: boolean;
   seenAnnouncementIds: string[];
   recentModels: RecentModel[];
 }
@@ -94,6 +95,7 @@ export const defaultSettings: Settings = {
   language: 'system',
   responseStyle: 'concise',
   showPricing: true,
+  enterInsertsNewline: false,
   seenAnnouncementIds: [],
   recentModels: [],
 };
