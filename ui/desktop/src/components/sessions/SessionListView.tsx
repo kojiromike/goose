@@ -61,7 +61,8 @@ import {
   type SessionListItem,
 } from '../../acp/sessions';
 import type { SessionExportFormat } from '@aaif/goose-sdk';
-import { acpChatSessionActions } from '../../acp/chatSessionStore';
+import { acpChatSessionActions, useAcpChatSessionSnapshot } from '../../acp/chatSessionStore';
+import { ChatState } from '../../types/chatState';
 import { cancelAcpPermissionRequestsForSession } from '../../acp/permissionRequests';
 import { cancelAcpElicitationRequestsForSession } from '../../acp/elicitationRequests';
 import { getSearchShortcutText } from '../../utils/keyboardShortcuts';
@@ -871,6 +872,15 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
       onToggleArchive: (session: SessionListItem) => void;
     isSharing: boolean;
   }) {
+      // Archiving removes the loaded agent without cancelling an active prompt
+      // run, so gate the action while the session is streaming (like the
+      // sidebar does).
+      const chatState = useAcpChatSessionSnapshot(session.id)?.chatState;
+      const isStreaming =
+        chatState === ChatState.Streaming ||
+        chatState === ChatState.Thinking ||
+        chatState === ChatState.Compacting;
+
     const handleEditClick = useCallback(
       (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -992,7 +1002,8 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
           </button>
           <button
             onClick={handleArchiveClick}
-            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+              disabled={isStreaming}
+              className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
             title={intl.formatMessage(
               session.archivedAt ? i18n.unarchiveSession : i18n.archiveSession
             )}
