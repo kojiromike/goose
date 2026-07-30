@@ -105,6 +105,10 @@ enum ClientRequest {
         /// loop suppresses the prompt if a cancel has since been recorded for
         /// this epoch, even when it is handled after a newer reply started.
         cancel_epoch: u64,
+        /// Whether this prompt claimed the one-shot handoff context. If the
+        /// client loop suppresses the prompt, it rolls the claim back so the
+        /// next prompt still carries the context the backend never received.
+        claimed_handoff: bool,
         response_tx: mpsc::Sender<AcpUpdate>,
     },
 }
@@ -288,6 +292,8 @@ pub struct AcpProvider {
     pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
     /// True after the first ACP prompt completes with the handoff context committed.
     /// Failed or abandoned first prompts reset this so the next prompt can retry it.
+    /// Shared with the client loop so a suppressed (cancelled-before-send) first
+    /// prompt can roll back the claim it made.
     handoff_context_sent: Arc<AtomicBool>,
     /// Latest `size` reported by the ACP server in a `session/update` →
     /// `usage_update` notification. 0 means no real update has arrived yet.
@@ -318,6 +324,12 @@ pub struct AcpProvider {
     /// by epoch keeps a stale queued prompt cancelled even when it is handled
     /// after a newer reply has already begun.
     cancelled_epoch: Arc<AtomicU64>,
+    /// Epoch of the prompt currently in flight on the backend (0 = none).
+    /// The client loop sets it around `session/prompt`; `cancel()` only sends
+    /// the wire notification when the in-flight prompt belongs to the scope
+    /// being cancelled, so a stale forwarder from a finished reply can never
+    /// cancel a newer reply's active run.
+    active_prompt_epoch: Arc<AtomicU64>,
 
     tx: Option<mpsc::Sender<ClientRequest>>,
     cancel_tx: Option<oneshot::Sender<()>>,
@@ -424,6 +436,8 @@ impl AcpProvider {
         let effort = AcpEffortState::new();
         let agent_cx: Arc<OnceLock<ConnectionTo<Agent>>> = Arc::new(OnceLock::new());
         let cancelled_epoch = Arc::new(AtomicU64::new(0));
+        let active_prompt_epoch = Arc::new(AtomicU64::new(0));
+        let handoff_context_sent = Arc::new(AtomicBool::new(false));
         let client_loop = AcpClientLoop::new(
             config,
             goose_mode_shared.clone(),
@@ -432,6 +446,8 @@ impl AcpProvider {
             effort.clone(),
             agent_cx.clone(),
             cancelled_epoch.clone(),
+            active_prompt_epoch.clone(),
+            handoff_context_sent.clone(),
         );
         let (cancel_tx, cancel_rx) = oneshot::channel();
         let loop_thread = spawn_client_loop(run(client_loop, rx, init_tx, cancel_rx));
@@ -472,7 +488,7 @@ impl AcpProvider {
             session: Mutex::new(session),
             pending_confirmations: Arc::new(TokioMutex::new(HashMap::new())),
             pending_tool_updates,
-            handoff_context_sent: Arc::new(AtomicBool::new(false)),
+            handoff_context_sent,
             context_size,
             model_config_option_id,
             applied_model: Arc::new(Mutex::new(applied_model)),
@@ -482,6 +498,10 @@ impl AcpProvider {
             loop_thread: client_loop_guard.thread.take(),
             cancel_epoch: Arc::new(AtomicU64::new(1)),
             cancelled_epoch,
+            tx: client_loop_guard.tx.take(),
+            cancel_tx: client_loop_guard.cancel_tx.take(),
+            loop_thread: client_loop_guard.thread.take(),
+            active_prompt_epoch,
             agent_cx,
         })
     }
@@ -638,6 +658,7 @@ impl AcpProvider {
         &self,
         session_id: SessionId,
         content: Vec<ContentBlock>,
+        claimed_handoff: bool,
     ) -> Result<mpsc::Receiver<AcpUpdate>> {
         let (response_tx, response_rx) = mpsc::channel(64);
         self.tx
@@ -647,6 +668,7 @@ impl AcpProvider {
                 session_id,
                 content,
                 cancel_epoch: self.cancel_epoch.load(Ordering::SeqCst),
+                claimed_handoff,
                 response_tx,
             })
             .await
@@ -846,6 +868,16 @@ impl Provider for AcpProvider {
         // reply's prompts. fetch_max keeps a late stale cancel from lowering
         // the latch.
         self.cancelled_epoch.fetch_max(scope, Ordering::SeqCst);
+        // Only notify the backend when the prompt currently in flight belongs
+        // to the scope being cancelled. A stale forwarder from a finished
+        // reply must not cancel a newer reply's active run, and with nothing
+        // in flight the notification targets no active run anyway — the latch
+        // above keeps that scope's prompt suppressed (or re-cancelled) by the
+        // client loop.
+        let active = self.active_prompt_epoch.load(Ordering::SeqCst);
+        if active == 0 || active > scope {
+            return;
+        }
         let Some(cx) = self.agent_cx.get() else {
             return;
         };
@@ -930,7 +962,10 @@ impl Provider for AcpProvider {
         if let Ok(mut buffer) = self.pending_tool_updates.lock() {
             buffer.clear();
         }
-        let mut rx = match self.prompt(session_id.clone(), prompt_blocks).await {
+        let mut rx = match self
+            .prompt(session_id, prompt_blocks, claim.first_prompt)
+            .await
+        {
             Ok(rx) => rx,
             Err(e) => match bare_retry_blocks.take() {
                 Some(blocks) => {
@@ -1185,9 +1220,12 @@ struct AcpClientLoop {
     effort: AcpEffortState,
     agent_cx: Arc<OnceLock<ConnectionTo<Agent>>>,
     cancelled_epoch: Arc<AtomicU64>,
+    active_prompt_epoch: Arc<AtomicU64>,
+    handoff_context_sent: Arc<AtomicBool>,
 }
 
 impl AcpClientLoop {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         config: AcpProviderConfig,
         goose_mode: Arc<Mutex<GooseMode>>,
@@ -1196,6 +1234,8 @@ impl AcpClientLoop {
         effort: AcpEffortState,
         agent_cx: Arc<OnceLock<ConnectionTo<Agent>>>,
         cancelled_epoch: Arc<AtomicU64>,
+        active_prompt_epoch: Arc<AtomicU64>,
+        handoff_context_sent: Arc<AtomicBool>,
     ) -> Self {
         Self {
             config,
@@ -1206,6 +1246,8 @@ impl AcpClientLoop {
             effort,
             agent_cx,
             cancelled_epoch,
+            active_prompt_epoch,
+            handoff_context_sent,
         }
     }
 
@@ -1263,6 +1305,8 @@ impl AcpClientLoop {
             effort,
             agent_cx,
             cancelled_epoch,
+            active_prompt_epoch,
+            handoff_context_sent,
         } = self;
         let notification_callback = config.notification_callback.clone();
         let reverse_modes = reverse_mode_mapping(&config.mode_mapping);
@@ -1491,6 +1535,8 @@ impl AcpClientLoop {
                     prompt_response_tx,
                     session_state,
                     cancelled_epoch,
+                    active_prompt_epoch,
+                    handoff_context_sent,
                     init_tx,
                 )
                 .await
@@ -1590,6 +1636,7 @@ fn acp_method_error(method: &str, error: agent_client_protocol::Error) -> anyhow
     anyhow::Error::new(error).context(message)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn handle_requests(
     config: AcpProviderConfig,
     goose_mode: Arc<Mutex<GooseMode>>,
@@ -1598,6 +1645,8 @@ async fn handle_requests(
     prompt_response_tx: Arc<Mutex<Option<mpsc::Sender<AcpUpdate>>>>,
     session_state: AcpSessionState,
     cancelled_epoch: Arc<AtomicU64>,
+    active_prompt_epoch: Arc<AtomicU64>,
+    handoff_context_sent: Arc<AtomicBool>,
     init_tx: oneshot::Sender<Result<InitializeResponse>>,
 ) -> Result<(), agent_client_protocol::Error> {
     let mut init_tx = Some(init_tx);
@@ -1767,11 +1816,17 @@ async fn handle_requests(
                 session_id,
                 content,
                 cancel_epoch,
+                claimed_handoff,
                 response_tx,
             } => {
                 // The turn's cancel already fired; a prompt sent now would be
                 // its backend's only run and nothing would ever cancel it.
                 if cancelled_epoch.load(Ordering::SeqCst) >= cancel_epoch {
+                    // The backend never received this prompt, so give the
+                    // one-shot handoff-context claim back to the next prompt.
+                    if claimed_handoff {
+                        handoff_context_sent.store(false, Ordering::Release);
+                    }
                     log_undelivered(
                         response_tx.try_send(AcpUpdate::Complete(StopReason::Cancelled, None)),
                         AGENT_METHOD_NAMES.session_prompt,
@@ -1781,6 +1836,10 @@ async fn handle_requests(
 
                 *prompt_response_tx.lock().unwrap() = Some(response_tx.clone());
 
+                // Mark this epoch's prompt as the active run before it can
+                // reach the wire, so `cancel()` for this scope notifies the
+                // backend while a stale scope's cancel does not.
+                active_prompt_epoch.store(cancel_epoch, Ordering::SeqCst);
                 let request = cx.send_request(PromptRequest::new(session_id.clone(), content));
                 // send_request queues the message before returning, so a
                 // cancel observed here raced the enqueue and its notification
@@ -1792,6 +1851,7 @@ async fn handle_requests(
                     }
                 }
                 let response: Result<PromptResponse, _> = request.block_task().await;
+                active_prompt_epoch.store(0, Ordering::SeqCst);
 
                 match response {
                     Ok(r) => {
@@ -2607,6 +2667,7 @@ mod tests {
                 effort: AcpEffortState::new(),
                 cancel_epoch: Arc::new(AtomicU64::new(1)),
                 cancelled_epoch: Arc::new(AtomicU64::new(0)),
+                active_prompt_epoch: Arc::new(AtomicU64::new(0)),
                 tx,
                 cancel_tx: None,
                 loop_thread: None,
@@ -4110,7 +4171,7 @@ mod tests {
 
     /// In-process ACP agent that records prompts and cancels it receives.
     struct FakeAcpAgent {
-        prompts: Arc<Mutex<u32>>,
+        prompts: Arc<Mutex<Vec<String>>>,
         cancels: Arc<Mutex<u32>>,
     }
 
@@ -4138,8 +4199,17 @@ mod tests {
                 .on_receive_request(
                     {
                         let prompts = prompts.clone();
-                        async move |_req: PromptRequest, responder, _cx| {
-                            *prompts.lock().unwrap() += 1;
+                        async move |req: PromptRequest, responder, _cx| {
+                            let text = req
+                                .prompt
+                                .iter()
+                                .filter_map(|block| match block {
+                                    ContentBlock::Text(text) => Some(text.text.as_str()),
+                                    _ => None,
+                                })
+                                .collect::<Vec<_>>()
+                                .join("\n");
+                            prompts.lock().unwrap().push(text);
                             responder.respond(PromptResponse::new(StopReason::EndTurn))
                         }
                     },
@@ -4160,8 +4230,8 @@ mod tests {
         }
     }
 
-    async fn fake_connected_provider() -> (AcpProvider, Arc<Mutex<u32>>, Arc<Mutex<u32>>) {
-        let prompts = Arc::new(Mutex::new(0));
+    async fn fake_connected_provider() -> (AcpProvider, Arc<Mutex<Vec<String>>>, Arc<Mutex<u32>>) {
+        let prompts = Arc::new(Mutex::new(Vec::new()));
         let cancels = Arc::new(Mutex::new(0));
         let provider = AcpProvider::connect_with_transport(
             "acp-test".to_string(),
@@ -4185,28 +4255,33 @@ mod tests {
         let model = ModelConfig::new("test-model");
         let messages = vec![Message::user().with_text("hello")];
 
-        // Cancel fires before the prompt reaches the wire: the backend would
-        // ignore the notification (no active run), so the prompt must be
-        // suppressed instead of starting a turn nothing can cancel.
+        // Cancel fires before the prompt reaches the wire: with no active run
+        // the backend would ignore a notification (and none is sent), so the
+        // prompt must be suppressed instead of starting a turn nothing can
+        // cancel.
         let scope = provider.begin_cancel_scope();
         provider.cancel("goose-session", scope).await;
         let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
         assert!(stream.next().await.is_none());
         assert_eq!(
-            *prompts.lock().unwrap(),
+            prompts.lock().unwrap().len(),
             0,
             "prompt must not start after its only cancel already fired"
         );
-        assert_eq!(*cancels.lock().unwrap(), 1);
 
         // A new reply opens a fresh scope, so prompting works again.
         provider.begin_cancel_scope();
         let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
         while stream.next().await.is_some() {}
         assert_eq!(
-            *prompts.lock().unwrap(),
+            prompts.lock().unwrap().len(),
             1,
             "prompt in a fresh cancel scope must reach the backend"
+        );
+        assert_eq!(
+            *cancels.lock().unwrap(),
+            0,
+            "no session/cancel should reach the backend when nothing was in flight"
         );
     }
 
@@ -4227,9 +4302,87 @@ mod tests {
         let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
         while stream.next().await.is_some() {}
         assert_eq!(
-            *prompts.lock().unwrap(),
+            prompts.lock().unwrap().len(),
             1,
             "a stale cancel must not suppress the newer reply's prompt"
+        );
+    }
+
+    #[tokio::test]
+    async fn stale_cancel_notification_is_not_sent_while_newer_prompt_active() {
+        use futures::StreamExt;
+
+        let (provider, prompts, cancels) = fake_connected_provider().await;
+        let model = ModelConfig::new("test-model");
+        let messages = vec![Message::user().with_text("hello")];
+
+        // Turn N's forwarder fires while turn N+1's prompt is the active run:
+        // the latch records N, but no session/cancel may reach the backend.
+        let stale_scope = provider.begin_cancel_scope();
+        let fresh_scope = provider.begin_cancel_scope();
+        provider
+            .active_prompt_epoch
+            .store(fresh_scope, Ordering::SeqCst);
+        provider.cancel("goose-session", stale_scope).await;
+        provider.active_prompt_epoch.store(0, Ordering::SeqCst);
+
+        // Round-trip a prompt so any (wrongly) sent notification would have
+        // been processed by the fake agent before the count is checked.
+        provider.begin_cancel_scope();
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        while stream.next().await.is_some() {}
+        assert_eq!(prompts.lock().unwrap().len(), 1);
+        assert_eq!(
+            *cancels.lock().unwrap(),
+            0,
+            "a stale cancel must not cancel the newer reply's active run"
+        );
+
+        // A cancel matching the in-flight prompt's scope still notifies.
+        let scope = provider.begin_cancel_scope();
+        provider.active_prompt_epoch.store(scope, Ordering::SeqCst);
+        provider.cancel("goose-session", scope).await;
+        provider.active_prompt_epoch.store(0, Ordering::SeqCst);
+        provider.begin_cancel_scope();
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        while stream.next().await.is_some() {}
+        assert_eq!(
+            *cancels.lock().unwrap(),
+            1,
+            "a cancel for the active prompt's own scope must reach the backend"
+        );
+    }
+
+    #[tokio::test]
+    async fn suppressed_first_prompt_rolls_back_handoff_claim() {
+        use futures::StreamExt;
+
+        let (provider, prompts, _cancels) = fake_connected_provider().await;
+        let model = ModelConfig::new("test-model");
+        let messages = vec![
+            Message::assistant().with_text("prior answer"),
+            Message::user().with_text("current request"),
+        ];
+
+        // The first prompt claims the one-shot handoff context, but its
+        // cancel fires before the client loop sends it: the backend never
+        // sees the context, so the claim must be rolled back.
+        let scope = provider.begin_cancel_scope();
+        provider.cancel("goose-session", scope).await;
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        assert!(stream.next().await.is_none());
+        assert_eq!(prompts.lock().unwrap().len(), 0);
+
+        // The next reply's prompt must carry the handoff context.
+        provider.begin_cancel_scope();
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        while stream.next().await.is_some() {}
+        let prompts = prompts.lock().unwrap();
+        assert_eq!(prompts.len(), 1);
+        assert!(
+            prompts[0].contains("Conversation context from goose"),
+            "prompt after a suppressed first prompt must include the handoff memo, got: {}",
+            prompts[0]
         );
     }
 
