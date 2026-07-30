@@ -1174,7 +1174,8 @@ impl GooseAcpAgent {
         let mut session_needs_update = false;
 
         if cwd != session.working_dir {
-            builder = builder.working_dir(cwd);
+            builder = builder.working_dir(cwd.clone());
+            session.working_dir = cwd;
             session_needs_update = true;
         }
 
@@ -1921,6 +1922,33 @@ impl GooseAcpAgent {
         // own cwd (child_process_client skips a missing current_dir). Reject with
         // the structured reason so clients handle it exactly like the prompt path.
         ensure_working_dir_present(&session.working_dir)?;
+
+        // A legacy session loaded while its working dir was missing deferred
+        // extension-data initialization so dir-scoped discovery never ran against a
+        // missing root. Build it now that the directory exists, before activation
+        // reads the enabled set.
+        let session =
+            if EnabledExtensionsState::from_extension_data(&session.extension_data).is_none() {
+                let extension_data = self.build_enabled_extensions_data(
+                    Config::global(),
+                    &session,
+                    Vec::new(),
+                    None,
+                    None,
+                )?;
+                self.session_manager
+                    .update(session_id)
+                    .extension_data(extension_data)
+                    .apply()
+                    .await
+                    .internal_err_ctx("Failed to persist session extensions")?;
+                self.session_manager
+                    .get_session(session_id, false)
+                    .await
+                    .internal_err_ctx("Failed to reload session")?
+            } else {
+                session
+            };
 
         let (agent, _) = self.activate_acp_session(cx, &session).await?;
         Ok(agent)
