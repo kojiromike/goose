@@ -323,21 +323,24 @@ pub struct AcpProvider {
     /// reply begins. Prompts capture it at enqueue time; each reply's cancel
     /// forwarder passes its own epoch back through `cancel()`.
     cancel_epoch: Arc<AtomicU64>,
-    /// Highest epoch for which `cancel()` has fired (0 = none). The client
-    /// loop suppresses (or re-cancels) any prompt whose captured epoch is at
-    /// or below this: a cancel that fired before the prompt reached the wire
-    /// would otherwise be ignored by the backend as targeting no active run,
-    /// and the prompt would start with its only cancel already spent. Keying
-    /// by epoch keeps a stale queued prompt cancelled even when it is handled
-    /// after a newer reply has already begun.
-    cancelled_epoch: Arc<AtomicU64>,
+    /// Epochs for which `cancel()` has fired. The client loop suppresses (or
+    /// re-cancels) any prompt whose captured epoch is in here: a cancel that
+    /// fired before the prompt reached the wire would otherwise be ignored by
+    /// the backend as targeting no active run, and the prompt would start with
+    /// its only cancel already spent. Keying by epoch keeps a stale queued
+    /// prompt cancelled even when it is handled after a newer reply has
+    /// already begun. Each epoch is recorded on its own rather than as a
+    /// high-water mark, because prompts from different replies can sit in the
+    /// queue together and cancelling a later one says nothing about an earlier
+    /// one that is still live.
+    cancelled_scopes: Arc<Mutex<HashSet<u64>>>,
     /// Epoch of the prompt currently in flight on the backend (0 = none).
     /// The client loop sets it around `session/prompt`; `cancel()` only sends
     /// the wire notification when the in-flight prompt belongs to the scope
     /// being cancelled, so a stale forwarder from a finished reply can never
     /// cancel a newer reply's active run.
     active_prompt_epoch: Arc<AtomicU64>,
-    /// Woken whenever `cancelled_epoch` advances, so the client loop can stop
+    /// Woken whenever a scope is cancelled, so the client loop can stop
     /// awaiting an in-flight pre-prompt request the moment its reply is
     /// cancelled rather than only noticing between requests.
     cancel_notify: Arc<tokio::sync::Notify>,
@@ -448,7 +451,7 @@ impl AcpProvider {
         let context_size = Arc::new(AtomicU64::new(0));
         let effort = AcpEffortState::new();
         let agent_cx: Arc<OnceLock<ConnectionTo<Agent>>> = Arc::new(OnceLock::new());
-        let cancelled_epoch = Arc::new(AtomicU64::new(0));
+        let cancelled_scopes: Arc<Mutex<HashSet<u64>>> = Arc::new(Mutex::new(HashSet::new()));
         let active_prompt_epoch = Arc::new(AtomicU64::new(0));
         let handoff_context_sent = Arc::new(AtomicBool::new(false));
         let cancel_notify = Arc::new(tokio::sync::Notify::new());
@@ -459,7 +462,7 @@ impl AcpProvider {
             context_size.clone(),
             effort.clone(),
             agent_cx.clone(),
-            cancelled_epoch.clone(),
+            cancelled_scopes.clone(),
             active_prompt_epoch.clone(),
             handoff_context_sent.clone(),
             cancel_notify.clone(),
@@ -513,7 +516,7 @@ impl AcpProvider {
             cancel_tx: client_loop_guard.cancel_tx.take(),
             loop_thread: client_loop_guard.thread.take(),
             cancel_epoch: Arc::new(AtomicU64::new(1)),
-            cancelled_epoch,
+            cancelled_scopes,
             active_prompt_epoch,
             cancel_notify,
             agent_cx,
@@ -903,15 +906,15 @@ impl Provider for AcpProvider {
     }
 
     async fn cancel(&self, _session_id: &str, scope: u64) {
-        // Latch first: if the prompt has not reached the wire yet, the
+        // Record first: if the prompt has not reached the wire yet, the
         // notification below targets no active run and the backend ignores
-        // it, so the client loop must observe the latch around the prompt
-        // send to suppress or re-cancel the turn. Latching the caller's
-        // scope — not the current epoch — keeps a forwarder that fires late,
-        // after a newer reply bumped the epoch, from suppressing that newer
-        // reply's prompts. fetch_max keeps a late stale cancel from lowering
-        // the latch.
-        self.cancelled_epoch.fetch_max(scope, Ordering::SeqCst);
+        // it, so the client loop must observe this around the prompt send to
+        // suppress or re-cancel the turn. Recording the caller's scope — not
+        // the current epoch — keeps a forwarder that fires late, after a newer
+        // reply bumped the epoch, from suppressing that newer reply's prompts.
+        if let Ok(mut scopes) = self.cancelled_scopes.lock() {
+            scopes.insert(scope);
+        }
         self.cancel_notify.notify_waiters();
         // Only notify the backend when the prompt currently in flight belongs
         // to the scope being cancelled: `session/cancel` is session-scoped, so
@@ -1266,7 +1269,7 @@ struct AcpClientLoop {
     context_size: Arc<AtomicU64>,
     effort: AcpEffortState,
     agent_cx: Arc<OnceLock<ConnectionTo<Agent>>>,
-    cancelled_epoch: Arc<AtomicU64>,
+    cancelled_scopes: Arc<Mutex<HashSet<u64>>>,
     active_prompt_epoch: Arc<AtomicU64>,
     cancel_notify: Arc<tokio::sync::Notify>,
     handoff_context_sent: Arc<AtomicBool>,
@@ -1282,7 +1285,7 @@ impl AcpClientLoop {
         context_size: Arc<AtomicU64>,
         effort: AcpEffortState,
         agent_cx: Arc<OnceLock<ConnectionTo<Agent>>>,
-        cancelled_epoch: Arc<AtomicU64>,
+        cancelled_scopes: Arc<Mutex<HashSet<u64>>>,
         active_prompt_epoch: Arc<AtomicU64>,
         handoff_context_sent: Arc<AtomicBool>,
         cancel_notify: Arc<tokio::sync::Notify>,
@@ -1296,7 +1299,7 @@ impl AcpClientLoop {
             context_size,
             effort,
             agent_cx,
-            cancelled_epoch,
+            cancelled_scopes,
             active_prompt_epoch,
             handoff_context_sent,
             cancel_notify,
@@ -1357,7 +1360,7 @@ impl AcpClientLoop {
             context_size,
             effort,
             agent_cx,
-            cancelled_epoch,
+            cancelled_scopes,
             active_prompt_epoch,
             cancel_notify,
             handoff_context_sent,
@@ -1589,7 +1592,7 @@ impl AcpClientLoop {
                     rx,
                     prompt_response_tx,
                     session_state,
-                    cancelled_epoch,
+                    cancelled_scopes,
                     active_prompt_epoch,
                     cancel_notify,
                     handoff_context_sent,
@@ -1682,17 +1685,24 @@ async fn spawn_acp_process(config: &AcpProviderConfig) -> Result<Child> {
     cmd.spawn().context("failed to spawn ACP process")
 }
 
-/// Resolves once a cancel has been recorded for `epoch` or any later one.
-/// Registering with `Notify` before re-reading the epoch keeps a cancel that
-/// lands between the two from being missed.
-async fn await_cancelled_epoch(
+/// Whether `cancel()` has fired for this exact scope.
+fn scope_cancelled(cancelled_scopes: &Mutex<HashSet<u64>>, scope: u64) -> bool {
+    cancelled_scopes
+        .lock()
+        .is_ok_and(|scopes| scopes.contains(&scope))
+}
+
+/// Resolves once a cancel has been recorded for `scope`. Registering with
+/// `Notify` before re-reading the set keeps a cancel that lands between the
+/// two from being missed.
+async fn await_cancelled_scope(
     cancel_notify: &tokio::sync::Notify,
-    cancelled_epoch: &AtomicU64,
-    epoch: u64,
+    cancelled_scopes: &Mutex<HashSet<u64>>,
+    scope: u64,
 ) {
     loop {
         let notified = cancel_notify.notified();
-        if cancelled_epoch.load(Ordering::SeqCst) >= epoch {
+        if scope_cancelled(cancelled_scopes, scope) {
             return;
         }
         notified.await;
@@ -1718,7 +1728,7 @@ async fn handle_requests(
     rx: &mut mpsc::Receiver<ClientRequest>,
     prompt_response_tx: Arc<Mutex<Option<mpsc::Sender<AcpUpdate>>>>,
     session_state: AcpSessionState,
-    cancelled_epoch: Arc<AtomicU64>,
+    cancelled_scopes: Arc<Mutex<HashSet<u64>>>,
     active_prompt_epoch: Arc<AtomicU64>,
     cancel_notify: Arc<tokio::sync::Notify>,
     handoff_context_sent: Arc<AtomicBool>,
@@ -1872,7 +1882,7 @@ async fn handle_requests(
                 cancel_epoch,
                 response_tx,
             } => {
-                let cancelled = |epoch| cancelled_epoch.load(Ordering::SeqCst) >= epoch;
+                let cancelled = |epoch| scope_cancelled(&cancelled_scopes, epoch);
                 if cancel_epoch.is_some_and(cancelled) {
                     log_undelivered(
                         response_tx.send(Err(anyhow::anyhow!("reply cancelled"))),
@@ -1891,7 +1901,7 @@ async fn handle_requests(
                 let settled = match cancel_epoch {
                     Some(epoch) => tokio::select! {
                         biased;
-                        () = await_cancelled_epoch(&cancel_notify, &cancelled_epoch, epoch) => None,
+                        () = await_cancelled_scope(&cancel_notify, &cancelled_scopes, epoch) => None,
                         response = &mut request => Some(response),
                     },
                     None => Some(request.as_mut().await),
@@ -1935,7 +1945,7 @@ async fn handle_requests(
             } => {
                 // The turn's cancel already fired; a prompt sent now would be
                 // its backend's only run and nothing would ever cancel it.
-                if cancelled_epoch.load(Ordering::SeqCst) >= cancel_epoch {
+                if scope_cancelled(&cancelled_scopes, cancel_epoch) {
                     // The backend never received this prompt, so give the
                     // one-shot handoff-context claim back to the next prompt.
                     if claimed_handoff {
@@ -1959,7 +1969,7 @@ async fn handle_requests(
                 // cancel observed here raced the enqueue and its notification
                 // may sit ahead of the prompt on the wire, where the backend
                 // ignores it. Re-send it so one lands after the prompt.
-                if cancelled_epoch.load(Ordering::SeqCst) >= cancel_epoch {
+                if scope_cancelled(&cancelled_scopes, cancel_epoch) {
                     if let Err(e) = cx.send_notification(CancelNotification::new(session_id)) {
                         tracing::warn!(error = %e, "failed to re-send ACP session/cancel");
                     }
@@ -2780,7 +2790,7 @@ mod tests {
                 applied_model: Arc::new(Mutex::new(None)),
                 effort: AcpEffortState::new(),
                 cancel_epoch: Arc::new(AtomicU64::new(1)),
-                cancelled_epoch: Arc::new(AtomicU64::new(0)),
+                cancelled_scopes: Arc::new(Mutex::new(HashSet::new())),
                 active_prompt_epoch: Arc::new(AtomicU64::new(0)),
                 cancel_notify: Arc::new(tokio::sync::Notify::new()),
                 tx,
@@ -4726,14 +4736,48 @@ mod tests {
 
         // The stale prompt must still be seen as cancelled by the client
         // loop, while the new reply's prompt must not be.
-        let cancelled = provider.cancelled_epoch.load(Ordering::SeqCst);
         assert!(
-            cancelled >= stale_epoch,
-            "stale queued prompt must stay cancelled (cancelled={cancelled}, stale={stale_epoch})"
+            scope_cancelled(&provider.cancelled_scopes, stale_epoch),
+            "stale queued prompt must stay cancelled (stale={stale_epoch})"
         );
         assert!(
-            cancelled < fresh_epoch,
-            "new reply's prompt must not be suppressed (cancelled={cancelled}, fresh={fresh_epoch})"
+            !scope_cancelled(&provider.cancelled_scopes, fresh_epoch),
+            "new reply's prompt must not be suppressed (fresh={fresh_epoch})"
+        );
+    }
+
+    /// Prompts from different replies can sit in the client-loop queue at the
+    /// same time, so cancelling a later reply must not suppress an earlier,
+    /// still-live one — a high-water mark would sweep it up.
+    #[tokio::test]
+    async fn cancelling_a_later_reply_leaves_an_earlier_queued_prompt_live() {
+        let (tx, mut rx) = mpsc::channel(4);
+        let (provider, model) = test_provider_with_tx(Some(tx));
+        let messages = vec![Message::user().with_text("hello")];
+
+        // Reply N's prompt is queued, then reply N+1 queues its own behind it.
+        provider.begin_cancel_scope();
+        let _stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        let earlier_epoch = match rx.recv().await.expect("expected ACP prompt request") {
+            ClientRequest::Prompt { cancel_epoch, .. } => cancel_epoch,
+            _ => panic!("expected ACP prompt request"),
+        };
+        let scope_n_plus_1 = provider.begin_cancel_scope();
+        let _stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        let later_epoch = match rx.recv().await.expect("expected ACP prompt request") {
+            ClientRequest::Prompt { cancel_epoch, .. } => cancel_epoch,
+            _ => panic!("expected ACP prompt request"),
+        };
+
+        provider.cancel("goose-session", scope_n_plus_1).await;
+
+        assert!(
+            scope_cancelled(&provider.cancelled_scopes, later_epoch),
+            "the cancelled reply's prompt must be suppressed (later={later_epoch})"
+        );
+        assert!(
+            !scope_cancelled(&provider.cancelled_scopes, earlier_epoch),
+            "an earlier reply that was not cancelled must still reach the backend (earlier={earlier_epoch})"
         );
     }
 
