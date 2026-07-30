@@ -61,10 +61,8 @@ import {
   type SessionListItem,
 } from '../../acp/sessions';
 import type { SessionExportFormat } from '@aaif/goose-sdk';
-import { useAcpChatSessionSnapshot } from '../../acp/chatSessionStore';
-import { useSessionBusyElsewhere } from '../../hooks/useSessionBusyElsewhere';
+import { isSessionBusy, useSessionBusy } from '../../hooks/useSessionBusyElsewhere';
 import { dispatchSessionLifecycleEvent } from '../../sessionLifecycleBridge';
-import { ChatState } from '../../types/chatState';
 import { getSearchShortcutText } from '../../utils/keyboardShortcuts';
 
 // In the Active view a keyword search still surfaces archived matches so a
@@ -683,8 +681,13 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
       [intl, loadSessions]
     );
 
+    // The dialog can sit open while the session starts a run elsewhere, so
+    // re-check instead of trusting the state the button was disabled on.
+    const pendingDeleteBusy = useSessionBusy(sessionToDelete?.id ?? '');
+
   const handleConfirmDelete = useCallback(async () => {
     if (!sessionToDelete) return;
+      if (isSessionBusy(sessionToDelete.id)) return;
 
     setShowDeleteConfirmation(false);
     const sessionToDeleteId = sessionToDelete.id;
@@ -876,9 +879,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
       // that would resume into a removed session. The local snapshot cannot see
       // runs owned by other desktop windows, so also consult the cross-window
       // busy registry.
-      const chatState = useAcpChatSessionSnapshot(session.id)?.chatState;
-      const busyElsewhere = useSessionBusyElsewhere(session.id);
-      const isBusy = (chatState !== undefined && chatState !== ChatState.Idle) || busyElsewhere;
+      const isBusy = useSessionBusy(session.id);
 
     const handleEditClick = useCallback(
       (e: React.MouseEvent) => {
@@ -1467,6 +1468,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
         confirmLabel={intl.formatMessage(i18n.deleteTitle)}
         cancelLabel={intl.formatMessage(i18n.cancel)}
         confirmVariant="destructive"
+          confirmDisabled={pendingDeleteBusy}
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
       />

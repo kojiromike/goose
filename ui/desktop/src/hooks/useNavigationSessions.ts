@@ -80,7 +80,9 @@ export function useNavigationSessions() {
   const fetchSessions = useCallback(async () => {
     try {
       const sessions = await acpListRecentSessions(MAX_RECENT_SESSIONS);
-      setRecentSessions(sessions);
+      // Active listings omit message-less sessions, so a refresh would drop a
+      // freshly created or just-restored empty chat; keep those locals.
+      setRecentSessions((prev) => mergeWithEmptyLocals(prev, sessions));
     } catch (error) {
       console.error('Failed to fetch sessions:', error);
     }
@@ -162,7 +164,9 @@ export function useNavigationSessions() {
       acpListRecentSessions(MAX_RECENT_SESSIONS)
         .then((sessions) => {
           if (version !== fetchVersion) return;
-          setRecentSessions(sessions.filter((session) => session.id !== sessionId));
+          setRecentSessions((prev) =>
+            mergeWithEmptyLocals(prev, sessions).filter((session) => session.id !== sessionId)
+          );
         })
         .catch((error) => console.error('Failed to fetch sessions:', error));
     };
@@ -186,7 +190,7 @@ export function useNavigationSessions() {
           })
           .then((sessions) => {
             if (version !== fetchVersion) return;
-            setRecentSessions(sessions);
+            setRecentSessions((prev) => mergeWithEmptyLocals(prev, sessions));
           })
           .catch((error) => console.error('Failed to fetch sessions:', error));
         return;
