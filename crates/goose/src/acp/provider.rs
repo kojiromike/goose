@@ -101,6 +101,10 @@ enum ClientRequest {
     Prompt {
         session_id: SessionId,
         content: Vec<ContentBlock>,
+        /// Value of `cancel_epoch` when this prompt was enqueued. The client
+        /// loop suppresses the prompt if a cancel has since been recorded for
+        /// this epoch, even when it is handled after a newer reply started.
+        cancel_epoch: u64,
         response_tx: mpsc::Sender<AcpUpdate>,
     },
 }
@@ -302,12 +306,17 @@ pub struct AcpProvider {
     /// value, it tracks the agent resetting its own effort (e.g. on a model
     /// switch), so the persisted value is re-applied when that happens.
     effort: AcpEffortState,
-    /// Set by `cancel()` and cleared at the start of each reply. The client
-    /// loop checks it around sending `session/prompt` so a cancel that fired
-    /// before the prompt reached the wire — where the backend would ignore it
-    /// as targeting no active run — suppresses the prompt (or is re-sent after
-    /// it) instead of being lost.
-    cancel_requested: Arc<AtomicBool>,
+    /// Current cancel epoch, bumped by `clear_pending_cancel()` when a new
+    /// reply begins. Prompts capture it at enqueue time.
+    cancel_epoch: Arc<AtomicU64>,
+    /// Highest epoch for which `cancel()` has fired (0 = none). The client
+    /// loop suppresses (or re-cancels) any prompt whose captured epoch is at
+    /// or below this: a cancel that fired before the prompt reached the wire
+    /// would otherwise be ignored by the backend as targeting no active run,
+    /// and the prompt would start with its only cancel already spent. Keying
+    /// by epoch keeps a stale queued prompt cancelled even when it is handled
+    /// after a newer reply has already begun.
+    cancelled_epoch: Arc<AtomicU64>,
 
     tx: Option<mpsc::Sender<ClientRequest>>,
     cancel_tx: Option<oneshot::Sender<()>>,
@@ -413,7 +422,7 @@ impl AcpProvider {
         let context_size = Arc::new(AtomicU64::new(0));
         let effort = AcpEffortState::new();
         let agent_cx: Arc<OnceLock<ConnectionTo<Agent>>> = Arc::new(OnceLock::new());
-        let cancel_requested = Arc::new(AtomicBool::new(false));
+        let cancelled_epoch = Arc::new(AtomicU64::new(0));
         let client_loop = AcpClientLoop::new(
             config,
             goose_mode_shared.clone(),
@@ -421,7 +430,7 @@ impl AcpProvider {
             context_size.clone(),
             effort.clone(),
             agent_cx.clone(),
-            cancel_requested.clone(),
+            cancelled_epoch.clone(),
         );
         let (cancel_tx, cancel_rx) = oneshot::channel();
         let loop_thread = spawn_client_loop(run(client_loop, rx, init_tx, cancel_rx));
@@ -470,7 +479,8 @@ impl AcpProvider {
             tx: client_loop_guard.tx.take(),
             cancel_tx: client_loop_guard.cancel_tx.take(),
             loop_thread: client_loop_guard.thread.take(),
-            cancel_requested,
+            cancel_epoch: Arc::new(AtomicU64::new(1)),
+            cancelled_epoch,
             agent_cx,
         })
     }
@@ -635,6 +645,7 @@ impl AcpProvider {
             .send(ClientRequest::Prompt {
                 session_id,
                 content,
+                cancel_epoch: self.cancel_epoch.load(Ordering::SeqCst),
                 response_tx,
             })
             .await
@@ -829,7 +840,8 @@ impl Provider for AcpProvider {
         // notification below targets no active run and the backend ignores
         // it, so the client loop must observe the latch around the prompt
         // send to suppress or re-cancel the turn.
-        self.cancel_requested.store(true, Ordering::SeqCst);
+        self.cancelled_epoch
+            .store(self.cancel_epoch.load(Ordering::SeqCst), Ordering::SeqCst);
         let Some(cx) = self.agent_cx.get() else {
             return;
         };
@@ -839,7 +851,11 @@ impl Provider for AcpProvider {
     }
 
     fn clear_pending_cancel(&self) {
-        self.cancel_requested.store(false, Ordering::SeqCst);
+        // Bump the epoch instead of clearing the latch: prompts from the
+        // cancelled reply may still sit in the client-loop queue and must
+        // stay cancelled, while the new reply's prompts capture the fresh
+        // epoch and are unaffected.
+        self.cancel_epoch.fetch_add(1, Ordering::SeqCst);
     }
 
     async fn handle_permission_confirmation(
@@ -1164,7 +1180,7 @@ struct AcpClientLoop {
     context_size: Arc<AtomicU64>,
     effort: AcpEffortState,
     agent_cx: Arc<OnceLock<ConnectionTo<Agent>>>,
-    cancel_requested: Arc<AtomicBool>,
+    cancelled_epoch: Arc<AtomicU64>,
 }
 
 impl AcpClientLoop {
@@ -1175,7 +1191,7 @@ impl AcpClientLoop {
         context_size: Arc<AtomicU64>,
         effort: AcpEffortState,
         agent_cx: Arc<OnceLock<ConnectionTo<Agent>>>,
-        cancel_requested: Arc<AtomicBool>,
+        cancelled_epoch: Arc<AtomicU64>,
     ) -> Self {
         Self {
             config,
@@ -1185,7 +1201,7 @@ impl AcpClientLoop {
             context_size,
             effort,
             agent_cx,
-            cancel_requested,
+            cancelled_epoch,
         }
     }
 
@@ -1242,7 +1258,7 @@ impl AcpClientLoop {
             context_size,
             effort,
             agent_cx,
-            cancel_requested,
+            cancelled_epoch,
         } = self;
         let notification_callback = config.notification_callback.clone();
         let reverse_modes = reverse_mode_mapping(&config.mode_mapping);
@@ -1470,7 +1486,7 @@ impl AcpClientLoop {
                     rx,
                     prompt_response_tx,
                     session_state,
-                    cancel_requested,
+                    cancelled_epoch,
                     init_tx,
                 )
                 .await
@@ -1577,7 +1593,7 @@ async fn handle_requests(
     rx: &mut mpsc::Receiver<ClientRequest>,
     prompt_response_tx: Arc<Mutex<Option<mpsc::Sender<AcpUpdate>>>>,
     session_state: AcpSessionState,
-    cancel_requested: Arc<AtomicBool>,
+    cancelled_epoch: Arc<AtomicU64>,
     init_tx: oneshot::Sender<Result<InitializeResponse>>,
 ) -> Result<(), agent_client_protocol::Error> {
     let mut init_tx = Some(init_tx);
@@ -1746,11 +1762,12 @@ async fn handle_requests(
             ClientRequest::Prompt {
                 session_id,
                 content,
+                cancel_epoch,
                 response_tx,
             } => {
                 // The turn's cancel already fired; a prompt sent now would be
                 // its backend's only run and nothing would ever cancel it.
-                if cancel_requested.load(Ordering::SeqCst) {
+                if cancelled_epoch.load(Ordering::SeqCst) >= cancel_epoch {
                     log_undelivered(
                         response_tx.try_send(AcpUpdate::Complete(StopReason::Cancelled, None)),
                         AGENT_METHOD_NAMES.session_prompt,
@@ -1765,7 +1782,7 @@ async fn handle_requests(
                 // cancel observed here raced the enqueue and its notification
                 // may sit ahead of the prompt on the wire, where the backend
                 // ignores it. Re-send it so one lands after the prompt.
-                if cancel_requested.load(Ordering::SeqCst) {
+                if cancelled_epoch.load(Ordering::SeqCst) >= cancel_epoch {
                     if let Err(e) = cx.send_notification(CancelNotification::new(session_id)) {
                         tracing::warn!(error = %e, "failed to re-send ACP session/cancel");
                     }
@@ -2584,7 +2601,8 @@ mod tests {
                 model_config_option_id: None,
                 applied_model: Arc::new(Mutex::new(None)),
                 effort: AcpEffortState::new(),
-                cancel_requested: Arc::new(AtomicBool::new(false)),
+                cancel_epoch: Arc::new(AtomicU64::new(1)),
+                cancelled_epoch: Arc::new(AtomicU64::new(0)),
                 tx,
                 cancel_tx: None,
                 loop_thread: None,
@@ -4179,6 +4197,41 @@ mod tests {
             *prompts.lock().unwrap(),
             1,
             "prompt after clear_pending_cancel must reach the backend"
+        );
+    }
+
+    #[tokio::test]
+    async fn stale_queued_prompt_stays_cancelled_after_new_reply_starts() {
+        let (tx, mut rx) = mpsc::channel(4);
+        let (provider, model) = test_provider_with_tx(Some(tx));
+        let messages = vec![Message::user().with_text("hello")];
+
+        // Reply N enqueues its prompt; the client loop has not handled it yet.
+        let _stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        let stale_epoch = match rx.recv().await.expect("expected ACP prompt request") {
+            ClientRequest::Prompt { cancel_epoch, .. } => cancel_epoch,
+            _ => panic!("expected ACP prompt request"),
+        };
+
+        // Reply N is cancelled, then reply N+1 begins.
+        provider.cancel("goose-session").await;
+        provider.clear_pending_cancel();
+        let _stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        let fresh_epoch = match rx.recv().await.expect("expected ACP prompt request") {
+            ClientRequest::Prompt { cancel_epoch, .. } => cancel_epoch,
+            _ => panic!("expected ACP prompt request"),
+        };
+
+        // The stale prompt must still be seen as cancelled by the client
+        // loop, while the new reply's prompt must not be.
+        let cancelled = provider.cancelled_epoch.load(Ordering::SeqCst);
+        assert!(
+            cancelled >= stale_epoch,
+            "stale queued prompt must stay cancelled (cancelled={cancelled}, stale={stale_epoch})"
+        );
+        assert!(
+            cancelled < fresh_epoch,
+            "new reply's prompt must not be suppressed (cancelled={cancelled}, fresh={fresh_epoch})"
         );
     }
 
