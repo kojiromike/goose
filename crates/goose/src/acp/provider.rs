@@ -96,6 +96,13 @@ enum ClientRequest {
         session_id: SessionId,
         config_id: String,
         value: String,
+        /// `Some(epoch)` when this option is applied as part of a reply's
+        /// pre-prompt setup, so the client loop can skip it — or stop awaiting
+        /// it — once that reply is cancelled, instead of leaving the serial
+        /// loop blocked on a slow backend with later prompts queued behind it.
+        /// `None` for out-of-band updates (mode/config changes), which are not
+        /// tied to a reply and always run.
+        cancel_epoch: Option<u64>,
         response_tx: oneshot::Sender<Result<()>>,
     },
     Prompt {
@@ -330,6 +337,10 @@ pub struct AcpProvider {
     /// being cancelled, so a stale forwarder from a finished reply can never
     /// cancel a newer reply's active run.
     active_prompt_epoch: Arc<AtomicU64>,
+    /// Woken whenever `cancelled_epoch` advances, so the client loop can stop
+    /// awaiting an in-flight pre-prompt request the moment its reply is
+    /// cancelled rather than only noticing between requests.
+    cancel_notify: Arc<tokio::sync::Notify>,
 
     tx: Option<mpsc::Sender<ClientRequest>>,
     cancel_tx: Option<oneshot::Sender<()>>,
@@ -422,13 +433,15 @@ impl AcpProvider {
         let (init_tx, init_rx) = oneshot::channel();
         let mode_mapping = config.mode_mapping.clone();
         let model_config_option_id = config.model_config_option_id.clone();
-        let applied_model = config.model_config_option_id.as_ref().and_then(|id| {
-            config
-                .session_config_options
-                .iter()
-                .find(|(opt_id, _)| opt_id == id)
-                .map(|(_, value)| value.clone())
-        });
+        let applied_model = Arc::new(Mutex::new(config.model_config_option_id.as_ref().and_then(
+            |id| {
+                config
+                    .session_config_options
+                    .iter()
+                    .find(|(opt_id, _)| opt_id == id)
+                    .map(|(_, value)| value.clone())
+            },
+        )));
         let goose_mode_shared = Arc::new(Mutex::new(goose_mode));
         let pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>> =
             Arc::new(Mutex::new(HashMap::new()));
@@ -438,6 +451,7 @@ impl AcpProvider {
         let cancelled_epoch = Arc::new(AtomicU64::new(0));
         let active_prompt_epoch = Arc::new(AtomicU64::new(0));
         let handoff_context_sent = Arc::new(AtomicBool::new(false));
+        let cancel_notify = Arc::new(tokio::sync::Notify::new());
         let client_loop = AcpClientLoop::new(
             config,
             goose_mode_shared.clone(),
@@ -448,6 +462,8 @@ impl AcpProvider {
             cancelled_epoch.clone(),
             active_prompt_epoch.clone(),
             handoff_context_sent.clone(),
+            cancel_notify.clone(),
+            applied_model.clone(),
         );
         let (cancel_tx, cancel_rx) = oneshot::channel();
         let loop_thread = spawn_client_loop(run(client_loop, rx, init_tx, cancel_rx));
@@ -491,17 +507,15 @@ impl AcpProvider {
             handoff_context_sent,
             context_size,
             model_config_option_id,
-            applied_model: Arc::new(Mutex::new(applied_model)),
+            applied_model,
             effort,
             tx: client_loop_guard.tx.take(),
             cancel_tx: client_loop_guard.cancel_tx.take(),
             loop_thread: client_loop_guard.thread.take(),
             cancel_epoch: Arc::new(AtomicU64::new(1)),
             cancelled_epoch,
-            tx: client_loop_guard.tx.take(),
-            cancel_tx: client_loop_guard.cancel_tx.take(),
-            loop_thread: client_loop_guard.thread.take(),
             active_prompt_epoch,
+            cancel_notify,
             agent_cx,
         })
     }
@@ -550,6 +564,16 @@ impl AcpProvider {
         config_id: String,
         value: String,
     ) -> Result<()> {
+        self.send_set_config_option_in_scope(config_id, value, None)
+            .await
+    }
+
+    async fn send_set_config_option_in_scope(
+        &self,
+        config_id: String,
+        value: String,
+        cancel_epoch: Option<u64>,
+    ) -> Result<()> {
         let session_id = self.acp_session_id();
         let (response_tx, response_rx) = oneshot::channel();
         self.tx
@@ -559,6 +583,7 @@ impl AcpProvider {
                 session_id,
                 config_id,
                 value,
+                cancel_epoch,
                 response_tx,
             })
             .await
@@ -588,8 +613,27 @@ impl AcpProvider {
             }
         }
 
-        self.send_set_config_option("", config_id, model_name.to_string())
-            .await?;
+        // The request reaches the backend before it is known to have settled,
+        // so no value is trustworthy until it answers: clear the memo first
+        // and only record the new model once it does. An attempt abandoned by
+        // a cancel therefore leaves the next reply re-applying its model.
+        {
+            let mut applied = self
+                .applied_model
+                .lock()
+                .map_err(|_| anyhow::anyhow!("applied_model lock poisoned"))?;
+            *applied = None;
+        }
+
+        // Applied in this reply's cancel scope: a cancel that lands while the
+        // backend is still handling it frees the client loop instead of
+        // stalling the next prompt behind it.
+        self.send_set_config_option_in_scope(
+            config_id,
+            model_name.to_string(),
+            Some(self.cancel_epoch.load(Ordering::SeqCst)),
+        )
+        .await?;
 
         let mut applied = self
             .applied_model
@@ -868,6 +912,7 @@ impl Provider for AcpProvider {
         // reply's prompts. fetch_max keeps a late stale cancel from lowering
         // the latch.
         self.cancelled_epoch.fetch_max(scope, Ordering::SeqCst);
+        self.cancel_notify.notify_waiters();
         // Only notify the backend when the prompt currently in flight belongs
         // to the scope being cancelled. A stale forwarder from a finished
         // reply must not cancel a newer reply's active run, and with nothing
@@ -1221,7 +1266,9 @@ struct AcpClientLoop {
     agent_cx: Arc<OnceLock<ConnectionTo<Agent>>>,
     cancelled_epoch: Arc<AtomicU64>,
     active_prompt_epoch: Arc<AtomicU64>,
+    cancel_notify: Arc<tokio::sync::Notify>,
     handoff_context_sent: Arc<AtomicBool>,
+    applied_model: Arc<Mutex<Option<String>>>,
 }
 
 impl AcpClientLoop {
@@ -1236,6 +1283,8 @@ impl AcpClientLoop {
         cancelled_epoch: Arc<AtomicU64>,
         active_prompt_epoch: Arc<AtomicU64>,
         handoff_context_sent: Arc<AtomicBool>,
+        cancel_notify: Arc<tokio::sync::Notify>,
+        applied_model: Arc<Mutex<Option<String>>>,
     ) -> Self {
         Self {
             config,
@@ -1248,6 +1297,8 @@ impl AcpClientLoop {
             cancelled_epoch,
             active_prompt_epoch,
             handoff_context_sent,
+            cancel_notify,
+            applied_model,
         }
     }
 
@@ -1306,7 +1357,9 @@ impl AcpClientLoop {
             agent_cx,
             cancelled_epoch,
             active_prompt_epoch,
+            cancel_notify,
             handoff_context_sent,
+            applied_model,
         } = self;
         let notification_callback = config.notification_callback.clone();
         let reverse_modes = reverse_mode_mapping(&config.mode_mapping);
@@ -1536,7 +1589,9 @@ impl AcpClientLoop {
                     session_state,
                     cancelled_epoch,
                     active_prompt_epoch,
+                    cancel_notify,
                     handoff_context_sent,
+                    applied_model,
                     init_tx,
                 )
                 .await
@@ -1625,6 +1680,23 @@ async fn spawn_acp_process(config: &AcpProviderConfig) -> Result<Child> {
     cmd.spawn().context("failed to spawn ACP process")
 }
 
+/// Resolves once a cancel has been recorded for `epoch` or any later one.
+/// Registering with `Notify` before re-reading the epoch keeps a cancel that
+/// lands between the two from being missed.
+async fn await_cancelled_epoch(
+    cancel_notify: &tokio::sync::Notify,
+    cancelled_epoch: &AtomicU64,
+    epoch: u64,
+) {
+    loop {
+        let notified = cancel_notify.notified();
+        if cancelled_epoch.load(Ordering::SeqCst) >= epoch {
+            return;
+        }
+        notified.await;
+    }
+}
+
 fn log_undelivered<E: std::fmt::Debug>(result: Result<(), E>, method: &str) {
     if let Err(e) = result {
         tracing::debug!(method, error = ?e, "response not delivered");
@@ -1646,7 +1718,9 @@ async fn handle_requests(
     session_state: AcpSessionState,
     cancelled_epoch: Arc<AtomicU64>,
     active_prompt_epoch: Arc<AtomicU64>,
+    cancel_notify: Arc<tokio::sync::Notify>,
     handoff_context_sent: Arc<AtomicBool>,
+    applied_model: Arc<Mutex<Option<String>>>,
     init_tx: oneshot::Sender<Result<InitializeResponse>>,
 ) -> Result<(), agent_client_protocol::Error> {
     let mut init_tx = Some(init_tx);
@@ -1793,20 +1867,58 @@ async fn handle_requests(
                 session_id,
                 config_id,
                 value,
+                cancel_epoch,
                 response_tx,
             } => {
+                let cancelled = |epoch| cancelled_epoch.load(Ordering::SeqCst) >= epoch;
+                if cancel_epoch.is_some_and(cancelled) {
+                    log_undelivered(
+                        response_tx.send(Err(anyhow::anyhow!("reply cancelled"))),
+                        AGENT_METHOD_NAMES.session_set_config_option,
+                    );
+                    continue;
+                }
+
                 let value_id = agent_client_protocol::schema::v1::SessionConfigValueId::new(value);
                 let req = SetSessionConfigOptionRequest::new(session_id, config_id, value_id);
+                let mut request = Box::pin(cx.send_request(req).block_task());
+                // Stop awaiting a cancelled reply's setup request so the next
+                // prompt is not queued behind a backend that may never answer.
+                // The request itself stays on the wire — ACP has no way to
+                // retract it — but the serial loop is free again.
+                let settled = match cancel_epoch {
+                    Some(epoch) => tokio::select! {
+                        biased;
+                        () = await_cancelled_epoch(&cancel_notify, &cancelled_epoch, epoch) => None,
+                        response = &mut request => Some(response),
+                    },
+                    None => Some(request.as_mut().await),
+                };
                 // The agent rebuilds per-model effort levels in this response,
                 // so it is the freshest source after a goose-initiated switch.
-                let result: Result<()> = cx
-                    .send_request(req)
-                    .block_task()
-                    .await
-                    .map(|response| {
-                        publish_effort_state(&session_state.effort, &response.config_options)
-                    })
-                    .map_err(anyhow::Error::from);
+                let result: Result<()> = match settled {
+                    Some(response) => response
+                        .map(|response| {
+                            publish_effort_state(&session_state.effort, &response.config_options)
+                        })
+                        .map_err(anyhow::Error::from),
+                    None => {
+                        // An abandoned option can still reach the backend after
+                        // a later one has been applied, so keep watching it off
+                        // the serial loop and mark the applied model unknown
+                        // once it settles. The next reply then re-applies its
+                        // model instead of trusting a value this request may
+                        // have overwritten.
+                        let applied_model = applied_model.clone();
+                        tokio::spawn(async move {
+                            let _ = request.await;
+                            if let Ok(mut applied) = applied_model.lock() {
+                                *applied = None;
+                            }
+                        });
+                        Err(anyhow::anyhow!("reply cancelled"))
+                    }
+                };
                 log_undelivered(
                     response_tx.send(result),
                     AGENT_METHOD_NAMES.session_set_config_option,
@@ -2668,6 +2780,7 @@ mod tests {
                 cancel_epoch: Arc::new(AtomicU64::new(1)),
                 cancelled_epoch: Arc::new(AtomicU64::new(0)),
                 active_prompt_epoch: Arc::new(AtomicU64::new(0)),
+                cancel_notify: Arc::new(tokio::sync::Notify::new()),
                 tx,
                 cancel_tx: None,
                 loop_thread: None,
@@ -3511,6 +3624,50 @@ mod tests {
         handle.await.unwrap().unwrap();
     }
 
+    /// A failed attempt — a cancel abandoning it, say — has already reached
+    /// the backend, so the previously applied model can no longer be trusted
+    /// and the next attempt must re-send even for that same model.
+    #[tokio::test]
+    async fn apply_model_if_changed_reapplies_after_a_failed_attempt() {
+        let (tx, mut rx) = mpsc::channel(1);
+        let provider = test_provider_with_model_option(tx, Some("old-model".to_string()));
+
+        let fail = async {
+            match rx.recv().await.expect("expected a SetConfigOption request") {
+                ClientRequest::SetConfigOption { response_tx, .. } => {
+                    let _ = response_tx.send(Err(anyhow::anyhow!("reply cancelled")));
+                }
+                _ => panic!("unexpected request kind"),
+            }
+        };
+        let (result, ()) =
+            futures::future::join(provider.apply_model_if_changed("new-model"), fail).await;
+        assert!(result.is_err());
+
+        let reapply = async {
+            match rx
+                .recv()
+                .await
+                .expect("expected a re-applied SetConfigOption")
+            {
+                ClientRequest::SetConfigOption {
+                    value, response_tx, ..
+                } => {
+                    assert_eq!(value, "old-model");
+                    let _ = response_tx.send(Ok(()));
+                }
+                _ => panic!("unexpected request kind"),
+            }
+        };
+        let (result, ()) = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            futures::future::join(provider.apply_model_if_changed("old-model"), reapply),
+        )
+        .await
+        .expect("a failed attempt must leave the applied model unknown");
+        result.unwrap();
+    }
+
     #[tokio::test]
     async fn apply_model_if_changed_skips_when_model_unchanged() {
         let (tx, mut rx) = mpsc::channel(1);
@@ -4173,6 +4330,9 @@ mod tests {
     struct FakeAcpAgent {
         prompts: Arc<Mutex<Vec<String>>>,
         cancels: Arc<Mutex<u32>>,
+        /// When set, `session/set_config_option` waits on this gate instead of
+        /// answering, mimicking a backend that hangs applying an option.
+        config_option_gate: Option<Arc<tokio::sync::Notify>>,
     }
 
     impl agent_client_protocol::ConnectTo<Client> for FakeAcpAgent {
@@ -4182,8 +4342,22 @@ mod tests {
         ) -> std::result::Result<(), agent_client_protocol::Error> {
             let prompts = self.prompts;
             let cancels = self.cancels;
+            let config_option_gate = self.config_option_gate;
             Agent
                 .builder()
+                .on_receive_request(
+                    async move |_req: SetSessionConfigOptionRequest, responder, _cx| {
+                        if let Some(gate) = config_option_gate.as_ref() {
+                            gate.notified().await;
+                        }
+                        responder.respond(
+                            agent_client_protocol::schema::v1::SetSessionConfigOptionResponse::new(
+                                vec![],
+                            ),
+                        )
+                    },
+                    agent_client_protocol::on_receive_request!(),
+                )
                 .on_receive_request(
                     async move |_req: InitializeRequest, responder, _cx| {
                         responder.respond(InitializeResponse::new(ProtocolVersion::V1))
@@ -4240,11 +4414,112 @@ mod tests {
             FakeAcpAgent {
                 prompts: prompts.clone(),
                 cancels: cancels.clone(),
+                config_option_gate: None,
             },
         )
         .await
         .unwrap();
         (provider, prompts, cancels)
+    }
+
+    /// A cancel landing while the backend is still applying a pre-prompt
+    /// config option must free the serial client loop: it stops awaiting the
+    /// request instead of leaving later prompts queued behind a backend that
+    /// may never answer.
+    #[tokio::test]
+    async fn cancel_during_pre_prompt_config_option_unblocks_the_client_loop() {
+        let gate = Arc::new(tokio::sync::Notify::new());
+        let mut config = test_acp_config(HashMap::new(), None);
+        config.model_config_option_id = Some("model".to_string());
+        let provider = AcpProvider::connect_with_transport(
+            "acp-test".to_string(),
+            GooseMode::Auto,
+            config,
+            FakeAcpAgent {
+                prompts: Arc::new(Mutex::new(Vec::new())),
+                cancels: Arc::new(Mutex::new(0)),
+                config_option_gate: Some(gate.clone()),
+            },
+        )
+        .await
+        .unwrap();
+        let model = ModelConfig::new("some-model");
+        let messages = vec![Message::user().with_text("hello")];
+
+        // The reply stalls in apply_model_if_changed with the client loop
+        // awaiting the backend. Cancelling it must end that await, which the
+        // caller observes as the request failing rather than hanging.
+        let scope = provider.begin_cancel_scope();
+        let stalled = provider.stream(&model, "", &messages, &[]);
+        let cancel = async {
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            provider.cancel("goose-session", scope).await;
+        };
+        let joined = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            futures::future::join(stalled, cancel),
+        )
+        .await;
+        // Release the backend before asserting so a failure reports cleanly
+        // instead of deadlocking the provider's drop on the client loop.
+        gate.notify_one();
+
+        let (result, ()) =
+            joined.expect("client loop stayed blocked on the cancelled reply's config option");
+        assert!(matches!(result, Err(ProviderError::RequestFailed(_))));
+    }
+
+    /// The abandoned request stays on the wire, so it can reach the backend
+    /// after a later reply has applied a different model. Once it settles, the
+    /// applied-model memo is dropped so the next reply re-applies its own
+    /// model instead of leaving the backend on the abandoned one.
+    #[tokio::test]
+    async fn settled_abandoned_model_setup_invalidates_the_applied_model() {
+        let gate = Arc::new(tokio::sync::Notify::new());
+        let mut config = test_acp_config(HashMap::new(), None);
+        config.model_config_option_id = Some("model".to_string());
+        let provider = AcpProvider::connect_with_transport(
+            "acp-test".to_string(),
+            GooseMode::Auto,
+            config,
+            FakeAcpAgent {
+                prompts: Arc::new(Mutex::new(Vec::new())),
+                cancels: Arc::new(Mutex::new(0)),
+                config_option_gate: Some(gate.clone()),
+            },
+        )
+        .await
+        .unwrap();
+        let model = ModelConfig::new("model-a");
+        let messages = vec![Message::user().with_text("hello")];
+
+        let scope = provider.begin_cancel_scope();
+        let stalled = provider.stream(&model, "", &messages, &[]);
+        let cancel = async {
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            provider.cancel("goose-session", scope).await;
+        };
+        let (result, ()) = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            futures::future::join(stalled, cancel),
+        )
+        .await
+        .expect("client loop stayed blocked on the cancelled reply's config option");
+        assert!(matches!(result, Err(ProviderError::RequestFailed(_))));
+
+        // Stand in for a later reply having applied model B while the
+        // abandoned model-a request was still outstanding.
+        *provider.applied_model.lock().unwrap() = Some("model-b".to_string());
+
+        gate.notify_one();
+
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while provider.applied_model.lock().unwrap().is_some() {
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("a settled abandoned model setup must invalidate the applied model");
     }
 
     #[tokio::test]
