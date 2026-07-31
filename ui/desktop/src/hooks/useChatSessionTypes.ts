@@ -26,6 +26,8 @@ export interface UseChatSessionResult {
   sessionLoadError?: string;
   submitError?: string;
   workingDirMissing: boolean;
+  rejectedInput: UserInput | null;
+  clearRejectedInput: () => void;
   tokenState: TokenState;
   notifications: Map<string, NotificationEvent[]>;
   pauseQueueOnStop: boolean;

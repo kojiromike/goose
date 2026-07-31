@@ -68,6 +68,7 @@ export function useChatSession({
   const sessionLoadError = acpSnapshot?.sessionLoadError;
   const submitError = acpSnapshot?.submitError;
   const workingDirMissing = session?.working_dir_missing === true;
+  const rejectedInput = acpSnapshot?.rejectedInput ?? null;
   const tokenState = acpSnapshot?.tokenState ?? initialTokenState;
   const queueProcessingBlocked = acpSnapshot?.pendingCancelPromptAttemptId != null;
 
@@ -286,6 +287,10 @@ export function useChatSession({
     [getCurrentSnapshot, sessionId]
   );
 
+  const clearRejectedInput = useCallback(() => {
+    acpChatSessionActions.clearRejectedInput(sessionId);
+  }, [sessionId]);
+
   const stopStreaming = useCallback(() => {
     acpChatSessionController.stop(sessionId);
   }, [sessionId]);
@@ -355,6 +360,8 @@ export function useChatSession({
     sessionLoadError,
     submitError,
     workingDirMissing,
+    rejectedInput,
+    clearRejectedInput,
     messages,
     session,
     chatState,

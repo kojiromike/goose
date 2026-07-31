@@ -139,6 +139,8 @@ export default function BaseChat({
     sessionLoadError,
     submitError,
     workingDirMissing,
+    rejectedInput,
+    clearRejectedInput,
     tokenState,
     notifications: toolCallNotifications,
     pauseQueueOnStop,
@@ -595,6 +597,8 @@ export default function BaseChat({
             pauseQueueOnStop={pauseQueueOnStop}
             queueProcessingBlocked={queueProcessingBlocked || acpRecovering || workingDirMissing}
             submissionDisabled={workingDirMissing}
+            rejectedInput={rejectedInput}
+            onRejectedInputRestored={clearRejectedInput}
             commandHistory={commandHistory}
             initialValue={initialPrompt}
             setView={setView}
