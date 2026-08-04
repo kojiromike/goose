@@ -1386,6 +1386,9 @@
   "hub.goodMorning": {
     "defaultMessage": "Guten Morgen"
   },
+  "hub.resumeProviderSession": {
+    "defaultMessage": "Eine Claude Code-Sitzung fortsetzen"
+  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "Herunterladen"
   },
@@ -3278,6 +3281,24 @@
   },
   "responseStyle.detailedLabel": {
     "defaultMessage": "Ausführlich"
+  },
+  "resumeProviderSession.cancel": {
+    "defaultMessage": "Abbrechen"
+  },
+  "resumeProviderSession.description": {
+    "defaultMessage": "Eine Unterhaltung aus Claude Code in goose fortführen. Es werden nur Sitzungen aus dem aktuellen Verzeichnis angezeigt."
+  },
+  "resumeProviderSession.empty": {
+    "defaultMessage": "Keine Claude Code-Sitzungen für dieses Verzeichnis gefunden."
+  },
+  "resumeProviderSession.loading": {
+    "defaultMessage": "Sitzungen werden geladen…"
+  },
+  "resumeProviderSession.title": {
+    "defaultMessage": "Eine Claude Code-Sitzung fortsetzen"
+  },
+  "resumeProviderSession.untitled": {
+    "defaultMessage": "Unbenannte Sitzung"
   },
   "scheduleDetailView.actions": {
     "defaultMessage": "Aktionen"

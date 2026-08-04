@@ -1387,6 +1387,9 @@
   "hub.goodMorning": {
     "defaultMessage": "Chào buổi sáng"
   },
+  "hub.resumeProviderSession": {
+    "defaultMessage": "Tiếp tục một phiên Claude Code"
+  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "Tải xuống"
   },
@@ -3279,6 +3282,24 @@
   },
   "responseStyle.detailedLabel": {
     "defaultMessage": "Chi tiết"
+  },
+  "resumeProviderSession.cancel": {
+    "defaultMessage": "Hủy"
+  },
+  "resumeProviderSession.description": {
+    "defaultMessage": "Tiếp tục cuộc trò chuyện từ Claude Code trong goose. Chỉ hiển thị các phiên từ thư mục hiện tại."
+  },
+  "resumeProviderSession.empty": {
+    "defaultMessage": "Không tìm thấy phiên Claude Code nào cho thư mục này."
+  },
+  "resumeProviderSession.loading": {
+    "defaultMessage": "Đang tải các phiên…"
+  },
+  "resumeProviderSession.title": {
+    "defaultMessage": "Tiếp tục một phiên Claude Code"
+  },
+  "resumeProviderSession.untitled": {
+    "defaultMessage": "Phiên chưa đặt tên"
   },
   "scheduleDetailView.actions": {
     "defaultMessage": "Hành động"

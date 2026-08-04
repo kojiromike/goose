@@ -1387,6 +1387,9 @@
   "hub.goodMorning": {
     "defaultMessage": "Günaydın"
   },
+  "hub.resumeProviderSession": {
+    "defaultMessage": "Claude Code oturumunu sürdür"
+  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "İndir"
   },
@@ -3279,6 +3282,24 @@
   },
   "responseStyle.detailedLabel": {
     "defaultMessage": "Detaylı"
+  },
+  "resumeProviderSession.cancel": {
+    "defaultMessage": "İptal"
+  },
+  "resumeProviderSession.description": {
+    "defaultMessage": "Claude Code'daki bir konuşmayı goose içinde sürdürün. Yalnızca geçerli dizindeki oturumlar gösterilir."
+  },
+  "resumeProviderSession.empty": {
+    "defaultMessage": "Bu dizin için Claude Code oturumu bulunamadı."
+  },
+  "resumeProviderSession.loading": {
+    "defaultMessage": "Oturumlar yükleniyor…"
+  },
+  "resumeProviderSession.title": {
+    "defaultMessage": "Claude Code oturumunu sürdür"
+  },
+  "resumeProviderSession.untitled": {
+    "defaultMessage": "Başlıksız oturum"
   },
   "scheduleDetailView.actions": {
     "defaultMessage": "Eylemler"
