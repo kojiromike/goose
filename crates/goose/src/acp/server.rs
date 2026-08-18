@@ -13,7 +13,8 @@ use crate::agents::extension::{Envs, PLATFORM_EXTENSIONS};
 use crate::agents::mcp_client::{GooseMcpHostInfo, McpClientTrait};
 use crate::agents::platform_extensions::developer::DeveloperClient;
 use crate::agents::{
-    Agent, AgentConfig, ExtensionConfig, ExtensionLoadResult, GoosePlatform, SessionConfig,
+    Agent, AgentConfig, ExtensionConfig, ExtensionLoadResult, GoosePlatform, OutOfBandMessage,
+    SessionConfig,
 };
 use crate::config::base::CONFIG_YAML_NAME;
 use crate::config::extensions::{configured_enabled_state, get_enabled_extensions_with_config};
@@ -423,6 +424,51 @@ fn spawn_session_name_update_notifier(
         }
     });
     tx
+}
+
+fn spawn_out_of_band_message_notifier(
+    cx: ConnectionTo<Client>,
+) -> tokio::sync::mpsc::UnboundedSender<OutOfBandMessage> {
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<OutOfBandMessage>();
+    tokio::spawn(async move {
+        while let Some(update) = rx.recv().await {
+            let session_id = SessionId::new(update.session_id.clone());
+            for content in &update.message.content {
+                let Some(session_update) = out_of_band_session_update(&update.message, content)
+                else {
+                    continue;
+                };
+                if let Err(error) = cx
+                    .send_notification(SessionNotification::new(session_id.clone(), session_update))
+                {
+                    warn!(
+                        session_id = %update.session_id,
+                        error = %error,
+                        "Failed to send out-of-band provider message"
+                    );
+                }
+            }
+        }
+    });
+    tx
+}
+
+fn out_of_band_session_update(
+    message: &Message,
+    content: &MessageContent,
+) -> Option<SessionUpdate> {
+    match content {
+        MessageContent::Text(text) => Some(SessionUpdate::AgentMessageChunk(
+            content_chunk_for_message(message, ContentBlock::Text(TextContent::new(&text.text))),
+        )),
+        MessageContent::Thinking(thinking) => {
+            Some(SessionUpdate::AgentThoughtChunk(content_chunk_for_message(
+                message,
+                ContentBlock::Text(TextContent::new(&thinking.thinking)),
+            )))
+        }
+        _ => None,
+    }
 }
 
 fn extract_timeout_from_meta(meta: &Option<Meta>) -> Option<u64> {
@@ -1056,6 +1102,7 @@ impl GooseAcpAgent {
                     use_login_shell_path: self.use_login_shell_path.get().copied(),
                     session_name_update_tx: (!self.disable_session_naming)
                         .then(|| spawn_session_name_update_notifier(cx.clone())),
+                    out_of_band_message_tx: Some(spawn_out_of_band_message_notifier(cx.clone())),
                 },
             )
             .await

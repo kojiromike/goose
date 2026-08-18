@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::pin::Pin;
+use std::sync::Arc;
 use tokio::sync::watch;
 
 use crate::{
@@ -658,6 +659,13 @@ pub trait Provider: Send + Sync {
     fn supports_builtin_tools(&self) -> bool {
         !self.manages_own_context()
     }
+
+    /// Receives assistant messages the provider produced outside any completion
+    /// this session asked for. Backends that drive themselves — resuming a turn
+    /// when a backgrounded build finishes, say — have content that belongs in
+    /// the conversation but has no reply stream to ride on. Callbacks are
+    /// invoked in production order.
+    fn set_out_of_band_message_callback(&self, _callback: Arc<dyn Fn(Message) + Send + Sync>) {}
 
     /// Configure OAuth authentication for this provider
     ///

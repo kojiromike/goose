@@ -210,6 +210,14 @@ impl fmt::Display for GoosePlatform {
     }
 }
 
+/// An assistant message the provider produced outside any completion goose
+/// asked for, already persisted to the session.
+#[derive(Clone, Debug)]
+pub struct OutOfBandMessage {
+    pub session_id: String,
+    pub message: Message,
+}
+
 #[derive(Clone)]
 pub struct AgentConfig {
     pub session_manager: Arc<SessionManager>,
@@ -222,6 +230,7 @@ pub struct AgentConfig {
     pub elicitation_handler: Option<crate::agents::mcp_client::ElicitationHandler>,
     pub mcp_protocol_version: Option<rmcp::model::ProtocolVersion>,
     pub session_name_update_tx: Option<mpsc::UnboundedSender<SessionNameUpdate>>,
+    pub out_of_band_message_tx: Option<mpsc::UnboundedSender<OutOfBandMessage>>,
     pub use_login_shell_path: Option<bool>,
     pub is_subagent: bool,
 }
@@ -246,6 +255,7 @@ impl AgentConfig {
             elicitation_handler: None,
             mcp_protocol_version: Some(MCP_PROTOCOL_VERSION),
             session_name_update_tx: None,
+            out_of_band_message_tx: None,
             use_login_shell_path: None,
             is_subagent: false,
         }
@@ -3419,6 +3429,8 @@ impl Agent {
     ) -> Result<()> {
         let provider_name = provider.get_name().to_string();
 
+        provider.set_out_of_band_message_callback(self.out_of_band_message_sink(session_id));
+
         let model_config = match crate::providers::get_from_registry(&provider_name).await {
             Ok(entry) => entry
                 .normalize_model_config(model_config.clone())
@@ -3450,6 +3462,33 @@ impl Agent {
             .apply()
             .await
             .context("Failed to persist provider config to session")
+    }
+
+    /// Persists provider-produced messages to the session and forwards them to
+    /// the client. One drain task, not a task per message, so a run's chunks
+    /// are stored in the order the provider produced them.
+    fn out_of_band_message_sink(&self, session_id: &str) -> Arc<dyn Fn(Message) + Send + Sync> {
+        let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
+        let session_manager = self.config.session_manager.clone();
+        let notification_tx = self.config.out_of_band_message_tx.clone();
+        let session_id = session_id.to_string();
+        tokio::spawn(async move {
+            while let Some(message) = rx.recv().await {
+                if let Err(error) = session_manager.add_message(&session_id, &message).await {
+                    warn!(%error, "Failed to persist out-of-band provider message");
+                    continue;
+                }
+                if let Some(notification_tx) = &notification_tx {
+                    let _ = notification_tx.send(OutOfBandMessage {
+                        session_id: session_id.clone(),
+                        message,
+                    });
+                }
+            }
+        });
+        Arc::new(move |message| {
+            let _ = tx.send(message);
+        })
     }
 
     pub async fn update_goose_mode(&self, mode: GooseMode, session_id: &str) -> Result<()> {

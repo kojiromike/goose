@@ -1,5 +1,5 @@
 use crate::agents::mcp_client::GooseMcpHostInfo;
-use crate::agents::{Agent, AgentConfig, ExtensionLoadResult, GoosePlatform};
+use crate::agents::{Agent, AgentConfig, ExtensionLoadResult, GoosePlatform, OutOfBandMessage};
 use crate::config::permission::PermissionManager;
 use crate::config::Config;
 use crate::scheduler_trait::SchedulerTrait;
@@ -22,6 +22,7 @@ pub struct RuntimeContext {
     pub mcp_host_info: Option<GooseMcpHostInfo>,
     pub use_login_shell_path: Option<bool>,
     pub session_name_update_tx: Option<mpsc::UnboundedSender<SessionNameUpdate>>,
+    pub out_of_band_message_tx: Option<mpsc::UnboundedSender<OutOfBandMessage>>,
 }
 
 pub struct AgentManagerGetResult {
@@ -200,6 +201,7 @@ impl AgentManager {
         config.mcp_host_info = runtime_context.mcp_host_info;
         config.use_login_shell_path = runtime_context.use_login_shell_path;
         config.session_name_update_tx = runtime_context.session_name_update_tx;
+        config.out_of_band_message_tx = runtime_context.out_of_band_message_tx;
         let agent = Arc::new(Agent::with_config(config));
         let mut extension_results = Vec::new();
 
