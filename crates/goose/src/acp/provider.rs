@@ -1146,6 +1146,21 @@ fn is_active_session(active: &Arc<Mutex<Option<SessionId>>>, incoming: &SessionI
     }
 }
 
+/// Points the update filter at a session that finished setup. Both `session/new`
+/// and `session/load` land here: whichever ran last is the session goose prompts
+/// against, and only its updates may be delivered. A session that failed setup
+/// is never returned to the caller, so it never becomes that session.
+fn latch_active_session(
+    active: &Arc<Mutex<Option<SessionId>>>,
+    result: &Result<NewSessionResponse>,
+) {
+    if let Ok(session) = result {
+        if let Ok(mut guard) = active.lock() {
+            *guard = Some(session.session_id.clone());
+        }
+    }
+}
+
 /// Best-effort release of a session goose no longer prompts against. Failures
 /// only leak an idle agent-side session, which shutdown cleans up anyway.
 async fn close_session(tx: &mpsc::Sender<ClientRequest>, session_id: SessionId) {
@@ -1654,13 +1669,7 @@ async fn handle_requests(
                     }
                     Err(error) => Err(acp_method_error(AGENT_METHOD_NAMES.session_new, error)),
                 };
-                // A session that failed setup is never returned to the caller, so it
-                // never becomes the session goose prompts against.
-                if let Ok(session) = result.as_ref() {
-                    if let Ok(mut guard) = active_session.lock() {
-                        *guard = Some(session.session_id.clone());
-                    }
-                }
+                latch_active_session(&active_session, &result);
                 log_undelivered(response_tx.send(result), AGENT_METHOD_NAMES.session_new);
             }
             ClientRequest::LoadSession {
@@ -1713,6 +1722,10 @@ async fn handle_requests(
                         Err(error)
                     }
                 };
+                // Without this latch a resume leaves the filter on the session
+                // it replaced, and every chunk of every later turn is dropped
+                // as superseded: turns arrive empty though the backend answered.
+                latch_active_session(&active_session, &result);
                 log_undelivered(response_tx.send(result), AGENT_METHOD_NAMES.session_load);
             }
             ClientRequest::CloseSession { session_id } => {
@@ -4429,6 +4442,31 @@ mod tests {
         *active.lock().unwrap() = Some(SessionId::new("fresh-session"));
         assert!(is_active_session(&active, &SessionId::new("fresh-session")));
         assert!(!is_active_session(&active, &SessionId::new("old-session")));
+    }
+
+    #[test]
+    fn a_loaded_session_becomes_the_one_updates_are_accepted_for() {
+        let active = Arc::new(Mutex::new(Some(SessionId::new("replaced-session"))));
+
+        latch_active_session(&active, &Ok(NewSessionResponse::new("resumed-session")));
+
+        assert!(
+            is_active_session(&active, &SessionId::new("resumed-session")),
+            "a resumed session's updates must reach the turn, not be dropped as superseded"
+        );
+        assert!(!is_active_session(
+            &active,
+            &SessionId::new("replaced-session")
+        ));
+    }
+
+    #[test]
+    fn a_session_that_failed_setup_does_not_take_over_the_filter() {
+        let active = Arc::new(Mutex::new(Some(SessionId::new("live-session"))));
+
+        latch_active_session(&active, &Err(anyhow::anyhow!("session/load failed")));
+
+        assert!(is_active_session(&active, &SessionId::new("live-session")));
     }
 
     #[tokio::test]
