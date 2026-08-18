@@ -7,7 +7,8 @@ use agent_client_protocol::schema::v1::{
     SessionConfigOption, SessionConfigOptionCategory, SessionConfigSelectOption,
     SessionConfigSelectOptions, SessionId, SessionModeState, SessionNotification, SessionUpdate,
     SetSessionConfigOptionRequest, SetSessionModeRequest, SetSessionModeResponse, StopReason,
-    TextContent, ToolCallContent, ToolCallStatus, ToolKind,
+    TextContent, ToolCall, ToolCallContent, ToolCallStatus, ToolCallUpdate, ToolCallUpdateFields,
+    ToolKind,
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::{Agent, Client, ConnectionTo};
@@ -27,6 +28,7 @@ use std::sync::{
     Arc, Mutex,
 };
 use std::thread::JoinHandle;
+use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, oneshot, watch, Mutex as TokioMutex};
@@ -193,6 +195,196 @@ fn provider_error_from_acp(error: agent_client_protocol::Error) -> ProviderError
 struct AccumulatedToolCall {
     raw_output: Option<serde_json::Value>,
     content: Vec<ToolCallContent>,
+    /// Set while the call has been announced but its input has not arrived, so
+    /// the refining update can correct it before it reaches the turn.
+    held_start: Option<HeldToolCallStart>,
+}
+
+type PendingToolCalls = Mutex<HashMap<String, AccumulatedToolCall>>;
+
+/// A `tool_call` that has not been surfaced to the turn yet.
+#[derive(Debug)]
+struct HeldToolCallStart {
+    title: String,
+    kind: ToolKind,
+    raw_input: Option<serde_json::Value>,
+}
+
+impl HeldToolCallStart {
+    /// Applies the identifying fields of a refining update, taking them so the
+    /// caller does not pay for a second copy of a large `raw_input`.
+    fn refine(&mut self, fields: &mut ToolCallUpdateFields) {
+        if let Some(title) = fields.title.take() {
+            self.title = title;
+        }
+        if let Some(kind) = fields.kind {
+            self.kind = kind;
+        }
+        if fields.raw_input.is_some() {
+            self.raw_input = fields.raw_input.take();
+        }
+    }
+
+    fn into_update(self, id: String) -> AcpUpdate {
+        // ACP carries no canonical tool name to clients — only `title`
+        // (display) and `kind` (category). We pass `title` for renderer
+        // affordance, surface `kind` separately via tool_meta for stable
+        // categorization, and the goose.external_dispatch marker keeps `name`
+        // off the agent loop's routing/auth paths.
+        AcpUpdate::ToolCallStart {
+            id,
+            name: self.title,
+            kind: self.kind,
+            raw_input: self.raw_input,
+        }
+    }
+}
+
+/// How long a tool call announced without its input waits for the refining
+/// update that carries it. Long enough for an agent to finish streaming a
+/// typical tool input, short enough that a tool genuinely called with no
+/// arguments — indistinguishable from one whose input has not arrived — is not
+/// noticeably late.
+const TOOL_CALL_INPUT_GRACE: Duration = Duration::from_secs(1);
+
+fn terminal_tool_call_status(status: ToolCallStatus) -> Option<ToolCallStatus> {
+    matches!(status, ToolCallStatus::Completed | ToolCallStatus::Failed).then_some(status)
+}
+
+fn tool_input_is_absent(raw_input: Option<&serde_json::Value>) -> bool {
+    match raw_input {
+        None | Some(serde_json::Value::Null) => true,
+        Some(serde_json::Value::Object(map)) => map.is_empty(),
+        Some(_) => false,
+    }
+}
+
+fn emit_tool_call_complete(
+    tx: &mpsc::Sender<AcpUpdate>,
+    id: String,
+    accumulated: AccumulatedToolCall,
+    status: ToolCallStatus,
+) {
+    let content = if accumulated.content.is_empty() {
+        None
+    } else {
+        Some(accumulated.content)
+    };
+    let _ = tx.try_send(AcpUpdate::ToolCallComplete {
+        id,
+        raw_output: accumulated.raw_output,
+        content,
+        is_error: matches!(status, ToolCallStatus::Failed),
+    });
+}
+
+/// Surfaces an ACP `tool_call`. A call that arrives without its input — agents
+/// announce a tool the moment it starts, while its input is still streaming, so
+/// the title is a placeholder and `rawInput` is empty — is held until the
+/// refining update carries the real title and input, so the running call shows
+/// what it is actually doing rather than "Terminal" with no arguments.
+fn begin_tool_call(
+    pending: &Arc<PendingToolCalls>,
+    tx: &mpsc::Sender<AcpUpdate>,
+    tool_call: ToolCall,
+) {
+    let id = tool_call.tool_call_id.0.to_string();
+    let terminal = terminal_tool_call_status(tool_call.status);
+    let hold = terminal.is_none() && tool_input_is_absent(tool_call.raw_input.as_ref());
+    let mut start = Some(HeldToolCallStart {
+        title: tool_call.title,
+        kind: tool_call.kind,
+        raw_input: tool_call.raw_input,
+    });
+
+    let mut drained = None;
+    if let Ok(mut buffer) = pending.lock() {
+        let entry = buffer.entry(id.clone()).or_default();
+        if let Some(raw_output) = tool_call.raw_output {
+            entry.raw_output = Some(raw_output);
+        }
+        entry.content.extend(tool_call.content);
+        // A call that is already terminal is synchronous: nothing follows it,
+        // so it drains here instead of on a status update that never comes.
+        if terminal.is_some() {
+            drained = buffer.remove(&id);
+        } else if hold {
+            entry.held_start = start.take();
+        }
+    }
+
+    let Some(start) = start else {
+        schedule_held_tool_call_release(pending.clone(), tx.clone(), id);
+        return;
+    };
+
+    let _ = tx.try_send(start.into_update(id.clone()));
+    if let (Some(drained), Some(status)) = (drained, terminal) {
+        emit_tool_call_complete(tx, id, drained, status);
+    }
+}
+
+/// Merges a `tool_call_update` into the buffered call: refines a held start and
+/// releases it, accumulates content/output, and drains the buffer on a terminal
+/// status.
+fn apply_tool_call_update(
+    pending: &Arc<PendingToolCalls>,
+    tx: &mpsc::Sender<AcpUpdate>,
+    update: ToolCallUpdate,
+) {
+    let id = update.tool_call_id.0.to_string();
+    let terminal = update.fields.status.and_then(terminal_tool_call_status);
+
+    let mut fields = update.fields;
+    let mut start = None;
+    let mut drained = None;
+    if let Ok(mut buffer) = pending.lock() {
+        let entry = buffer.entry(id.clone()).or_default();
+        if let Some(held) = entry.held_start.as_mut() {
+            held.refine(&mut fields);
+        }
+        start = entry.held_start.take();
+        if let Some(raw_output) = fields.raw_output {
+            entry.raw_output = Some(raw_output);
+        }
+        if let Some(content) = fields.content {
+            entry.content.extend(content);
+        }
+        if terminal.is_some() {
+            drained = buffer.remove(&id);
+        }
+    }
+
+    if let Some(start) = start {
+        let _ = tx.try_send(start.into_update(id.clone()));
+    }
+    if let (Some(drained), Some(status)) = (drained, terminal) {
+        emit_tool_call_complete(tx, id, drained, status);
+    }
+}
+
+/// Releases a held start without a refinement, so a call the agent surfaces
+/// through another channel — a permission request, or nothing at all within
+/// [`TOOL_CALL_INPUT_GRACE`] — still reaches the turn.
+fn release_held_tool_call(pending: &PendingToolCalls, tx: &mpsc::Sender<AcpUpdate>, id: &str) {
+    let start = pending
+        .lock()
+        .ok()
+        .and_then(|mut buffer| buffer.get_mut(id)?.held_start.take());
+    if let Some(start) = start {
+        let _ = tx.try_send(start.into_update(id.to_string()));
+    }
+}
+
+fn schedule_held_tool_call_release(
+    pending: Arc<PendingToolCalls>,
+    tx: mpsc::Sender<AcpUpdate>,
+    id: String,
+) {
+    tokio::spawn(async move {
+        tokio::time::sleep(TOOL_CALL_INPUT_GRACE).await;
+        release_held_tool_call(&pending, &tx, &id);
+    });
 }
 
 /// The single ACP session backing this provider instance.
@@ -280,7 +472,7 @@ pub struct AcpProvider {
 
     pending_confirmations:
         Arc<TokioMutex<HashMap<String, oneshot::Sender<PermissionConfirmation>>>>,
-    pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
+    pending_tool_updates: Arc<PendingToolCalls>,
     /// True after the first ACP prompt completes with the handoff context committed.
     /// Failed or abandoned first prompts reset this so the next prompt can retry it.
     handoff_context_sent: Arc<AtomicBool>,
@@ -394,8 +586,7 @@ impl AcpProvider {
                 .map(|(_, value)| value.clone())
         });
         let goose_mode_shared = Arc::new(Mutex::new(goose_mode));
-        let pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>> =
-            Arc::new(Mutex::new(HashMap::new()));
+        let pending_tool_updates: Arc<PendingToolCalls> = Arc::new(Mutex::new(HashMap::new()));
         let context_size = Arc::new(AtomicU64::new(0));
         let effort = AcpEffortState::new();
         let client_loop = AcpClientLoop::new(
@@ -1122,7 +1313,7 @@ struct AcpClientLoop {
     config: AcpProviderConfig,
     goose_mode: Arc<Mutex<GooseMode>>,
     prompt_response_tx: Arc<Mutex<Option<mpsc::Sender<AcpUpdate>>>>,
-    pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
+    pending_tool_updates: Arc<PendingToolCalls>,
     context_size: Arc<AtomicU64>,
     effort: AcpEffortState,
 }
@@ -1131,7 +1322,7 @@ impl AcpClientLoop {
     fn new(
         config: AcpProviderConfig,
         goose_mode: Arc<Mutex<GooseMode>>,
-        pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
+        pending_tool_updates: Arc<PendingToolCalls>,
         context_size: Arc<AtomicU64>,
         effort: AcpEffortState,
     ) -> Self {
@@ -1280,100 +1471,10 @@ impl AcpClientLoop {
                                     let _ = tx.try_send(AcpUpdate::Thought(text));
                                 }
                                 SessionUpdate::ToolCall(tool_call) => {
-                                    let id = tool_call.tool_call_id.0.to_string();
-                                    let initial_status = tool_call.status;
-                                    let synchronous_terminal = matches!(
-                                        initial_status,
-                                        ToolCallStatus::Completed | ToolCallStatus::Failed
-                                    );
-                                    // Seed the buffer; drain immediately if the call is
-                                    // already terminal (synchronous tool, no follow-up).
-                                    let synchronous_accumulated =
-                                        if let Ok(mut buffer) = pending_tool_updates.lock() {
-                                            let entry = buffer.entry(id.clone()).or_default();
-                                            if let Some(raw_output) = tool_call.raw_output.clone() {
-                                                entry.raw_output = Some(raw_output);
-                                            }
-                                            entry.content.extend(tool_call.content.clone());
-                                            if synchronous_terminal {
-                                                buffer.remove(&id)
-                                            } else {
-                                                None
-                                            }
-                                        } else {
-                                            None
-                                        };
-                                    // ACP carries no canonical tool name to clients — only
-                                    // `title` (display) and `kind` (category). We pass `title`
-                                    // for renderer affordance, surface `kind` separately via
-                                    // tool_meta for stable categorization, and the
-                                    // goose.external_dispatch marker keeps `name` off the
-                                    // agent loop's routing/auth paths.
-                                    let _ = tx.try_send(AcpUpdate::ToolCallStart {
-                                        id: id.clone(),
-                                        name: tool_call.title.clone(),
-                                        kind: tool_call.kind,
-                                        raw_input: tool_call.raw_input.clone(),
-                                    });
-                                    if let Some(accumulated) = synchronous_accumulated {
-                                        let content = if accumulated.content.is_empty() {
-                                            None
-                                        } else {
-                                            Some(accumulated.content)
-                                        };
-                                        let _ = tx.try_send(AcpUpdate::ToolCallComplete {
-                                            id,
-                                            raw_output: accumulated.raw_output,
-                                            content,
-                                            is_error: matches!(
-                                                initial_status,
-                                                ToolCallStatus::Failed
-                                            ),
-                                        });
-                                    }
+                                    begin_tool_call(&pending_tool_updates, tx, tool_call);
                                 }
                                 SessionUpdate::ToolCallUpdate(update) => {
-                                    let id = update.tool_call_id.0.to_string();
-                                    // Merge patch-like fields; only emit on terminal status.
-                                    let terminal_status = update.fields.status.filter(|s| {
-                                        matches!(
-                                            s,
-                                            ToolCallStatus::Completed | ToolCallStatus::Failed
-                                        )
-                                    });
-                                    let accumulated = if let Ok(mut buffer) =
-                                        pending_tool_updates.lock()
-                                    {
-                                        let entry = buffer.entry(id.clone()).or_default();
-                                        if let Some(raw_output) = update.fields.raw_output.clone() {
-                                            entry.raw_output = Some(raw_output);
-                                        }
-                                        if let Some(content) = update.fields.content.clone() {
-                                            entry.content.extend(content);
-                                        }
-                                        if terminal_status.is_some() {
-                                            buffer.remove(&id)
-                                        } else {
-                                            None
-                                        }
-                                    } else {
-                                        None
-                                    };
-                                    if let (Some(accumulated), Some(status)) =
-                                        (accumulated, terminal_status)
-                                    {
-                                        let content = if accumulated.content.is_empty() {
-                                            None
-                                        } else {
-                                            Some(accumulated.content)
-                                        };
-                                        let _ = tx.try_send(AcpUpdate::ToolCallComplete {
-                                            id,
-                                            raw_output: accumulated.raw_output,
-                                            content,
-                                            is_error: matches!(status, ToolCallStatus::Failed),
-                                        });
-                                    }
+                                    apply_tool_call_update(&pending_tool_updates, tx, update);
                                 }
                                 _ => {}
                             }
@@ -1386,6 +1487,7 @@ impl AcpClientLoop {
             .on_receive_request(
                 {
                     let prompt_response_tx = prompt_response_tx.clone();
+                    let pending_tool_updates = pending_tool_updates.clone();
                     async move |request: RequestPermissionRequest, responder, _connection_cx| {
                         let (response_tx, response_rx) = oneshot::channel();
 
@@ -1400,6 +1502,14 @@ impl AcpClientLoop {
                         if tx.is_closed() {
                             return Err(agent_client_protocol::Error::internal_error());
                         }
+
+                        // The approval prompt names a tool call, so a call still
+                        // held for its input has to reach the turn ahead of it.
+                        release_held_tool_call(
+                            &pending_tool_updates,
+                            &tx,
+                            request.tool_call.tool_call_id.0.as_ref(),
+                        );
 
                         tx.try_send(AcpUpdate::PermissionRequest {
                             request: Box::new(request),
@@ -4664,6 +4774,246 @@ mod tests {
                 tool_meta["goose.acp.kind"],
                 serde_json::Value::String(expected.to_string()),
                 "goose.acp.kind serialized wrong for kind={kind:?}"
+            );
+        }
+    }
+
+    mod tool_call_dispatch {
+        use super::*;
+        use agent_client_protocol::schema::v1::{Content, ToolCallId};
+
+        fn dispatch_target() -> (
+            Arc<PendingToolCalls>,
+            mpsc::Sender<AcpUpdate>,
+            mpsc::Receiver<AcpUpdate>,
+        ) {
+            let (tx, rx) = mpsc::channel(16);
+            (Arc::new(Mutex::new(HashMap::new())), tx, rx)
+        }
+
+        fn streamed_tool_call(id: &str) -> ToolCall {
+            ToolCall::new(ToolCallId::new(id), "Terminal")
+                .status(ToolCallStatus::Pending)
+                .raw_input(serde_json::json!({}))
+        }
+
+        fn refinement(id: &str) -> ToolCallUpdate {
+            ToolCallUpdate::new(
+                ToolCallId::new(id),
+                ToolCallUpdateFields::new()
+                    .title("cargo test")
+                    .kind(ToolKind::Execute)
+                    .raw_input(serde_json::json!({"command": "cargo test"})),
+            )
+        }
+
+        fn text_content(text: &str) -> ToolCallContent {
+            ToolCallContent::Content(Content::new(ContentBlock::Text(TextContent::new(text))))
+        }
+
+        fn expect_start(
+            update: AcpUpdate,
+        ) -> (String, String, ToolKind, Option<serde_json::Value>) {
+            match update {
+                AcpUpdate::ToolCallStart {
+                    id,
+                    name,
+                    kind,
+                    raw_input,
+                } => (id, name, kind, raw_input),
+                other => panic!("expected a tool call start, got {other:?}"),
+            }
+        }
+
+        #[tokio::test(start_paused = true)]
+        async fn a_streamed_tool_call_surfaces_with_the_input_its_refinement_carries() {
+            let (pending, tx, mut rx) = dispatch_target();
+
+            begin_tool_call(&pending, &tx, streamed_tool_call("call-1"));
+            assert!(
+                rx.try_recv().is_err(),
+                "a call announced without its input must not surface as an untitled placeholder"
+            );
+
+            apply_tool_call_update(&pending, &tx, refinement("call-1"));
+
+            let (id, name, kind, raw_input) = expect_start(rx.try_recv().expect("refined start"));
+            assert_eq!(id, "call-1");
+            assert_eq!(name, "cargo test");
+            assert_eq!(kind, ToolKind::Execute);
+            assert_eq!(
+                raw_input,
+                Some(serde_json::json!({"command": "cargo test"}))
+            );
+        }
+
+        #[tokio::test(start_paused = true)]
+        async fn a_tool_call_that_arrives_with_its_input_surfaces_at_once() {
+            let (pending, tx, mut rx) = dispatch_target();
+
+            begin_tool_call(
+                &pending,
+                &tx,
+                ToolCall::new(ToolCallId::new("call-1"), "Read file")
+                    .status(ToolCallStatus::Pending)
+                    .raw_input(serde_json::json!({"path": "README.md"})),
+            );
+
+            let (_, name, _, raw_input) = expect_start(rx.try_recv().expect("immediate start"));
+            assert_eq!(name, "Read file");
+            assert_eq!(raw_input, Some(serde_json::json!({"path": "README.md"})));
+        }
+
+        #[tokio::test(start_paused = true)]
+        async fn a_tool_call_that_is_never_refined_surfaces_after_the_grace_period() {
+            let (pending, tx, mut rx) = dispatch_target();
+
+            begin_tool_call(&pending, &tx, streamed_tool_call("call-1"));
+
+            let update = tokio::time::timeout(TOOL_CALL_INPUT_GRACE * 2, rx.recv())
+                .await
+                .expect("the wait for an input that never arrives must stay bounded");
+
+            let (id, name, _, _) = expect_start(update.expect("start after the grace"));
+            assert_eq!(id, "call-1");
+            assert_eq!(name, "Terminal");
+        }
+
+        #[tokio::test(start_paused = true)]
+        async fn a_held_tool_call_surfaces_before_its_completion() {
+            let (pending, tx, mut rx) = dispatch_target();
+
+            begin_tool_call(&pending, &tx, streamed_tool_call("call-1"));
+            assert!(rx.try_recv().is_err(), "the call is held for its input");
+
+            apply_tool_call_update(
+                &pending,
+                &tx,
+                ToolCallUpdate::new(
+                    ToolCallId::new("call-1"),
+                    ToolCallUpdateFields::new()
+                        .status(ToolCallStatus::Completed)
+                        .content(vec![text_content("done")]),
+                ),
+            );
+
+            let (_, name, _, _) = expect_start(rx.try_recv().expect("start"));
+            assert_eq!(name, "Terminal");
+            match rx.try_recv().expect("completion") {
+                AcpUpdate::ToolCallComplete {
+                    id,
+                    content,
+                    is_error,
+                    ..
+                } => {
+                    assert_eq!(id, "call-1");
+                    assert_eq!(content.expect("content").len(), 1);
+                    assert!(!is_error);
+                }
+                other => panic!("expected a completion, got {other:?}"),
+            }
+        }
+
+        #[tokio::test(start_paused = true)]
+        async fn a_held_tool_call_surfaces_before_the_approval_that_names_it() {
+            let (pending, tx, mut rx) = dispatch_target();
+
+            begin_tool_call(&pending, &tx, streamed_tool_call("call-1"));
+            assert!(rx.try_recv().is_err(), "the call is held for its input");
+
+            release_held_tool_call(&pending, &tx, "call-1");
+
+            let (id, _, _, _) = expect_start(rx.try_recv().expect("released start"));
+            assert_eq!(id, "call-1");
+
+            release_held_tool_call(&pending, &tx, "call-1");
+            assert!(
+                rx.try_recv().is_err(),
+                "a released call must not surface a second time"
+            );
+        }
+
+        #[tokio::test(start_paused = true)]
+        async fn a_synchronous_tool_call_completes_without_waiting() {
+            let (pending, tx, mut rx) = dispatch_target();
+
+            begin_tool_call(
+                &pending,
+                &tx,
+                ToolCall::new(ToolCallId::new("call-1"), "Read file")
+                    .status(ToolCallStatus::Failed)
+                    .raw_output(serde_json::json!({"error": "missing"})),
+            );
+
+            let (_, name, _, _) = expect_start(rx.try_recv().expect("start"));
+            assert_eq!(name, "Read file");
+            match rx.try_recv().expect("completion") {
+                AcpUpdate::ToolCallComplete {
+                    raw_output,
+                    is_error,
+                    ..
+                } => {
+                    assert_eq!(raw_output, Some(serde_json::json!({"error": "missing"})));
+                    assert!(is_error);
+                }
+                other => panic!("expected a completion, got {other:?}"),
+            }
+        }
+
+        #[tokio::test(start_paused = true)]
+        async fn content_accumulates_across_non_terminal_updates() {
+            let (pending, tx, mut rx) = dispatch_target();
+
+            begin_tool_call(
+                &pending,
+                &tx,
+                ToolCall::new(ToolCallId::new("call-1"), "Terminal")
+                    .status(ToolCallStatus::Pending)
+                    .raw_input(serde_json::json!({"command": "ls"}))
+                    .content(vec![text_content("first")]),
+            );
+            expect_start(rx.try_recv().expect("start"));
+
+            apply_tool_call_update(
+                &pending,
+                &tx,
+                ToolCallUpdate::new(
+                    ToolCallId::new("call-1"),
+                    ToolCallUpdateFields::new().content(vec![text_content("second")]),
+                ),
+            );
+            assert!(
+                rx.try_recv().is_err(),
+                "a non-terminal update must not end the call"
+            );
+
+            apply_tool_call_update(
+                &pending,
+                &tx,
+                ToolCallUpdate::new(
+                    ToolCallId::new("call-1"),
+                    ToolCallUpdateFields::new()
+                        .status(ToolCallStatus::Completed)
+                        .content(vec![text_content("third")]),
+                ),
+            );
+            match rx.try_recv().expect("completion") {
+                AcpUpdate::ToolCallComplete { content, .. } => {
+                    assert_eq!(content.expect("content").len(), 3);
+                }
+                other => panic!("expected a completion, got {other:?}"),
+            }
+        }
+
+        #[tokio::test(start_paused = true)]
+        async fn an_update_for_an_unknown_call_surfaces_nothing() {
+            let (pending, tx, mut rx) = dispatch_target();
+
+            apply_tool_call_update(&pending, &tx, refinement("call-1"));
+
+            assert!(
+                rx.try_recv().is_err(),
+                "a refinement alone must not invent a tool call"
             );
         }
     }
