@@ -86,6 +86,8 @@ Object.defineProperty(window, 'electron', {
     reloadApp: vi.fn(),
     showMessageBox: vi.fn(() => Promise.resolve({ response: 0 })),
     getIsFullScreen: vi.fn(() => Promise.resolve(false)),
+    getGitBranchInfo: vi.fn(() => Promise.resolve(null)),
+    listGitBranches: vi.fn(() => Promise.resolve([])),
     on: vi.fn(),
     off: vi.fn(),
   },

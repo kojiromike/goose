@@ -284,7 +284,7 @@ async function submitMessage(
       // pass the error to onFinish so the rejected prompt is not treated as a
       // completed task (desktop notification).
       if (acpChatSessionActions.finishPromptAttemptIfCurrent(sessionId, promptAttemptId)) {
-        void options.onFinish(errorMessage(error));
+        void options.onFinish(formatAcpError(error));
       }
       return;
     }
