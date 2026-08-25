@@ -117,6 +117,7 @@ impl ModelConfig {
     }
 
     pub fn with_canonical_limits(mut self, provider_name: &str) -> Self {
+        let explicit_context_limit = self.context_limit.is_some();
         // Try canonical lookup with the full model name first, then fall back
         // to the name with reasoning-effort suffixes stripped (e.g.
         // "databricks-gpt-5.4-high" → "databricks-gpt-5.4").
@@ -150,6 +151,16 @@ impl ModelConfig {
                         .input
                         .contains(&crate::canonical::Modality::Image),
                 )
+            }
+        }
+
+        // A "[1m]"/"[200k]" hint in the model id names a specific
+        // context-window variant, so it wins over the base model's canonical
+        // limit — but not over a limit the caller set explicitly.
+        if !explicit_context_limit {
+            let (_, window_hint) = crate::canonical::split_context_window_hint(&self.model_name);
+            if window_hint.is_some() {
+                self.context_limit = window_hint;
             }
         }
 
@@ -733,6 +744,42 @@ mod tests {
                 .with_canonical_limits("aws_bedrock");
             assert_eq!(config.max_tokens, Some(128_000));
             assert_eq!(config.reasoning, Some(true));
+        }
+
+        #[test]
+        fn resolves_claude_code_context_window_hint() {
+            let _guard = env_lock::lock_env([
+                ("GOOSE_MAX_TOKENS", None::<&str>),
+                ("GOOSE_CONTEXT_LIMIT", None::<&str>),
+            ]);
+            let config = ModelConfig::new("claude-fable-5[1m]").with_canonical_limits("claude-acp");
+
+            assert_eq!(config.context_limit, Some(1_000_000));
+        }
+
+        #[test]
+        fn context_window_hint_overrides_canonical_limit() {
+            let _guard = env_lock::lock_env([
+                ("GOOSE_MAX_TOKENS", None::<&str>),
+                ("GOOSE_CONTEXT_LIMIT", None::<&str>),
+            ]);
+            let config =
+                ModelConfig::new("claude-fable-5[200k]").with_canonical_limits("claude-acp");
+
+            assert_eq!(config.context_limit, Some(200_000));
+        }
+
+        #[test]
+        fn explicit_limit_wins_over_context_window_hint() {
+            let _guard = env_lock::lock_env([
+                ("GOOSE_MAX_TOKENS", None::<&str>),
+                ("GOOSE_CONTEXT_LIMIT", None::<&str>),
+            ]);
+            let mut config = ModelConfig::new("claude-fable-5[1m]");
+            config.context_limit = Some(64_000);
+            let config = config.with_canonical_limits("claude-acp");
+
+            assert_eq!(config.context_limit, Some(64_000));
         }
 
         #[test]

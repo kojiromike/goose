@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::future::Future;
 
-use crate::canonical::maybe_get_canonical_model;
+use crate::canonical::{maybe_get_canonical_model, split_context_window_hint};
 use crate::errors::ProviderError;
 use crate::model::DEFAULT_CONTEXT_LIMIT;
 
@@ -41,9 +41,22 @@ impl ContextLimitResolver {
         })
     }
 
+    /// Configured limit for a model id, matching the raw id first and, when
+    /// the id carries a context-window hint (e.g. "claude-fable-5[1m]"), the
+    /// base name second.
+    fn configured_limit_for(&self, model: &str, base: &str, hinted: bool) -> Option<usize> {
+        self.configured_limit(model)
+            .or_else(|| hinted.then(|| self.configured_limit(base)).flatten())
+    }
+
     pub fn resolve_local(&self, model: &str, override_limit: Option<usize>) -> usize {
+        // A "[1m]"/"[200k]" hint in the model id names a specific
+        // context-window variant, so it wins over the base model's canonical
+        // limit — but not over an explicitly configured limit.
+        let (base, window_hint) = split_context_window_hint(model);
         override_limit
-            .or_else(|| self.configured_limit(model))
+            .or_else(|| self.configured_limit_for(model, base, window_hint.is_some()))
+            .or(window_hint)
             .or_else(|| {
                 maybe_get_canonical_model(&self.provider_name, model)
                     .map(|canonical| canonical.limit.context)
@@ -65,7 +78,15 @@ impl ContextLimitResolver {
             return limit;
         }
 
-        if let Some(limit) = self.configured_limit(model) {
+        let (base, window_hint) = split_context_window_hint(model);
+        if let Some(limit) = self.configured_limit_for(model, base, window_hint.is_some()) {
+            return limit;
+        }
+
+        // The hint names the exact context-window variant being requested, so
+        // it outranks discovery (which may describe a different or stale
+        // session) and the base model's canonical limit.
+        if let Some(limit) = window_hint {
             return limit;
         }
 
@@ -167,6 +188,52 @@ mod tests {
                 .resolve("unknown-model", None, || async { Ok(Some(0)) })
                 .await,
             DEFAULT_CONTEXT_LIMIT
+        );
+    }
+
+    #[test]
+    fn context_window_hint_overrides_canonical_limit() {
+        let resolver = ContextLimitResolver::new("claude-acp");
+
+        assert_eq!(
+            resolver.resolve_local("claude-fable-5[1m]", None),
+            1_000_000
+        );
+        // The hint is authoritative for the variant even when it is smaller
+        // than the base model's canonical limit (claude-fable-5 is 1M).
+        assert_eq!(
+            resolver.resolve_local("claude-fable-5[200k]", None),
+            200_000
+        );
+        assert_eq!(resolver.resolve_local("claude-fable-5", None), 1_000_000);
+    }
+
+    #[test]
+    fn configured_limit_wins_over_context_window_hint() {
+        let hinted = ContextLimitResolver::new("claude-acp")
+            .with_configured_limits([("claude-fable-5[1m]".to_string(), 64_000)]);
+        assert_eq!(hinted.resolve_local("claude-fable-5[1m]", None), 64_000);
+
+        // A limit configured for the base name also applies to the hinted id.
+        let base = ContextLimitResolver::new("claude-acp")
+            .with_configured_limits([("claude-fable-5".to_string(), 64_000)]);
+        assert_eq!(base.resolve_local("claude-fable-5[1m]", None), 64_000);
+
+        assert_eq!(
+            hinted.resolve_local("claude-fable-5[1m]", Some(32_000)),
+            32_000
+        );
+    }
+
+    #[tokio::test]
+    async fn context_window_hint_outranks_discovery() {
+        let resolver = ContextLimitResolver::new("claude-acp");
+
+        assert_eq!(
+            resolver
+                .resolve("claude-fable-5[200k]", None, || async { Ok(Some(500_000)) })
+                .await,
+            200_000
         );
     }
 

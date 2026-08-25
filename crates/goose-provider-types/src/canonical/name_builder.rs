@@ -15,6 +15,12 @@ static STRIP_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
     ]
 });
 
+// Claude Code spells context-window model variants with a trailing bracket
+// hint, e.g. "claude-fable-5[1m]" or "sonnet[200k]". The hint never appears
+// in canonical registry keys.
+static CONTEXT_WINDOW_HINT_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?i)\[(\d+)([km])\]$").unwrap());
+
 static CLAUDE_PATTERNS: Lazy<Vec<(Regex, Regex, &'static str)>> = Lazy::new(|| {
     ["sonnet", "opus", "haiku"]
         .iter()
@@ -60,12 +66,33 @@ pub fn map_provider_name(provider: &str) -> &str {
     }
 }
 
+/// Split a trailing context-window hint off a model id, returning the base
+/// name and the hinted window in tokens ("claude-fable-5[1m]" →
+/// ("claude-fable-5", Some(1_000_000))).
+pub fn split_context_window_hint(model: &str) -> (&str, Option<usize>) {
+    let Some(captures) = CONTEXT_WINDOW_HINT_RE.captures(model) else {
+        return (model, None);
+    };
+    let Ok(value) = captures[1].parse::<usize>() else {
+        return (model, None);
+    };
+    let multiplier = match captures[2].to_ascii_lowercase().as_str() {
+        "k" => 1_000,
+        _ => 1_000_000,
+    };
+    let base = model
+        .get(..captures.get(0).unwrap().start())
+        .unwrap_or(model);
+    (base, Some(value * multiplier))
+}
+
 /// Try to map a provider/model pair to a canonical model
 pub fn map_to_canonical_model(
     provider: &str,
     model: &str,
     registry: &super::CanonicalModelRegistry,
 ) -> Option<String> {
+    let (model, _window_hint) = split_context_window_hint(model);
     let registry_provider = map_provider_name(provider);
 
     if provider == "gcp_vertex_ai" {
@@ -326,6 +353,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_split_context_window_hint() {
+        assert_eq!(
+            split_context_window_hint("claude-fable-5[1m]"),
+            ("claude-fable-5", Some(1_000_000))
+        );
+        assert_eq!(
+            split_context_window_hint("sonnet[200K]"),
+            ("sonnet", Some(200_000))
+        );
+        assert_eq!(
+            split_context_window_hint("claude-fable-5"),
+            ("claude-fable-5", None)
+        );
+        assert_eq!(split_context_window_hint(""), ("", None));
+    }
+
+    #[test]
     fn test_map_to_canonical_model() {
         let r = super::super::CanonicalModelRegistry::bundled().unwrap();
 
@@ -359,6 +403,16 @@ mod tests {
         assert_eq!(
             map_to_canonical_model("openrouter", "anthropic/claude-sonnet-4.5", r),
             Some("openrouter/anthropic/claude-sonnet-4.5".to_string())
+        );
+
+        // === Context-window hints (Claude Code "[1m]" spelling) ===
+        assert_eq!(
+            map_to_canonical_model("claude-acp", "claude-fable-5[1m]", r),
+            Some("anthropic/claude-fable-5".to_string())
+        );
+        assert_eq!(
+            map_to_canonical_model("claude-acp", "claude-sonnet-4-5[1m]", r),
+            Some("anthropic/claude-sonnet-4.5".to_string())
         );
 
         // === Anthropic Claude - basic ===

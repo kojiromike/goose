@@ -5,7 +5,8 @@ mod registry;
 
 pub use model::{CanonicalModel, Limit, Modalities, Modality, Pricing, ThinkingMode};
 pub use name_builder::{
-    canonical_name, map_provider_name, map_to_canonical_model, strip_version_suffix,
+    canonical_name, map_provider_name, map_to_canonical_model, split_context_window_hint,
+    strip_version_suffix,
 };
 pub use registry::CanonicalModelRegistry;
 
