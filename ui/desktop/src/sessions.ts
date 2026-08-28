@@ -24,6 +24,8 @@ interface CreateSessionOptions {
   recipeId?: string;
   extensionConfigs?: ExtensionConfig[];
   allExtensions?: FixedExtensionEntry[];
+  /** Session on the provider's own agent to resume, rather than starting fresh. */
+  resumeAcpSessionId?: string;
 }
 
 function selectedExtensionConfigs(options?: CreateSessionOptions): ExtensionConfig[] {
@@ -62,11 +64,16 @@ async function createAcpSession(
             .filter((entry) => selectedNames.has(gooseExtensionName(entry.extension)))
             .map((entry) => entry.extension)
         : [];
-    return await acpChatSessionController.createSession(workingDir, gooseExtensions, {
-      recipeId: options?.recipeId,
-      recipeDeeplink: options?.recipeDeeplink,
-      recipeParameterScopeId: configuredParameterScope?.id,
-    });
+    return await acpChatSessionController.createSession(
+      workingDir,
+      gooseExtensions,
+      {
+        recipeId: options?.recipeId,
+        recipeDeeplink: options?.recipeDeeplink,
+        recipeParameterScopeId: configuredParameterScope?.id,
+      },
+      options?.resumeAcpSessionId
+    );
   } finally {
     configuredParameterScope?.finish();
   }

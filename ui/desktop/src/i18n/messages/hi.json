@@ -1393,6 +1393,9 @@
   "hub.goodMorning": {
     "defaultMessage": "सुप्रभात"
   },
+  "hub.resumeProviderSession": {
+    "defaultMessage": "Claude Code सत्र फिर से शुरू करें"
+  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "डाउनलोड करें"
   },
@@ -3285,6 +3288,24 @@
   },
   "responseStyle.detailedLabel": {
     "defaultMessage": "विस्तृत"
+  },
+  "resumeProviderSession.cancel": {
+    "defaultMessage": "रद्द करें"
+  },
+  "resumeProviderSession.description": {
+    "defaultMessage": "goose में Claude Code की बातचीत जारी रखें। केवल वर्तमान निर्देशिका के सत्र दिखाए जाते हैं।"
+  },
+  "resumeProviderSession.empty": {
+    "defaultMessage": "इस निर्देशिका के लिए कोई Claude Code सत्र नहीं मिला।"
+  },
+  "resumeProviderSession.loading": {
+    "defaultMessage": "सत्र लोड हो रहे हैं…"
+  },
+  "resumeProviderSession.title": {
+    "defaultMessage": "Claude Code सत्र फिर से शुरू करें"
+  },
+  "resumeProviderSession.untitled": {
+    "defaultMessage": "शीर्षकहीन सत्र"
   },
   "scheduleDetailView.actions": {
     "defaultMessage": "क्रियाएँ"

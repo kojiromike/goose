@@ -6,7 +6,12 @@ import {
   type NewSessionRequest,
   type SessionInfo,
 } from '@agentclientprotocol/sdk';
-import type { GooseExtension, SessionExportFormat, SessionImportSource } from '@aaif/goose-sdk';
+import type {
+  GooseExtension,
+  ProviderSessionEntry,
+  SessionExportFormat,
+  SessionImportSource,
+} from '@aaif/goose-sdk';
 import { getAcpClient } from './acpConnection';
 import type { ExtensionLoadResult } from '../types/extensions';
 import type { Session } from '../types/session';
@@ -238,12 +243,16 @@ export interface AcpRecipeOptions {
 export async function acpNewSession(
   cwd: string,
   gooseExtensions: GooseExtension[],
-  recipe?: AcpRecipeOptions
+  recipe?: AcpRecipeOptions,
+  resumeAcpSessionId?: string
 ): Promise<AcpNewSessionResult> {
   const client = await getAcpClient();
   const meta: Record<string, unknown> = { client: 'goose-desktop' };
   if (gooseExtensions.length > 0) {
     meta.enabledExtensions = gooseExtensions;
+  }
+  if (resumeAcpSessionId) {
+    meta.resumeAcpSessionId = resumeAcpSessionId;
   }
   if (recipe?.recipeId) {
     meta.recipeId = recipe.recipeId;
@@ -320,6 +329,19 @@ export async function acpExportSession(
 export async function acpImportSession(input: string, source: SessionImportSource): Promise<void> {
   const client = await getAcpClient();
   await client.goose.sessionImport_unstable({ input, source });
+}
+
+/**
+ * Sessions an external agent provider already holds, newest first, for a
+ * resume picker. Pass `cwd` to limit the list to one project directory.
+ */
+export async function acpListProviderSessions(
+  providerId: string,
+  cwd?: string
+): Promise<ProviderSessionEntry[]> {
+  const client = await getAcpClient();
+  const response = await client.goose.providersSessionsList_unstable({ providerId, cwd });
+  return response.sessions;
 }
 
 export async function acpShareSessionNostr(sessionId: string, relays: string[]) {

@@ -1393,6 +1393,9 @@
   "hub.goodMorning": {
     "defaultMessage": "早上好"
   },
+  "hub.resumeProviderSession": {
+    "defaultMessage": "恢复 Claude Code 会话"
+  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "下载"
   },
@@ -3285,6 +3288,24 @@
   },
   "responseStyle.detailedLabel": {
     "defaultMessage": "详细"
+  },
+  "resumeProviderSession.cancel": {
+    "defaultMessage": "取消"
+  },
+  "resumeProviderSession.description": {
+    "defaultMessage": "在 goose 中继续 Claude Code 的对话。仅显示当前目录中的会话。"
+  },
+  "resumeProviderSession.empty": {
+    "defaultMessage": "未找到该目录的 Claude Code 会话。"
+  },
+  "resumeProviderSession.loading": {
+    "defaultMessage": "正在加载会话…"
+  },
+  "resumeProviderSession.title": {
+    "defaultMessage": "恢复 Claude Code 会话"
+  },
+  "resumeProviderSession.untitled": {
+    "defaultMessage": "未命名会话"
   },
   "scheduleDetailView.actions": {
     "defaultMessage": "操作"

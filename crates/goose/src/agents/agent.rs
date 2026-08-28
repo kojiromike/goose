@@ -64,7 +64,7 @@ use crate::scheduler_trait::SchedulerTrait;
 use crate::security::adversary_inspector::AdversaryInspector;
 use crate::security::egress_inspector::EgressInspector;
 use crate::security::security_inspector::SecurityInspector;
-use crate::session::extension_data::{EnabledExtensionsState, ExtensionState};
+use crate::session::extension_data::{AcpResumeState, EnabledExtensionsState, ExtensionState};
 use crate::session::{Session, SessionManager, SessionNameUpdate};
 use crate::tool_inspection::ToolInspectionManager;
 use crate::tool_monitor::RepetitionInspector;
@@ -3534,10 +3534,13 @@ impl Agent {
             Config::global(),
         );
 
-        let provider = crate::providers::create_with_working_dir(
-            provider_name,
-            extensions,
-            session.working_dir.clone(),
+        let provider = crate::acp::resume_context::with_resume_session_id(
+            AcpResumeState::session_id_from(&session.extension_data),
+            crate::providers::create_with_working_dir(
+                provider_name,
+                extensions,
+                session.working_dir.clone(),
+            ),
         )
         .await
         .map_err(|error| provider_creation_error(error, "Could not create provider"))?;
@@ -3642,10 +3645,13 @@ impl Agent {
                 .await
                 .is_ok()
             {
-                let p = crate::providers::create_with_working_dir(
-                    &provider_name,
-                    extensions,
-                    session.working_dir.clone(),
+                let p = crate::acp::resume_context::with_resume_session_id(
+                    AcpResumeState::session_id_from(&session.extension_data),
+                    crate::providers::create_with_working_dir(
+                        &provider_name,
+                        extensions,
+                        session.working_dir.clone(),
+                    ),
                 )
                 .await
                 .map_err(|error| provider_creation_error(error, "Could not create provider"))?;

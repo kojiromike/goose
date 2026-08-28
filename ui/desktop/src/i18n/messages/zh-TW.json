@@ -1393,6 +1393,9 @@
   "hub.goodMorning": {
     "defaultMessage": "早安"
   },
+  "hub.resumeProviderSession": {
+    "defaultMessage": "繼續 Claude Code 工作階段"
+  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "下載"
   },
@@ -3285,6 +3288,24 @@
   },
   "responseStyle.detailedLabel": {
     "defaultMessage": "詳細"
+  },
+  "resumeProviderSession.cancel": {
+    "defaultMessage": "取消"
+  },
+  "resumeProviderSession.description": {
+    "defaultMessage": "在 goose 中繼續 Claude Code 的對話。僅顯示目前目錄中的工作階段。"
+  },
+  "resumeProviderSession.empty": {
+    "defaultMessage": "找不到此目錄的 Claude Code 工作階段。"
+  },
+  "resumeProviderSession.loading": {
+    "defaultMessage": "正在載入工作階段…"
+  },
+  "resumeProviderSession.title": {
+    "defaultMessage": "繼續 Claude Code 工作階段"
+  },
+  "resumeProviderSession.untitled": {
+    "defaultMessage": "未命名工作階段"
   },
   "scheduleDetailView.actions": {
     "defaultMessage": "動作"

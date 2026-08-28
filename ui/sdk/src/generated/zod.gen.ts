@@ -8,7 +8,10 @@ import * as z from 'zod';
 export const zHttpHeader = z.object({
     name: z.string(),
     value: z.string(),
-    _meta: z.record(z.string(), z.unknown()).nullish()
+    _meta: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ]))
 });
 
 /**
@@ -18,7 +21,10 @@ export const zMcpServerHttp = z.object({
     name: z.string(),
     url: z.string(),
     headers: z.array(zHttpHeader),
-    _meta: z.record(z.string(), z.unknown()).nullish(),
+    _meta: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ])),
     type: z.literal('http')
 });
 
@@ -29,7 +35,10 @@ export const zMcpServerSse = z.object({
     name: z.string(),
     url: z.string(),
     headers: z.array(zHttpHeader),
-    _meta: z.record(z.string(), z.unknown()).nullish(),
+    _meta: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ])),
     type: z.literal('sse')
 });
 
@@ -39,7 +48,10 @@ export const zMcpServerSse = z.object({
 export const zEnvVariable = z.object({
     name: z.string(),
     value: z.string(),
-    _meta: z.record(z.string(), z.unknown()).nullish()
+    _meta: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ]))
 });
 
 /**
@@ -50,7 +62,10 @@ export const zMcpServerStdio = z.object({
     command: z.string(),
     args: z.array(z.string()),
     env: z.array(zEnvVariable),
-    _meta: z.record(z.string(), z.unknown()).nullish()
+    _meta: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ]))
 });
 
 /**
@@ -70,32 +85,80 @@ export const zMcpServer = z.union([
 export const zGooseExtension = z.union([
     z.object({
         name: z.string(),
-        description: z.string().nullish(),
-        display_name: z.string().nullish(),
-        timeout: z.int().gte(0).nullish(),
-        bundled: z.boolean().nullish(),
-        available_tools: z.array(z.string()).nullish(),
+        description: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
+        display_name: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
+        timeout: z.optional(z.union([
+            z.int().gte(0),
+            z.null()
+        ])),
+        bundled: z.optional(z.union([
+            z.boolean(),
+            z.null()
+        ])),
+        available_tools: z.optional(z.union([
+            z.array(z.string()),
+            z.null()
+        ])),
         type: z.literal('builtin')
     }),
     z.object({
         name: z.string(),
-        description: z.string().nullish(),
-        display_name: z.string().nullish(),
-        bundled: z.boolean().nullish(),
-        available_tools: z.array(z.string()).nullish(),
+        description: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
+        display_name: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
+        bundled: z.optional(z.union([
+            z.boolean(),
+            z.null()
+        ])),
+        available_tools: z.optional(z.union([
+            z.array(z.string()),
+            z.null()
+        ])),
         type: z.literal('platform')
     }),
     z.object({
         server: zMcpServer,
-        envKeys: z.array(z.string()).optional(),
-        description: z.string().nullish(),
-        timeout: z.int().gte(0).nullish(),
-        socket: z.string().nullish(),
-        clientId: z.string().nullish(),
-        clientSecretKey: z.string().nullish(),
-        scopes: z.array(z.string()).optional(),
-        bundled: z.boolean().nullish(),
-        available_tools: z.array(z.string()).nullish(),
+        envKeys: z.optional(z.array(z.string())),
+        description: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
+        timeout: z.optional(z.union([
+            z.int().gte(0),
+            z.null()
+        ])),
+        socket: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
+        clientId: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
+        clientSecretKey: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
+        scopes: z.optional(z.array(z.string())),
+        bundled: z.optional(z.union([
+            z.boolean(),
+            z.null()
+        ])),
+        available_tools: z.optional(z.union([
+            z.array(z.string()),
+            z.null()
+        ])),
         type: z.literal('mcp')
     })
 ]);
@@ -126,7 +189,10 @@ export const zRemoveSessionExtensionRequest_unstable = z.object({
  */
 export const zGetToolsRequest_unstable = z.object({
     sessionId: z.string(),
-    extensionName: z.string().nullish()
+    extensionName: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 /**
@@ -145,9 +211,12 @@ export const zToolListItem = z.object({
     name: z.string(),
     description: z.string(),
     parameters: z.array(z.string()),
-    permission: zToolPermissionLevel.nullish(),
+    permission: z.optional(z.union([
+        zToolPermissionLevel,
+        z.null()
+    ])),
     inputSchema: z.unknown(),
-    outputSchema: z.unknown().optional()
+    outputSchema: z.optional(z.unknown())
 });
 
 /**
@@ -180,17 +249,17 @@ export const zSetToolPermissionsResponse_unstable = z.record(z.string(), z.unkno
 export const zGooseToolCallRequest_unstable = z.object({
     sessionId: z.string(),
     name: z.string(),
-    arguments: z.unknown().optional().default(null)
+    arguments: z.optional(z.unknown()).default(null)
 });
 
 /**
  * Tool call response.
  */
 export const zGooseToolCallResponse_unstable = z.object({
-    content: z.array(z.unknown()).optional().default([]),
-    structuredContent: z.unknown().optional(),
+    content: z.optional(z.array(z.unknown())).default([]),
+    structuredContent: z.optional(z.unknown()),
     isError: z.boolean(),
-    _meta: z.unknown().optional()
+    _meta: z.optional(z.unknown())
 });
 
 /**
@@ -206,15 +275,18 @@ export const zReadResourceRequest_unstable = z.object({
  * Resource read response.
  */
 export const zReadResourceResponse_unstable = z.object({
-    result: z.unknown().optional().default(null)
+    result: z.optional(z.unknown()).default(null)
 });
 
 export const zAppsListRequest_unstable = z.object({
-    sessionId: z.string().nullish()
+    sessionId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 export const zAppsListResponse_unstable = z.object({
-    apps: z.array(z.unknown()).optional().default([])
+    apps: z.optional(z.array(z.unknown())).default([])
 });
 
 export const zAppsExportRequest_unstable = z.object({
@@ -268,8 +340,11 @@ export const zSessionSystemPromptMode = z.union([
  */
 export const zSetSessionSystemPromptRequest_unstable = z.object({
     sessionId: z.string(),
-    mode: zSessionSystemPromptMode.optional().default('append'),
-    key: z.string().nullish(),
+    mode: z.optional(zSessionSystemPromptMode).default('append'),
+    key: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     text: z.string()
 });
 
@@ -285,64 +360,121 @@ export const zRole = z.union([
  * Optional annotations for the client. The client can use annotations to inform how objects are used or displayed
  */
 export const zAnnotations = z.object({
-    audience: z.array(zRole).nullish(),
-    lastModified: z.string().nullish(),
-    priority: z.number().nullish(),
-    _meta: z.record(z.string(), z.unknown()).nullish()
+    audience: z.optional(z.union([
+        z.array(zRole),
+        z.null()
+    ])),
+    lastModified: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    priority: z.optional(z.union([
+        z.number(),
+        z.null()
+    ])),
+    _meta: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ]))
 });
 
 /**
  * Text provided to or from an LLM.
  */
 export const zTextContent = z.object({
-    annotations: zAnnotations.nullish(),
+    annotations: z.optional(z.union([
+        zAnnotations,
+        z.null()
+    ])),
     text: z.string(),
-    _meta: z.record(z.string(), z.unknown()).nullish()
+    _meta: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ]))
 });
 
 /**
  * An image provided to or from an LLM.
  */
 export const zImageContent = z.object({
-    annotations: zAnnotations.nullish(),
+    annotations: z.optional(z.union([
+        zAnnotations,
+        z.null()
+    ])),
     data: z.string(),
     mimeType: z.string(),
-    uri: z.string().nullish(),
-    _meta: z.record(z.string(), z.unknown()).nullish()
+    uri: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    _meta: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ]))
 });
 
 /**
  * Audio provided to or from an LLM.
  */
 export const zAudioContent = z.object({
-    annotations: zAnnotations.nullish(),
+    annotations: z.optional(z.union([
+        zAnnotations,
+        z.null()
+    ])),
     data: z.string(),
     mimeType: z.string(),
-    _meta: z.record(z.string(), z.unknown()).nullish()
+    _meta: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ]))
 });
 
 /**
  * A resource that the server is capable of reading, included in a prompt or tool call result.
  */
 export const zResourceLink = z.object({
-    annotations: zAnnotations.nullish(),
-    description: z.string().nullish(),
-    mimeType: z.string().nullish(),
+    annotations: z.optional(z.union([
+        zAnnotations,
+        z.null()
+    ])),
+    description: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    mimeType: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     name: z.string(),
-    size: z.int().nullish(),
-    title: z.string().nullish(),
+    size: z.optional(z.union([
+        z.int(),
+        z.null()
+    ])),
+    title: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     uri: z.string(),
-    _meta: z.record(z.string(), z.unknown()).nullish()
+    _meta: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ]))
 });
 
 /**
  * Text-based resource contents.
  */
 export const zTextResourceContents = z.object({
-    mimeType: z.string().nullish(),
+    mimeType: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     text: z.string(),
     uri: z.string(),
-    _meta: z.record(z.string(), z.unknown()).nullish()
+    _meta: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ]))
 });
 
 /**
@@ -350,9 +482,15 @@ export const zTextResourceContents = z.object({
  */
 export const zBlobResourceContents = z.object({
     blob: z.string(),
-    mimeType: z.string().nullish(),
+    mimeType: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     uri: z.string(),
-    _meta: z.record(z.string(), z.unknown()).nullish()
+    _meta: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ]))
 });
 
 /**
@@ -367,9 +505,15 @@ export const zEmbeddedResourceResource = z.union([
  * The contents of a resource, embedded into a prompt or tool call result.
  */
 export const zEmbeddedResource = z.object({
-    annotations: zAnnotations.nullish(),
+    annotations: z.optional(z.union([
+        zAnnotations,
+        z.null()
+    ])),
     resource: zEmbeddedResourceResource,
-    _meta: z.record(z.string(), z.unknown()).nullish()
+    _meta: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ]))
 });
 
 /**
@@ -388,12 +532,22 @@ export const zEmbeddedResource = z.object({
  *
  * See protocol docs: [Content](https://agentclientprotocol.com/protocol/content)
  */
-export const zContentBlock = z.discriminatedUnion('type', [
-    zTextContent.extend({ type: z.literal('TextContent') }),
-    zImageContent.extend({ type: z.literal('ImageContent') }),
-    zAudioContent.extend({ type: z.literal('AudioContent') }),
-    zResourceLink.extend({ type: z.literal('ResourceLink') }),
-    zEmbeddedResource.extend({ type: z.literal('EmbeddedResource') })
+export const zContentBlock = z.union([
+    z.object({
+        type: z.literal('TextContent')
+    }).and(zTextContent),
+    z.object({
+        type: z.literal('ImageContent')
+    }).and(zImageContent),
+    z.object({
+        type: z.literal('AudioContent')
+    }).and(zAudioContent),
+    z.object({
+        type: z.literal('ResourceLink')
+    }).and(zResourceLink),
+    z.object({
+        type: z.literal('EmbeddedResource')
+    }).and(zEmbeddedResource)
 ]);
 
 /**
@@ -401,7 +555,7 @@ export const zContentBlock = z.discriminatedUnion('type', [
  */
 export const zSteerSessionRequest_unstable = z.object({
     sessionId: z.string(),
-    prompt: z.array(zContentBlock).optional().default([]),
+    prompt: z.optional(z.array(zContentBlock)).default([]),
     expectedRunId: z.string()
 });
 
@@ -414,7 +568,7 @@ export const zDiagnosticsReportLevel = z.enum(['summary', 'full']);
 
 export const zDiagnosticsGetRequest_unstable = z.object({
     sessionId: z.string(),
-    level: zDiagnosticsReportLevel.optional().default('summary')
+    level: z.optional(zDiagnosticsReportLevel).default('summary')
 });
 
 export const zDiagnosticsGetResponse_unstable = z.object({
@@ -433,7 +587,10 @@ export const zPromptTemplateEntry = z.object({
     name: z.string(),
     description: z.string(),
     defaultContent: z.string(),
-    userContent: z.string().nullish(),
+    userContent: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     isCustomized: z.boolean()
 });
 
@@ -482,7 +639,10 @@ export const zGetConfigExtensionsRequest_unstable = z.record(z.string(), z.unkno
 export const zGooseExtensionEntry = z.object({
     extension: zGooseExtension,
     enabled: z.boolean(),
-    configKey: z.string().nullish()
+    configKey: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 /**
@@ -490,7 +650,7 @@ export const zGooseExtensionEntry = z.object({
  */
 export const zGetConfigExtensionsResponse_unstable = z.object({
     extensions: z.array(zGooseExtensionEntry),
-    warnings: z.array(z.string()).optional().default([])
+    warnings: z.optional(z.array(z.string())).default([])
 });
 
 /**
@@ -498,7 +658,7 @@ export const zGetConfigExtensionsResponse_unstable = z.object({
  */
 export const zAddConfigExtensionRequest_unstable = z.object({
     extension: zGooseExtension,
-    enabled: z.boolean().optional().default(false)
+    enabled: z.optional(z.boolean()).default(false)
 });
 
 /**
@@ -533,7 +693,7 @@ export const zGetSessionExtensionsResponse_unstable = z.object({
  * List providers with setup metadata and the current model inventory snapshot.
  */
 export const zListProvidersRequest_unstable = z.object({
-    providerIds: z.array(z.string()).optional().default([])
+    providerIds: z.optional(z.array(z.string())).default([])
 });
 
 export const zProviderSetupCategoryDto = z.enum(['agent', 'model']);
@@ -542,10 +702,13 @@ export const zProviderConfigKey = z.object({
     name: z.string(),
     required: z.boolean(),
     secret: z.boolean(),
-    default: z.string().nullish().default(null),
-    oauthFlow: z.boolean().optional().default(false),
-    deviceCodeFlow: z.boolean().optional().default(false),
-    primary: z.boolean().optional().default(false)
+    default: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])).default(null),
+    oauthFlow: z.optional(z.boolean()).default(false),
+    deviceCodeFlow: z.optional(z.boolean()).default(false),
+    primary: z.optional(z.boolean()).default(false)
 });
 
 /**
@@ -554,10 +717,19 @@ export const zProviderConfigKey = z.object({
 export const zProviderInventoryModelDto = z.object({
     id: z.string(),
     name: z.string(),
-    family: z.string().nullish(),
-    contextLimit: z.int().gte(0).nullish(),
-    reasoning: z.boolean().nullish(),
-    recommended: z.boolean().optional().default(false)
+    family: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    contextLimit: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ])),
+    reasoning: z.optional(z.union([
+        z.boolean(),
+        z.null()
+    ])),
+    recommended: z.optional(z.boolean()).default(false)
 });
 
 /**
@@ -572,20 +744,35 @@ export const zProviderInventoryEntryDto = z.object({
     available: z.boolean(),
     providerType: z.string(),
     category: zProviderSetupCategoryDto,
-    acp: z.boolean().optional().default(false),
+    acp: z.optional(z.boolean()).default(false),
     visibleInSetup: z.boolean(),
     deprecated: z.boolean(),
-    replacement: z.string().nullish(),
+    replacement: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     configKeys: z.array(zProviderConfigKey),
     setupSteps: z.array(z.string()),
     supportsRefresh: z.boolean(),
     refreshing: z.boolean(),
     models: z.array(zProviderInventoryModelDto),
-    lastUpdatedAt: z.string().nullish(),
-    lastRefreshAttemptAt: z.string().nullish(),
-    lastRefreshError: z.string().nullish(),
+    lastUpdatedAt: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    lastRefreshAttemptAt: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    lastRefreshError: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     stale: z.boolean(),
-    modelSelectionHint: z.string().nullish()
+    modelSelectionHint: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 /**
@@ -611,7 +798,10 @@ export const zProviderSupportedModelsListResponse_unstable = z.object({
  * List custom-provider catalog entries. Omit `format` to list all formats.
  */
 export const zProviderCatalogListRequest_unstable = z.object({
-    format: z.string().nullish()
+    format: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 export const zProviderTemplateCatalogEntryDto = z.object({
@@ -650,8 +840,14 @@ export const zProviderSetupFieldDto = z.object({
     label: z.string(),
     secret: z.boolean(),
     required: z.boolean(),
-    placeholder: z.string().nullish(),
-    defaultValue: z.string().nullish()
+    placeholder: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    defaultValue: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 export const zProviderSetupGroupDto = z.enum(['default', 'additional']);
@@ -660,16 +856,25 @@ export const zProviderSetupCatalogEntryDto = z.object({
     providerId: z.string(),
     name: z.string(),
     category: zProviderSetupCategoryDto,
-    acp: z.boolean().optional().default(false),
+    acp: z.optional(z.boolean()).default(false),
     description: z.string(),
     setupMethod: zProviderSetupMethodDto,
-    nativeConnectQuery: z.string().nullish(),
-    fields: z.array(zProviderSetupFieldDto).optional().default([]),
-    binaryName: z.string().nullish(),
-    docUrl: z.string().nullish(),
+    nativeConnectQuery: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    fields: z.optional(z.array(zProviderSetupFieldDto)).default([]),
+    binaryName: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    docUrl: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     group: zProviderSetupGroupDto,
     showOnlyWhenInstalled: z.boolean(),
-    aliases: z.array(z.string()).optional().default([]),
+    aliases: z.optional(z.array(z.string())).default([]),
     supportsInstall: z.boolean(),
     supportsAuth: z.boolean(),
     supportsAuthStatus: z.boolean()
@@ -723,14 +928,29 @@ export const zCustomProviderCreateRequest_unstable = z.object({
     engine: z.string(),
     displayName: z.string(),
     apiUrl: z.string(),
-    apiKey: z.string().nullish(),
-    models: z.array(z.string()).optional().default([]),
-    supportsStreaming: z.boolean().nullish(),
-    headers: z.record(z.string(), z.string()).optional().default({}),
+    apiKey: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    models: z.optional(z.array(z.string())).default([]),
+    supportsStreaming: z.optional(z.union([
+        z.boolean(),
+        z.null()
+    ])),
+    headers: z.optional(z.record(z.string(), z.string())).default({}),
     requiresAuth: z.boolean(),
-    catalogProviderId: z.string().nullish(),
-    basePath: z.string().nullish(),
-    preservesThinking: z.boolean().nullish()
+    catalogProviderId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    basePath: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    preservesThinking: z.optional(z.union([
+        z.boolean(),
+        z.null()
+    ]))
 });
 
 export const zProviderConfigStatusDto = z.object({
@@ -755,7 +975,7 @@ export const zRefreshProviderInventorySkipDto = z.object({
  */
 export const zRefreshProviderInventoryResponse_unstable = z.object({
     started: z.array(z.string()),
-    skipped: z.array(zRefreshProviderInventorySkipDto).optional().default([])
+    skipped: z.optional(z.array(zRefreshProviderInventorySkipDto)).default([])
 });
 
 export const zCustomProviderCreateResponse_unstable = z.object({
@@ -776,13 +996,25 @@ export const zCustomProviderConfigDto = z.object({
     engine: z.string(),
     displayName: z.string(),
     apiUrl: z.string(),
-    models: z.array(z.string()).optional().default([]),
-    supportsStreaming: z.boolean().nullish(),
-    headers: z.record(z.string(), z.string()).optional().default({}),
+    models: z.optional(z.array(z.string())).default([]),
+    supportsStreaming: z.optional(z.union([
+        z.boolean(),
+        z.null()
+    ])),
+    headers: z.optional(z.record(z.string(), z.string())).default({}),
     requiresAuth: z.boolean(),
-    catalogProviderId: z.string().nullish(),
-    basePath: z.string().nullish(),
-    apiKeyEnv: z.string().nullish(),
+    catalogProviderId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    basePath: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    apiKeyEnv: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     apiKeySet: z.boolean(),
     preservesThinking: z.boolean()
 });
@@ -801,14 +1033,29 @@ export const zCustomProviderUpdateRequest_unstable = z.object({
     engine: z.string(),
     displayName: z.string(),
     apiUrl: z.string(),
-    apiKey: z.string().nullish(),
-    models: z.array(z.string()).optional().default([]),
-    supportsStreaming: z.boolean().nullish(),
-    headers: z.record(z.string(), z.string()).optional().default({}),
+    apiKey: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    models: z.optional(z.array(z.string())).default([]),
+    supportsStreaming: z.optional(z.union([
+        z.boolean(),
+        z.null()
+    ])),
+    headers: z.optional(z.record(z.string(), z.string())).default({}),
     requiresAuth: z.boolean(),
-    catalogProviderId: z.string().nullish(),
-    basePath: z.string().nullish(),
-    preservesThinking: z.boolean().nullish()
+    catalogProviderId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    basePath: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    preservesThinking: z.optional(z.union([
+        z.boolean(),
+        z.null()
+    ]))
 });
 
 export const zCustomProviderUpdateResponse_unstable = z.object({
@@ -833,7 +1080,7 @@ export const zCustomProviderDeleteResponse_unstable = z.object({
  * Trigger a background refresh of provider inventories.
  */
 export const zRefreshProviderInventoryRequest_unstable = z.object({
-    providerIds: z.array(z.string()).optional().default([])
+    providerIds: z.optional(z.array(z.string())).default([])
 });
 
 /**
@@ -846,7 +1093,10 @@ export const zProviderReadinessCheckRequest_unstable = z.object({
 export const zProviderReadinessCheckResponse_unstable = z.object({
     providerId: z.string(),
     ready: z.boolean(),
-    error: z.string().nullish()
+    error: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 /**
@@ -858,7 +1108,10 @@ export const zProviderConfigReadRequest_unstable = z.object({
 
 export const zProviderConfigFieldValueDto = z.object({
     key: z.string(),
-    value: z.string().nullish().default(null),
+    value: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])).default(null),
     isSet: z.boolean(),
     isSecret: z.boolean(),
     required: z.boolean()
@@ -872,7 +1125,7 @@ export const zProviderConfigReadResponse_unstable = z.object({
  * Return provider configured statuses. Empty provider_ids means all providers.
  */
 export const zProviderConfigStatusRequest_unstable = z.object({
-    providerIds: z.array(z.string()).optional().default([])
+    providerIds: z.optional(z.array(z.string())).default([])
 });
 
 export const zProviderConfigStatusResponse_unstable = z.object({
@@ -930,13 +1183,19 @@ export const zProviderSecretDto = z.object({
     providerDisplayName: z.string(),
     name: z.string(),
     storage: zProviderSecretStorageDto,
-    expiresAt: z.string().nullish(),
+    expiresAt: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     status: zProviderSecretStatusDto,
     configured: z.boolean(),
     hasSecret: z.boolean(),
     canDelete: z.boolean(),
     canConfigure: z.boolean(),
-    configureProvider: z.string().nullish()
+    configureProvider: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 export const zProviderSecretsListResponse_unstable = z.object({
@@ -962,17 +1221,35 @@ export const zCanonicalModelInfoDto = z.object({
     provider: z.string(),
     model: z.string(),
     contextLimit: z.int().gte(0),
-    maxOutputTokens: z.int().gte(0).nullish(),
+    maxOutputTokens: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ])),
     reasoning: z.boolean(),
-    inputTokenCost: z.number().nullish(),
-    outputTokenCost: z.number().nullish(),
-    cacheReadTokenCost: z.number().nullish(),
-    cacheWriteTokenCost: z.number().nullish(),
+    inputTokenCost: z.optional(z.union([
+        z.number(),
+        z.null()
+    ])),
+    outputTokenCost: z.optional(z.union([
+        z.number(),
+        z.null()
+    ])),
+    cacheReadTokenCost: z.optional(z.union([
+        z.number(),
+        z.null()
+    ])),
+    cacheWriteTokenCost: z.optional(z.union([
+        z.number(),
+        z.null()
+    ])),
     currency: z.string()
 });
 
 export const zCanonicalModelInfoResponse_unstable = z.object({
-    modelInfo: zCanonicalModelInfoDto.nullish()
+    modelInfo: z.optional(z.union([
+        zCanonicalModelInfoDto,
+        z.null()
+    ]))
 });
 
 export const zPreferenceKey = z.enum([
@@ -987,12 +1264,12 @@ export const zPreferenceKey = z.enum([
  * Read allowlisted user preferences. Empty `keys` means all supported preferences.
  */
 export const zPreferencesReadRequest_unstable = z.object({
-    keys: z.array(zPreferenceKey).optional().default([])
+    keys: z.optional(z.array(zPreferenceKey)).default([])
 });
 
 export const zPreferenceValue = z.object({
     key: zPreferenceKey,
-    value: z.unknown().optional().default(null)
+    value: z.optional(z.unknown()).default(null)
 });
 
 export const zPreferencesReadResponse_unstable = z.object({
@@ -1003,27 +1280,27 @@ export const zPreferencesReadResponse_unstable = z.object({
  * Save allowlisted user preferences.
  */
 export const zPreferencesSaveRequest_unstable = z.object({
-    values: z.array(zPreferenceValue).optional().default([])
+    values: z.optional(z.array(zPreferenceValue)).default([])
 });
 
 export const zConfigReadRequest_unstable = z.object({
     key: z.string(),
-    isSecret: z.boolean().optional().default(false)
+    isSecret: z.optional(z.boolean()).default(false)
 });
 
 export const zConfigReadResponse_unstable = z.object({
-    value: z.unknown().optional().default(null)
+    value: z.optional(z.unknown()).default(null)
 });
 
 export const zConfigUpsertRequest_unstable = z.object({
     key: z.string(),
     value: z.unknown(),
-    isSecret: z.boolean().optional().default(false)
+    isSecret: z.optional(z.boolean()).default(false)
 });
 
 export const zConfigRemoveRequest_unstable = z.object({
     key: z.string(),
-    isSecret: z.boolean().optional().default(false)
+    isSecret: z.optional(z.boolean()).default(false)
 });
 
 export const zConfigReadAllRequest_unstable = z.record(z.string(), z.unknown());
@@ -1038,8 +1315,14 @@ export const zConfigReadAllResponse_unstable = z.object({
 export const zDefaultsReadRequest_unstable = z.record(z.string(), z.unknown());
 
 export const zDefaultsReadResponse_unstable = z.object({
-    providerId: z.string().nullish(),
-    modelId: z.string().nullish()
+    providerId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    modelId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 /**
@@ -1047,7 +1330,10 @@ export const zDefaultsReadResponse_unstable = z.object({
  */
 export const zDefaultsSaveRequest_unstable = z.object({
     providerId: z.string(),
-    modelId: z.string().nullish()
+    modelId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 /**
@@ -1064,7 +1350,7 @@ export const zOnboardingImportSourceKind = z.enum(['goose_config', 'claude_deskt
  * Scan for existing Goose and compatible app data that onboarding can import.
  */
 export const zOnboardingImportScanRequest_unstable = z.object({
-    sources: z.array(zOnboardingImportSourceKind).optional().default([])
+    sources: z.optional(z.array(zOnboardingImportSourceKind)).default([])
 });
 
 export const zOnboardingImportCounts = z.object({
@@ -1082,7 +1368,7 @@ export const zOnboardingImportCandidate = z.object({
     displayName: z.string(),
     path: z.string(),
     counts: zOnboardingImportCounts,
-    warnings: z.array(z.string()).optional().default([])
+    warnings: z.optional(z.array(z.string())).default([])
 });
 
 export const zOnboardingImportScanResponse_unstable = z.object({
@@ -1093,15 +1379,18 @@ export const zOnboardingImportScanResponse_unstable = z.object({
  * Import selected onboarding candidates.
  */
 export const zOnboardingImportApplyRequest_unstable = z.object({
-    candidateIds: z.array(z.string()).optional().default([]),
-    enableImportedExtensions: z.boolean().optional().default(false)
+    candidateIds: z.optional(z.array(z.string())).default([]),
+    enableImportedExtensions: z.optional(z.boolean()).default(false)
 });
 
 export const zOnboardingImportApplyResponse_unstable = z.object({
     imported: zOnboardingImportCounts,
     skipped: zOnboardingImportCounts,
-    warnings: z.array(z.string()).optional().default([]),
-    providerDefaults: zDefaultsReadResponse_unstable.nullish()
+    warnings: z.optional(z.array(z.string())).default([]),
+    providerDefaults: z.optional(z.union([
+        zDefaultsReadResponse_unstable,
+        z.null()
+    ]))
 });
 
 export const zSessionExportFormat = z.enum(['json', 'markdown']);
@@ -1111,7 +1400,7 @@ export const zSessionExportFormat = z.enum(['json', 'markdown']);
  */
 export const zExportSessionRequest_unstable = z.object({
     sessionId: z.string(),
-    format: zSessionExportFormat.optional().default('json')
+    format: z.optional(zSessionExportFormat).default('json')
 });
 
 /**
@@ -1141,9 +1430,48 @@ export const zImportSessionRequest_unstable = z.object({
  */
 export const zImportSessionResponse_unstable = z.object({
     sessionId: z.string(),
-    title: z.string().nullish(),
-    updatedAt: z.string().nullish(),
+    title: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    updatedAt: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     messageCount: z.int().gte(0)
+});
+
+/**
+ * List the sessions an external agent provider already holds, so the user can
+ * resume one instead of starting fresh. Only ACP-backed providers whose agent
+ * advertises `sessionCapabilities.list` can answer this.
+ */
+export const zProviderSessionsListRequest_unstable = z.object({
+    providerId: z.string(),
+    cwd: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])).default(null)
+});
+
+/**
+ * One resumable session as reported by the external agent.
+ */
+export const zProviderSessionEntry = z.object({
+    sessionId: z.string(),
+    cwd: z.string(),
+    title: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    updatedAt: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
+});
+
+export const zProviderSessionsListResponse_unstable = z.object({
+    sessions: z.array(zProviderSessionEntry)
 });
 
 export const zShareSessionNostrRequest_unstable = z.object({
@@ -1161,62 +1489,143 @@ export const zShareSessionNostrResponse_unstable = z.object({
 export const zRecipeExtensionDto = z.union([
     z.object({
         name: z.string(),
-        description: z.string().nullish(),
-        display_name: z.string().nullish(),
-        timeout: z.int().gte(0).nullish(),
-        bundled: z.boolean().nullish(),
-        available_tools: z.array(z.string()).nullish(),
+        description: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
+        display_name: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
+        timeout: z.optional(z.union([
+            z.int().gte(0),
+            z.null()
+        ])),
+        bundled: z.optional(z.union([
+            z.boolean(),
+            z.null()
+        ])),
+        available_tools: z.optional(z.union([
+            z.array(z.string()),
+            z.null()
+        ])),
         type: z.literal('builtin')
     }),
     z.object({
         name: z.string(),
-        description: z.string().nullish(),
-        display_name: z.string().nullish(),
-        bundled: z.boolean().nullish(),
-        available_tools: z.array(z.string()).nullish(),
+        description: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
+        display_name: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
+        bundled: z.optional(z.union([
+            z.boolean(),
+            z.null()
+        ])),
+        available_tools: z.optional(z.union([
+            z.array(z.string()),
+            z.null()
+        ])),
         type: z.literal('platform')
     }),
     z.object({
         name: z.string(),
-        description: z.string().nullish(),
+        description: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
         cmd: z.string(),
-        args: z.array(z.string()).optional(),
-        envs: z.record(z.string(), z.string()).optional(),
-        env_keys: z.array(z.string()).optional(),
-        timeout: z.int().gte(0).nullish(),
-        cwd: z.string().nullish(),
-        bundled: z.boolean().nullish(),
-        available_tools: z.array(z.string()).nullish(),
+        args: z.optional(z.array(z.string())),
+        envs: z.optional(z.record(z.string(), z.string())),
+        env_keys: z.optional(z.array(z.string())),
+        timeout: z.optional(z.union([
+            z.int().gte(0),
+            z.null()
+        ])),
+        cwd: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
+        bundled: z.optional(z.union([
+            z.boolean(),
+            z.null()
+        ])),
+        available_tools: z.optional(z.union([
+            z.array(z.string()),
+            z.null()
+        ])),
         type: z.literal('stdio')
     }),
     z.object({
         name: z.string(),
-        description: z.string().nullish(),
+        description: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
         uri: z.string(),
-        envs: z.record(z.string(), z.string()).optional(),
-        env_keys: z.array(z.string()).optional(),
-        headers: z.record(z.string(), z.string()).optional(),
-        timeout: z.int().gte(0).nullish(),
-        socket: z.string().nullish(),
-        client_id: z.string().nullish(),
-        client_secret_key: z.string().nullish(),
-        scopes: z.array(z.string()).optional(),
-        bundled: z.boolean().nullish(),
-        available_tools: z.array(z.string()).nullish(),
+        envs: z.optional(z.record(z.string(), z.string())),
+        env_keys: z.optional(z.array(z.string())),
+        headers: z.optional(z.record(z.string(), z.string())),
+        timeout: z.optional(z.union([
+            z.int().gte(0),
+            z.null()
+        ])),
+        socket: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
+        client_id: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
+        client_secret_key: z.optional(z.union([
+            z.string(),
+            z.null()
+        ])),
+        scopes: z.optional(z.array(z.string())),
+        bundled: z.optional(z.union([
+            z.boolean(),
+            z.null()
+        ])),
+        available_tools: z.optional(z.union([
+            z.array(z.string()),
+            z.null()
+        ])),
         type: z.literal('streamable_http')
     })
 ]);
 
 export const zRecipeSettingsDto = z.object({
-    goose_provider: z.string().nullish(),
-    goose_model: z.string().nullish(),
-    temperature: z.number().nullish(),
-    max_turns: z.int().gte(0).nullish()
+    goose_provider: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    goose_model: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    temperature: z.optional(z.union([
+        z.number(),
+        z.null()
+    ])),
+    max_turns: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ]))
 });
 
 export const zRecipeAuthorDto = z.object({
-    contact: z.string().nullish(),
-    metadata: z.string().nullish()
+    contact: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    metadata: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 export const zRecipeParameterInputTypeDto = z.enum([
@@ -1239,20 +1648,32 @@ export const zRecipeParameterDto = z.object({
     input_type: zRecipeParameterInputTypeDto,
     requirement: zRecipeParameterRequirementDto,
     description: z.string(),
-    default: z.string().nullish(),
-    options: z.array(z.string()).nullish()
+    default: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    options: z.optional(z.union([
+        z.array(z.string()),
+        z.null()
+    ]))
 });
 
 export const zRecipeResponseDto = z.object({
-    json_schema: z.unknown().optional()
+    json_schema: z.optional(z.unknown())
 });
 
 export const zSubRecipeDto = z.object({
     name: z.string(),
     path: z.string(),
-    values: z.record(z.string(), z.string()).nullish(),
-    sequential_when_repeated: z.boolean().optional().default(false),
-    description: z.string().nullish()
+    values: z.optional(z.union([
+        z.record(z.string(), z.string()),
+        z.null()
+    ])),
+    sequential_when_repeated: z.optional(z.boolean()).default(false),
+    description: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 export const zRecipeSuccessCheckDto = z.object({
@@ -1262,26 +1683,65 @@ export const zRecipeSuccessCheckDto = z.object({
 
 export const zRecipeRetryConfigDto = z.object({
     max_retries: z.int().gte(0),
-    checks: z.array(zRecipeSuccessCheckDto).optional().default([]),
-    on_failure: z.string().nullish(),
-    timeout_seconds: z.int().gte(0).nullish(),
-    on_failure_timeout_seconds: z.int().gte(0).nullish()
+    checks: z.optional(z.array(zRecipeSuccessCheckDto)).default([]),
+    on_failure: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    timeout_seconds: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ])),
+    on_failure_timeout_seconds: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ]))
 });
 
 export const zRecipeDto = z.object({
-    version: z.string().optional().default('1.0.0'),
+    version: z.optional(z.string()).default('1.0.0'),
     title: z.string(),
     description: z.string(),
-    instructions: z.string().nullish(),
-    prompt: z.string().nullish(),
-    extensions: z.array(zRecipeExtensionDto).nullish(),
-    settings: zRecipeSettingsDto.nullish(),
-    activities: z.array(z.string()).nullish(),
-    author: zRecipeAuthorDto.nullish(),
-    parameters: z.array(zRecipeParameterDto).nullish(),
-    response: zRecipeResponseDto.nullish(),
-    sub_recipes: z.array(zSubRecipeDto).nullish(),
-    retry: zRecipeRetryConfigDto.nullish()
+    instructions: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    prompt: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    extensions: z.optional(z.union([
+        z.array(zRecipeExtensionDto),
+        z.null()
+    ])),
+    settings: z.optional(z.union([
+        zRecipeSettingsDto,
+        z.null()
+    ])),
+    activities: z.optional(z.union([
+        z.array(z.string()),
+        z.null()
+    ])),
+    author: z.optional(z.union([
+        zRecipeAuthorDto,
+        z.null()
+    ])),
+    parameters: z.optional(z.union([
+        z.array(zRecipeParameterDto),
+        z.null()
+    ])),
+    response: z.optional(z.union([
+        zRecipeResponseDto,
+        z.null()
+    ])),
+    sub_recipes: z.optional(z.union([
+        z.array(zSubRecipeDto),
+        z.null()
+    ])),
+    retry: z.optional(z.union([
+        zRecipeRetryConfigDto,
+        z.null()
+    ]))
 });
 
 export const zEncodeRecipeRequest_unstable = z.object({
@@ -1315,8 +1775,14 @@ export const zRecipeListEntryDto = z.object({
     recipe: zRecipeDto,
     file_path: z.string(),
     last_modified: z.string(),
-    schedule_cron: z.string().nullish(),
-    slash_command: z.string().nullish()
+    schedule_cron: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    slash_command: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 export const zListRecipesResponse_unstable = z.object({
@@ -1329,17 +1795,26 @@ export const zDeleteRecipeRequest_unstable = z.object({
 
 export const zScheduleRecipeRequest_unstable = z.object({
     id: z.string(),
-    cron_schedule: z.string().nullish()
+    cron_schedule: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 export const zSetRecipeSlashCommandRequest_unstable = z.object({
     id: z.string(),
-    slash_command: z.string().nullish()
+    slash_command: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 export const zSaveRecipeRequest_unstable = z.object({
     recipe: zRecipeDto,
-    id: z.string().nullish()
+    id: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 export const zSaveRecipeResponse_unstable = z.object({
@@ -1370,11 +1845,20 @@ export const zScheduledJobDto = z.object({
     id: z.string(),
     source: z.string(),
     cron: z.string(),
-    lastRun: z.string().nullish(),
+    lastRun: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     currentlyRunning: z.boolean(),
     paused: z.boolean(),
-    currentSessionId: z.string().nullish(),
-    jobStartTime: z.string().nullish()
+    currentSessionId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    jobStartTime: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 export const zListSchedulesResponse_unstable = z.object({
@@ -1402,10 +1886,19 @@ export const zSessionId = z.string();
 export const zSessionInfo = z.object({
     sessionId: zSessionId,
     cwd: z.string(),
-    additionalDirectories: z.array(z.string()).optional(),
-    title: z.string().nullish(),
-    updatedAt: z.string().nullish(),
-    _meta: z.record(z.string(), z.unknown()).nullish()
+    additionalDirectories: z.optional(z.array(z.string())),
+    title: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    updatedAt: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    _meta: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ]))
 });
 
 export const zListScheduleSessionsResponse_unstable = z.object({
@@ -1451,7 +1944,10 @@ export const zRunScheduleNowStatus = z.enum(['completed', 'cancelled']);
 
 export const zRunScheduleNowResponse_unstable = z.object({
     status: zRunScheduleNowStatus,
-    sessionId: z.string().nullish()
+    sessionId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 export const zKillRunningJobRequest_unstable = z.object({
@@ -1468,9 +1964,18 @@ export const zInspectRunningJobRequest_unstable = z.object({
 
 export const zInspectRunningJobResponse_unstable = z.object({
     running: z.boolean(),
-    sessionId: z.string().nullish(),
-    jobStartTime: z.string().nullish(),
-    runningDurationSeconds: z.int().nullish()
+    sessionId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    jobStartTime: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    runningDurationSeconds: z.optional(z.union([
+        z.int(),
+        z.null()
+    ]))
 });
 
 /**
@@ -1497,7 +2002,10 @@ export const zTruncateSessionConversationRequest_unstable = z.object({
  */
 export const zUpdateSessionProjectRequest_unstable = z.object({
     sessionId: z.string(),
-    projectId: z.string().nullish()
+    projectId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 /**
@@ -1560,7 +2068,7 @@ export const zCreateSourceRequest_unstable = z.object({
     description: z.string(),
     content: z.string(),
     target: zSourceScope,
-    properties: z.record(z.string(), z.unknown()).optional()
+    properties: z.optional(z.record(z.string(), z.unknown()))
 });
 
 /**
@@ -1575,9 +2083,9 @@ export const zSourceEntry = z.object({
     content: z.string(),
     path: z.string(),
     global: z.boolean(),
-    writable: z.boolean().optional().default(false),
-    supportingFiles: z.array(z.string()).optional(),
-    properties: z.record(z.string(), z.unknown()).optional()
+    writable: z.optional(z.boolean()).default(false),
+    supportingFiles: z.optional(z.array(z.string())),
+    properties: z.optional(z.record(z.string(), z.unknown()))
 });
 
 export const zCreateSourceResponse_unstable = z.object({
@@ -1593,9 +2101,15 @@ export const zCreateSourceResponse_unstable = z.object({
  * skills.
  */
 export const zListSourcesRequest_unstable = z.object({
-    type: zSourceType.nullish(),
-    projectDir: z.string().nullish(),
-    includeProjectSources: z.boolean().optional().default(false)
+    type: z.optional(z.union([
+        zSourceType,
+        z.null()
+    ])),
+    projectDir: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    includeProjectSources: z.optional(z.boolean()).default(false)
 });
 
 export const zListSourcesResponse_unstable = z.object({
@@ -1606,8 +2120,14 @@ export const zListSourcesResponse_unstable = z.object({
  * List user-facing agent mention targets for `@` autocomplete.
  */
 export const zListAgentMentionsRequest_unstable = z.object({
-    cwd: z.string().nullish(),
-    sessionId: z.string().nullish()
+    cwd: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    sessionId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 /**
@@ -1617,7 +2137,10 @@ export const zAgentMention = z.object({
     name: z.string(),
     description: z.string(),
     sourceType: zSourceType,
-    sourcePath: z.string().nullish(),
+    sourcePath: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     mention: z.string()
 });
 
@@ -1629,8 +2152,14 @@ export const zListAgentMentionsResponse_unstable = z.object({
  * List slash commands available for `/` autocomplete.
  */
 export const zListSlashCommandsRequest_unstable = z.object({
-    cwd: z.string().nullish(),
-    sessionId: z.string().nullish()
+    cwd: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    sessionId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 /**
@@ -1638,7 +2167,10 @@ export const zListSlashCommandsRequest_unstable = z.object({
  */
 export const zUnstructuredCommandInput = z.object({
     hint: z.string(),
-    _meta: z.record(z.string(), z.unknown()).nullish()
+    _meta: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ]))
 });
 
 /**
@@ -1652,8 +2184,14 @@ export const zAvailableCommandInput = zUnstructuredCommandInput;
 export const zAvailableCommand = z.object({
     name: z.string(),
     description: z.string(),
-    input: zAvailableCommandInput.nullish(),
-    _meta: z.record(z.string(), z.unknown()).nullish()
+    input: z.optional(z.union([
+        zAvailableCommandInput,
+        z.null()
+    ])),
+    _meta: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ]))
 });
 
 export const zListSlashCommandsResponse_unstable = z.object({
@@ -1669,7 +2207,10 @@ export const zUpdateSourceRequest_unstable = z.object({
     name: z.string(),
     description: z.string(),
     content: z.string(),
-    properties: z.record(z.string(), z.unknown()).nullish()
+    properties: z.optional(z.union([
+        z.record(z.string(), z.unknown()),
+        z.null()
+    ]))
 });
 
 export const zUpdateSourceResponse_unstable = z.object({
@@ -1743,15 +2284,33 @@ export const zDictationModelOption = z.object({
  */
 export const zDictationProviderStatusEntry = z.object({
     configured: z.boolean(),
-    host: z.string().nullish(),
+    host: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     description: z.string(),
     usesProviderConfig: z.boolean(),
-    settingsPath: z.string().nullish(),
-    configKey: z.string().nullish(),
-    modelConfigKey: z.string().nullish(),
-    defaultModel: z.string().nullish(),
-    selectedModel: z.string().nullish(),
-    availableModels: z.array(zDictationModelOption).optional().default([])
+    settingsPath: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    configKey: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    modelConfigKey: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    defaultModel: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    selectedModel: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    availableModels: z.optional(z.array(zDictationModelOption)).default([])
 });
 
 /**
@@ -1799,11 +2358,17 @@ export const zDictationDownloadProgress = z.object({
     totalBytes: z.int().gte(0),
     progressPercent: z.number(),
     status: z.string(),
-    error: z.string().nullish()
+    error: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 export const zDictationModelDownloadProgressResponse_unstable = z.object({
-    progress: zDictationDownloadProgress.nullish()
+    progress: z.optional(z.union([
+        zDictationDownloadProgress,
+        z.null()
+    ]))
 });
 
 /**
@@ -1830,10 +2395,22 @@ export const zLocalInferenceDownloadState = z.enum([
 
 export const zLocalInferenceModelDownloadStatusDto = z.object({
     state: zLocalInferenceDownloadState,
-    progressPercent: z.number().nullish(),
-    bytesDownloaded: z.int().gte(0).nullish(),
-    totalBytes: z.int().gte(0).nullish(),
-    speedBps: z.int().gte(0).nullish()
+    progressPercent: z.optional(z.union([
+        z.number(),
+        z.null()
+    ])),
+    bytesDownloaded: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ])),
+    totalBytes: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ])),
+    speedBps: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ]))
 });
 
 export const zLocalInferenceSamplingConfig = z.union([
@@ -1845,13 +2422,19 @@ export const zLocalInferenceSamplingConfig = z.union([
         topK: z.int(),
         topP: z.number(),
         minP: z.number(),
-        seed: z.int().gte(0).nullish(),
+        seed: z.optional(z.union([
+            z.int().gte(0),
+            z.null()
+        ])),
         type: z.literal('Temperature')
     }),
     z.object({
         tau: z.number(),
         eta: z.number(),
-        seed: z.int().gte(0).nullish(),
+        seed: z.optional(z.union([
+            z.int().gte(0),
+            z.null()
+        ])),
         type: z.literal('MirostatV2')
     })
 ]);
@@ -1877,11 +2460,23 @@ export const zLocalInferenceChatTemplate = z.union([
 ]);
 
 export const zLocalInferenceModelSettingsDto = z.object({
-    backendId: z.string().nullish(),
-    contextSize: z.int().gte(0).nullish(),
-    maxOutputTokens: z.int().gte(0).nullish(),
-    draftModel: z.string().nullish(),
-    sampling: zLocalInferenceSamplingConfig.optional().default({
+    backendId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    contextSize: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ])),
+    maxOutputTokens: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ])),
+    draftModel: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    sampling: z.optional(zLocalInferenceSamplingConfig).default({
         type: 'Temperature',
         temperature: 0.800000011920929,
         topK: 40,
@@ -1892,13 +2487,25 @@ export const zLocalInferenceModelSettingsDto = z.object({
     repeatLastN: z.int(),
     frequencyPenalty: z.number(),
     presencePenalty: z.number(),
-    nBatch: z.int().gte(0).nullish(),
-    nGpuLayers: z.int().gte(0).nullish(),
+    nBatch: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ])),
+    nGpuLayers: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ])),
     useMlock: z.boolean(),
-    flashAttention: z.boolean().nullish(),
-    nThreads: z.int().nullish(),
-    toolCalling: zLocalInferenceToolCallingMode.optional().default('auto'),
-    chatTemplate: zLocalInferenceChatTemplate.optional().default({ type: 'embedded' }),
+    flashAttention: z.optional(z.union([
+        z.boolean(),
+        z.null()
+    ])),
+    nThreads: z.optional(z.union([
+        z.int(),
+        z.null()
+    ])),
+    toolCalling: z.optional(zLocalInferenceToolCallingMode).default('auto'),
+    chatTemplate: z.optional(zLocalInferenceChatTemplate).default({ type: 'embedded' }),
     enableThinking: z.boolean(),
     visionCapable: z.boolean(),
     imageTokenEstimate: z.int().gte(0),
@@ -1916,7 +2523,10 @@ export const zLocalInferenceModelDto = z.object({
     isLoaded: z.boolean(),
     settings: zLocalInferenceModelSettingsDto,
     visionCapable: z.boolean(),
-    mmprojStatus: zLocalInferenceModelDownloadStatusDto.nullish()
+    mmprojStatus: z.optional(z.union([
+        zLocalInferenceModelDownloadStatusDto,
+        z.null()
+    ]))
 });
 
 export const zLocalInferenceModelsListResponse_unstable = z.object({
@@ -1925,8 +2535,14 @@ export const zLocalInferenceModelsListResponse_unstable = z.object({
 
 export const zLocalInferenceModelDownloadRequest_unstable = z.object({
     spec: z.string(),
-    backendId: z.string().nullish(),
-    variantId: z.string().nullish()
+    backendId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    variantId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 export const zLocalInferenceModelDownloadResponse_unstable = z.object({
@@ -1943,14 +2559,26 @@ export const zLocalInferenceDownloadProgressDto = z.object({
     bytesDownloaded: z.int().gte(0),
     totalBytes: z.int().gte(0),
     progressPercent: z.number(),
-    speedBps: z.int().gte(0).nullish(),
-    etaSeconds: z.int().gte(0).nullish(),
-    error: z.string().nullish(),
+    speedBps: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ])),
+    etaSeconds: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ])),
+    error: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     taskExited: z.boolean()
 });
 
 export const zLocalInferenceModelDownloadProgressResponse_unstable = z.object({
-    progress: zLocalInferenceDownloadProgressDto.nullish()
+    progress: z.optional(z.union([
+        zLocalInferenceDownloadProgressDto,
+        z.null()
+    ]))
 });
 
 export const zLocalInferenceModelDownloadCancelRequest_unstable = z.object({
@@ -1984,7 +2612,10 @@ export const zLocalInferenceModelSettingsUpdateResponse_unstable = z.object({
 
 export const zLocalInferenceHuggingFaceSearchRequest_unstable = z.object({
     query: z.string(),
-    limit: z.int().gte(0).nullish()
+    limit: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ]))
 });
 
 export const zLocalInferenceHfGgufFileDto = z.object({
@@ -2002,13 +2633,22 @@ export const zLocalInferenceHfModelVariantDto = z.object({
     modelId: z.string(),
     downloadId: z.string(),
     sizeBytes: z.int().gte(0),
-    filename: z.string().nullish(),
-    downloadUrl: z.string().nullish(),
+    filename: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
+    downloadUrl: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     description: z.string(),
     qualityRank: z.int().gte(0).lte(255),
     sharded: z.boolean(),
     supported: z.boolean(),
-    unsupportedReason: z.string().nullish()
+    unsupportedReason: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 export const zLocalInferenceHfModelInfoDto = z.object({
@@ -2016,8 +2656,8 @@ export const zLocalInferenceHfModelInfoDto = z.object({
     author: z.string(),
     modelName: z.string(),
     downloads: z.int().gte(0),
-    ggufFiles: z.array(zLocalInferenceHfGgufFileDto).optional().default([]),
-    variants: z.array(zLocalInferenceHfModelVariantDto).optional().default([])
+    ggufFiles: z.optional(z.array(zLocalInferenceHfGgufFileDto)).default([]),
+    variants: z.optional(z.array(zLocalInferenceHfModelVariantDto)).default([])
 });
 
 export const zLocalInferenceHuggingFaceSearchResponse_unstable = z.object({
@@ -2030,7 +2670,10 @@ export const zLocalInferenceHuggingFaceRepoVariantsRequest_unstable = z.object({
 
 export const zLocalInferenceHuggingFaceRepoVariantsResponse_unstable = z.object({
     variants: z.array(zLocalInferenceHfModelVariantDto),
-    recommendedIndex: z.int().gte(0).nullish(),
+    recommendedIndex: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ])),
     availableMemoryBytes: z.int().gte(0),
     downloadedQuants: z.array(z.string()),
     downloadedVariants: z.array(z.string())
@@ -2050,7 +2693,10 @@ export const zSessionUsageUpdate = z.object({
     contextLimit: z.int().gte(0),
     accumulatedInputTokens: z.int().gte(0),
     accumulatedOutputTokens: z.int().gte(0),
-    accumulatedCost: z.number().nullish()
+    accumulatedCost: z.optional(z.union([
+        z.number(),
+        z.null()
+    ]))
 });
 
 export const zStatusMessage = z.union([
@@ -2085,16 +2731,43 @@ export const zCostSourceData = z.union([
  * goose-provider-types); field names and serde casing MUST stay in parity.
  */
 export const zMessageUsageData = z.object({
-    inputTokens: z.int().nullish(),
-    outputTokens: z.int().nullish(),
-    totalTokens: z.int().nullish(),
-    cacheReadTokens: z.int().nullish(),
-    cacheWriteTokens: z.int().nullish(),
-    cost: z.number().nullish(),
-    costSource: zCostSourceData.nullish(),
-    elapsedMs: z.int().gte(0).nullish(),
-    timeToFirstTokenMs: z.int().gte(0).nullish(),
-    isCompaction: z.boolean().optional().default(false)
+    inputTokens: z.optional(z.union([
+        z.int(),
+        z.null()
+    ])),
+    outputTokens: z.optional(z.union([
+        z.int(),
+        z.null()
+    ])),
+    totalTokens: z.optional(z.union([
+        z.int(),
+        z.null()
+    ])),
+    cacheReadTokens: z.optional(z.union([
+        z.int(),
+        z.null()
+    ])),
+    cacheWriteTokens: z.optional(z.union([
+        z.int(),
+        z.null()
+    ])),
+    cost: z.optional(z.union([
+        z.number(),
+        z.null()
+    ])),
+    costSource: z.optional(z.union([
+        zCostSourceData,
+        z.null()
+    ])),
+    elapsedMs: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ])),
+    timeToFirstTokenMs: z.optional(z.union([
+        z.int().gte(0),
+        z.null()
+    ])),
+    isCompaction: z.optional(z.boolean()).default(false)
 });
 
 /**
@@ -2102,7 +2775,10 @@ export const zMessageUsageData = z.object({
  * chunk matching. Sent live after a turn's messages and on replay.
  */
 export const zMessageUsageUpdate = z.object({
-    messageId: z.string().nullish(),
+    messageId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ])),
     usage: zMessageUsageData
 });
 
@@ -2114,10 +2790,16 @@ export const zMessageUsageUpdate = z.object({
  * emit the correct snake_case tag value even when this enum has a single
  * variant. Add a mapping entry per variant.
  */
-export const zGooseSessionUpdate = z.discriminatedUnion('sessionUpdate', [
-    zSessionUsageUpdate.extend({ sessionUpdate: z.literal('usage_update') }),
-    zStatusMessageUpdate.extend({ sessionUpdate: z.literal('status_message') }),
-    zMessageUsageUpdate.extend({ sessionUpdate: z.literal('message_usage') })
+export const zGooseSessionUpdate = z.union([
+    z.object({
+        sessionUpdate: z.literal('usage_update')
+    }).and(zSessionUsageUpdate),
+    z.object({
+        sessionUpdate: z.literal('status_message')
+    }).and(zStatusMessageUpdate),
+    z.object({
+        sessionUpdate: z.literal('message_usage')
+    }).and(zMessageUsageUpdate)
 ]);
 
 /**
@@ -2144,20 +2826,23 @@ export const zProviderDeviceCodeNotification_unstable = z.object({
 export const zRequestRecipeParams_unstable = z.object({
     sessionId: z.string(),
     parameters: z.array(zRecipeParameterDto),
-    parameterScopeId: z.string().nullish()
+    parameterScopeId: z.optional(z.union([
+        z.string(),
+        z.null()
+    ]))
 });
 
 export const zRecipeParamsAction = z.enum(['submit', 'cancel']);
 
 export const zRecipeParamsResponse_unstable = z.object({
-    action: zRecipeParamsAction.optional().default('submit'),
-    values: z.record(z.string(), z.string()).optional().default({})
+    action: z.optional(zRecipeParamsAction).default('submit'),
+    values: z.optional(z.record(z.string(), z.string())).default({})
 });
 
 export const zExtRequest = z.object({
     id: z.string(),
     method: z.string(),
-    params: z.union([
+    params: z.optional(z.union([
         z.union([
             zAddSessionExtensionRequest_unstable,
             zRemoveSessionExtensionRequest_unstable,
@@ -2214,6 +2899,7 @@ export const zExtRequest = z.object({
             zOnboardingImportApplyRequest_unstable,
             zExportSessionRequest_unstable,
             zImportSessionRequest_unstable,
+            zProviderSessionsListRequest_unstable,
             zShareSessionNostrRequest_unstable,
             zEncodeRecipeRequest_unstable,
             zDecodeRecipeRequest_unstable,
@@ -2268,14 +2954,17 @@ export const zExtRequest = z.object({
             zLocalInferenceHuggingFaceRepoVariantsRequest_unstable,
             zLocalInferenceBuiltinChatTemplatesListRequest_unstable
         ]),
-        z.record(z.string(), z.unknown())
-    ]).nullish()
+        z.union([
+            z.record(z.string(), z.unknown()),
+            z.null()
+        ])
+    ]))
 });
 
 export const zExtResponse = z.union([
     z.object({
         id: z.string(),
-        result: z.union([
+        result: z.optional(z.union([
             z.union([
                 zEmptyResponse,
                 zGetToolsResponse_unstable,
@@ -2317,6 +3006,7 @@ export const zExtResponse = z.union([
                 zOnboardingImportApplyResponse_unstable,
                 zExportSessionResponse_unstable,
                 zImportSessionResponse_unstable,
+                zProviderSessionsListResponse_unstable,
                 zShareSessionNostrResponse_unstable,
                 zEncodeRecipeResponse_unstable,
                 zDecodeRecipeResponse_unstable,
@@ -2354,13 +3044,13 @@ export const zExtResponse = z.union([
                 zLocalInferenceBuiltinChatTemplatesListResponse_unstable
             ]),
             z.unknown()
-        ]).optional()
+        ]))
     }),
     z.object({
         error: z.object({
             code: z.int(),
             message: z.string(),
-            data: z.unknown().optional()
+            data: z.optional(z.unknown())
         }),
         id: z.string()
     })
@@ -2368,37 +3058,43 @@ export const zExtResponse = z.union([
 
 export const zExtNotification = z.object({
     method: z.string(),
-    params: z.union([
+    params: z.optional(z.union([
         z.union([
             zGooseSessionNotification_unstable,
             zProviderDeviceCodeNotification_unstable
         ]),
-        z.record(z.string(), z.unknown())
-    ]).nullish()
+        z.union([
+            z.record(z.string(), z.unknown()),
+            z.null()
+        ])
+    ]))
 });
 
 export const zExtAgentRequest = z.object({
     id: z.string(),
     method: z.string(),
-    params: z.union([
+    params: z.optional(z.union([
         zRequestRecipeParams_unstable,
-        z.record(z.string(), z.unknown())
-    ]).nullish()
+        z.union([
+            z.record(z.string(), z.unknown()),
+            z.null()
+        ])
+    ]))
 });
 
 export const zExtAgentResponse = z.union([
     z.object({
         id: z.string(),
-        result: z.union([
+        result: z.optional(z.union([
             zRecipeParamsResponse_unstable,
             z.unknown()
-        ]).optional()
+        ]))
     }),
     z.object({
         error: z.object({
             code: z.int(),
             message: z.string(),
-            data: z.unknown().optional()
+            data: z.optional(z.unknown())
         }),
         id: z.string()
     })

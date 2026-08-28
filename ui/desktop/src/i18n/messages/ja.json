@@ -1393,6 +1393,9 @@
   "hub.goodMorning": {
     "defaultMessage": "おはようございます"
   },
+  "hub.resumeProviderSession": {
+    "defaultMessage": "Claude Code のセッションを再開"
+  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "ダウンロード"
   },
@@ -3285,6 +3288,24 @@
   },
   "responseStyle.detailedLabel": {
     "defaultMessage": "詳細"
+  },
+  "resumeProviderSession.cancel": {
+    "defaultMessage": "キャンセル"
+  },
+  "resumeProviderSession.description": {
+    "defaultMessage": "Claude Code の会話を goose で続けます。現在のディレクトリのセッションのみが表示されます。"
+  },
+  "resumeProviderSession.empty": {
+    "defaultMessage": "このディレクトリの Claude Code セッションは見つかりませんでした。"
+  },
+  "resumeProviderSession.loading": {
+    "defaultMessage": "セッションを読み込んでいます…"
+  },
+  "resumeProviderSession.title": {
+    "defaultMessage": "Claude Code のセッションを再開"
+  },
+  "resumeProviderSession.untitled": {
+    "defaultMessage": "無題のセッション"
   },
   "scheduleDetailView.actions": {
     "defaultMessage": "操作"

@@ -1,13 +1,13 @@
 use agent_client_protocol::schema::v1::{
     Annotations as AcpAnnotations, ClientCapabilities, CloseSessionRequest, ContentBlock,
     ContentChunk, EnvVariable, HttpHeader, ImageContent, InitializeRequest, InitializeResponse,
-    LoadSessionRequest, McpCapabilities, McpServer, McpServerHttp, McpServerStdio,
-    NewSessionRequest, NewSessionResponse, PromptRequest, PromptResponse, RequestPermissionOutcome,
-    RequestPermissionRequest, RequestPermissionResponse, Role as AcpRole, SessionConfigKind,
-    SessionConfigOption, SessionConfigOptionCategory, SessionConfigSelectOption,
-    SessionConfigSelectOptions, SessionId, SessionModeState, SessionNotification, SessionUpdate,
-    SetSessionConfigOptionRequest, SetSessionModeRequest, SetSessionModeResponse, StopReason,
-    TextContent, ToolCallContent, ToolCallStatus, ToolKind,
+    ListSessionsRequest, LoadSessionRequest, McpCapabilities, McpServer, McpServerHttp,
+    McpServerStdio, NewSessionRequest, NewSessionResponse, PromptRequest, PromptResponse,
+    RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse, Role as AcpRole,
+    SessionConfigKind, SessionConfigOption, SessionConfigOptionCategory, SessionConfigSelectOption,
+    SessionConfigSelectOptions, SessionId, SessionInfo, SessionModeState, SessionNotification,
+    SessionUpdate, SetSessionConfigOptionRequest, SetSessionModeRequest, SetSessionModeResponse,
+    StopReason, TextContent, ToolCallContent, ToolCallStatus, ToolKind,
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::{Agent, Client, ConnectionTo};
@@ -103,6 +103,10 @@ enum ClientRequest {
     },
     CloseSession {
         session_id: SessionId,
+    },
+    ListSessions {
+        cwd: Option<PathBuf>,
+        response_tx: oneshot::Sender<Result<Vec<SessionInfo>>>,
     },
     SetMode {
         session_id: SessionId,
@@ -348,59 +352,54 @@ fn spawn_client_loop(fut: impl Future<Output = ()> + Send + 'static) -> JoinHand
     })
 }
 
-impl AcpProvider {
-    pub async fn connect(
-        name: String,
-        goose_mode: GooseMode,
-        config: AcpProviderConfig,
-    ) -> Result<Self> {
-        Self::start(
-            name,
-            goose_mode,
-            config,
-            Box::new(|cl, rx, init_tx, mut cancel_rx| {
-                Box::pin(async move {
-                    tokio::select! {
-                        biased;
-                        _ = &mut cancel_rx => {}
-                        _ = cl.spawn(rx, init_tx) => {}
+fn transport_loop(
+    transport: impl agent_client_protocol::ConnectTo<Client> + 'static,
+) -> ClientLoopFn {
+    Box::new(move |cl, mut rx, init_tx, mut cancel_rx| {
+        Box::pin(async move {
+            tokio::select! {
+                biased;
+                _ = &mut cancel_rx => {}
+                result = cl.run(transport, &mut rx, init_tx) => {
+                    if let Err(e) = result {
+                        tracing::error!("ACP protocol error: {e}");
                     }
-                })
-            }),
-        )
-        .await
-    }
+                }
+            }
+        })
+    })
+}
 
-    #[doc(hidden)]
-    pub async fn connect_with_transport(
-        name: String,
-        goose_mode: GooseMode,
-        config: AcpProviderConfig,
-        transport: impl agent_client_protocol::ConnectTo<Client> + 'static,
-    ) -> Result<Self> {
-        Self::start(
-            name,
-            goose_mode,
-            config,
-            Box::new(move |cl, mut rx, init_tx, mut cancel_rx| {
-                Box::pin(async move {
-                    tokio::select! {
-                        biased;
-                        _ = &mut cancel_rx => {}
-                        result = cl.run(transport, &mut rx, init_tx) => {
-                            if let Err(e) = result {
-                                tracing::error!("ACP protocol error: {e}");
-                            }
-                        }
-                    }
-                })
-            }),
-        )
-        .await
-    }
+fn subprocess_loop() -> ClientLoopFn {
+    Box::new(|cl, rx, init_tx, mut cancel_rx| {
+        Box::pin(async move {
+            tokio::select! {
+                biased;
+                _ = &mut cancel_rx => {}
+                _ = cl.spawn(rx, init_tx) => {}
+            }
+        })
+    })
+}
 
-    async fn start(
-        name: String,
+/// An initialized ACP connection that has not established a session yet.
+/// Keeping the two apart lets callers query the agent — `session/list` — without
+/// leaving a throwaway session behind on the agent side.
+struct AcpConnection {
+    goose_mode: Arc<Mutex<GooseMode>>,
+    mode_mapping: HashMap<GooseMode, Vec<String>>,
+    model_config_option_id: Option<String>,
+    applied_model: Option<String>,
+    pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
+    context_size: Arc<AtomicU64>,
+    effort: AcpEffortState,
+    tx: mpsc::Sender<ClientRequest>,
+    cancel_tx: oneshot::Sender<()>,
+    loop_thread: JoinHandle<()>,
+}
+
+impl AcpConnection {
+    async fn connect(
         goose_mode: GooseMode,
         config: AcpProviderConfig,
         run: ClientLoopFn,
@@ -416,14 +415,14 @@ impl AcpProvider {
                 .find(|(opt_id, _)| opt_id == id)
                 .map(|(_, value)| value.clone())
         });
-        let goose_mode_shared = Arc::new(Mutex::new(goose_mode));
+        let goose_mode = Arc::new(Mutex::new(goose_mode));
         let pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>> =
             Arc::new(Mutex::new(HashMap::new()));
         let context_size = Arc::new(AtomicU64::new(0));
         let effort = AcpEffortState::new();
         let client_loop = AcpClientLoop::new(
             config,
-            goose_mode_shared.clone(),
+            goose_mode.clone(),
             pending_tool_updates.clone(),
             context_size.clone(),
             effort.clone(),
@@ -436,46 +435,188 @@ impl AcpProvider {
             thread: Some(loop_thread),
         };
 
-        let _init_response = init_rx
+        init_rx
             .await
             .context("ACP client initialization cancelled")??;
 
-        // Create the ACP session eagerly during connect.
-        let (session_tx, session_rx) = oneshot::channel();
-        client_loop_guard
-            .tx
-            .as_ref()
-            .unwrap()
-            .send(ClientRequest::NewSession {
-                response_tx: session_tx,
-            })
+        Ok(Self {
+            goose_mode,
+            mode_mapping,
+            model_config_option_id,
+            applied_model,
+            pending_tool_updates,
+            context_size,
+            effort,
+            tx: client_loop_guard.tx.take().unwrap(),
+            cancel_tx: client_loop_guard.cancel_tx.take().unwrap(),
+            loop_thread: client_loop_guard.thread.take().unwrap(),
+        })
+    }
+
+    async fn open_session(&self, resume: Option<SessionId>) -> Result<AcpSession> {
+        let (response_tx, response_rx) = oneshot::channel();
+        let request = match resume {
+            Some(session_id) => ClientRequest::LoadSession {
+                session_id,
+                response_tx,
+            },
+            None => ClientRequest::NewSession { response_tx },
+        };
+        self.tx
+            .send(request)
             .await
             .context("ACP client is unavailable")?;
-        let response = session_rx
+        let response = response_rx
             .await
             .context("ACP session creation cancelled")??;
 
-        let session = AcpSession {
+        Ok(AcpSession {
             id: response.session_id.clone(),
             response,
-        };
+        })
+    }
 
-        Ok(Self {
+    async fn list_sessions(&self, cwd: Option<PathBuf>) -> Result<Vec<SessionInfo>> {
+        let (response_tx, response_rx) = oneshot::channel();
+        self.tx
+            .send(ClientRequest::ListSessions { cwd, response_tx })
+            .await
+            .context("ACP client is unavailable")?;
+        response_rx.await.context("ACP request cancelled")?
+    }
+
+    /// Closes the request channel and waits for the client loop to wind down,
+    /// which terminates the agent subprocess.
+    async fn shutdown(self) {
+        let _ = self.cancel_tx.send(());
+        drop(self.tx);
+        let loop_thread = self.loop_thread;
+        if let Ok(Err(e)) = tokio::task::spawn_blocking(move || loop_thread.join()).await {
+            tracing::debug!("AcpClientLoop thread panicked: {e:?}");
+        }
+    }
+
+    fn into_provider(self, name: String, session: AcpSession) -> AcpProvider {
+        AcpProvider {
             name,
-            goose_mode: goose_mode_shared,
-            mode_mapping,
+            goose_mode: self.goose_mode,
+            mode_mapping: self.mode_mapping,
             session: Mutex::new(session),
             pending_confirmations: Arc::new(TokioMutex::new(HashMap::new())),
-            pending_tool_updates,
+            pending_tool_updates: self.pending_tool_updates,
             handoff_context_sent: Arc::new(AtomicBool::new(false)),
-            context_size,
-            model_config_option_id,
-            applied_model: Arc::new(Mutex::new(applied_model)),
-            effort,
-            tx: client_loop_guard.tx.take(),
-            cancel_tx: client_loop_guard.cancel_tx.take(),
-            loop_thread: client_loop_guard.thread.take(),
-        })
+            context_size: self.context_size,
+            model_config_option_id: self.model_config_option_id,
+            applied_model: Arc::new(Mutex::new(self.applied_model)),
+            effort: self.effort,
+            tx: Some(self.tx),
+            cancel_tx: Some(self.cancel_tx),
+            loop_thread: Some(self.loop_thread),
+        }
+    }
+}
+
+impl AcpProvider {
+    pub async fn connect(
+        name: String,
+        goose_mode: GooseMode,
+        config: AcpProviderConfig,
+    ) -> Result<Self> {
+        Self::start(
+            name,
+            goose_mode,
+            config,
+            None,
+            subprocess_loop(),
+        )
+        .await
+    }
+
+    /// Connects and resumes an existing session on the ACP agent instead of
+    /// creating a new one, so the agent keeps its own prior context.
+    ///
+    /// The agent replays the loaded conversation as `session/update`
+    /// notifications; those are only surfaced when the provider was built with
+    /// a `notification_callback`.
+    pub async fn connect_resuming(
+        name: String,
+        goose_mode: GooseMode,
+        config: AcpProviderConfig,
+        session_id: impl Into<SessionId>,
+    ) -> Result<Self> {
+        Self::start(
+            name,
+            goose_mode,
+            config,
+            Some(session_id.into()),
+            subprocess_loop(),
+        )
+        .await
+    }
+
+    #[doc(hidden)]
+    pub async fn connect_with_transport(
+        name: String,
+        goose_mode: GooseMode,
+        config: AcpProviderConfig,
+        transport: impl agent_client_protocol::ConnectTo<Client> + 'static,
+        resume: Option<SessionId>,
+    ) -> Result<Self> {
+        Self::start(name, goose_mode, config, resume, transport_loop(transport)).await
+    }
+
+    /// Lists the sessions an ACP agent already has on disk, without
+    /// establishing one. Connecting normally creates a session, which would
+    /// then show up in the very list being enumerated, so this spawns the
+    /// agent, queries it, and shuts the connection down again.
+    pub async fn query_sessions(
+        config: AcpProviderConfig,
+        cwd: Option<PathBuf>,
+    ) -> Result<Vec<SessionInfo>> {
+        Self::query(
+            config,
+            cwd,
+            subprocess_loop(),
+        )
+        .await
+    }
+
+    #[doc(hidden)]
+    pub async fn query_sessions_with_transport(
+        config: AcpProviderConfig,
+        cwd: Option<PathBuf>,
+        transport: impl agent_client_protocol::ConnectTo<Client> + 'static,
+    ) -> Result<Vec<SessionInfo>> {
+        Self::query(config, cwd, transport_loop(transport)).await
+    }
+
+    async fn query(
+        config: AcpProviderConfig,
+        cwd: Option<PathBuf>,
+        run: ClientLoopFn,
+    ) -> Result<Vec<SessionInfo>> {
+        let connection = AcpConnection::connect(GooseMode::default(), config, run).await?;
+        let sessions = connection.list_sessions(cwd).await;
+        connection.shutdown().await;
+        sessions
+    }
+
+    async fn start(
+        name: String,
+        goose_mode: GooseMode,
+        config: AcpProviderConfig,
+        resume: Option<SessionId>,
+        run: ClientLoopFn,
+    ) -> Result<Self> {
+        let connection = AcpConnection::connect(goose_mode, config, run).await?;
+        let session = connection.open_session(resume).await?;
+        Ok(connection.into_provider(name, session))
+    }
+
+    /// The agent-side session this provider is bound to. Callers persist this
+    /// to resume the same session later.
+    pub fn session_id(&self) -> SessionId {
+        self.acp_session_id()
     }
 
     fn acp_session_id(&self) -> SessionId {
@@ -500,8 +641,22 @@ impl AcpProvider {
         })
     }
 
+    /// Lists sessions the ACP agent already has on disk, optionally filtered to
+    /// a working directory. Errors when the agent does not advertise
+    /// `sessionCapabilities.list`.
+    pub async fn list_sessions(&self, cwd: Option<PathBuf>) -> Result<Vec<SessionInfo>> {
+        let (response_tx, response_rx) = oneshot::channel();
+        self.tx
+            .as_ref()
+            .unwrap()
+            .send(ClientRequest::ListSessions { cwd, response_tx })
+            .await
+            .context("ACP client is unavailable")?;
+        response_rx.await.context("ACP request cancelled")?
+    }
+
     pub(crate) async fn send_set_mode(&self, _goose_id: &str, mode_id: String) -> Result<()> {
-        let session_id = self.acp_session_id();
+        let session_id = self.session_id();
         let (response_tx, response_rx) = oneshot::channel();
         self.tx
             .as_ref()
@@ -874,7 +1029,7 @@ impl Provider for AcpProvider {
         messages: &[Message],
         _tools: &[Tool],
     ) -> Result<MessageStream, ProviderError> {
-        let session_id = self.acp_session_id();
+        let session_id = self.session_id();
 
         let model_name = self
             .apply_model_if_changed(&model_config.model_name)
@@ -1617,6 +1772,11 @@ async fn handle_requests(
         .close
         .is_some();
     let supports_load = init_response.agent_capabilities.load_session;
+    let supports_list_sessions = init_response
+        .agent_capabilities
+        .session_capabilities
+        .list
+        .is_some();
     let mcp_capabilities = init_response.agent_capabilities.mcp_capabilities.clone();
     if let Some(tx) = init_tx.take() {
         log_undelivered(tx.send(Ok(init_response)), AGENT_METHOD_NAMES.initialize);
@@ -1728,6 +1888,23 @@ async fn handle_requests(
                     }
                 }
                 session_ids.retain(|id| id != &session_id);
+            }
+            ClientRequest::ListSessions { cwd, response_tx } => {
+                let result = if supports_list_sessions {
+                    cx.send_request(ListSessionsRequest::new().cwd(cwd))
+                        .block_task()
+                        .await
+                        .map(|response| response.sessions)
+                        .map_err(|err| {
+                            anyhow::anyhow!("ACP {} failed: {err}", AGENT_METHOD_NAMES.session_list)
+                        })
+                } else {
+                    Err(anyhow::anyhow!(
+                        "ACP agent does not support {}",
+                        AGENT_METHOD_NAMES.session_list
+                    ))
+                };
+                log_undelivered(response_tx.send(result), AGENT_METHOD_NAMES.session_list);
             }
             ClientRequest::SetMode {
                 session_id,

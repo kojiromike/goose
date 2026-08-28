@@ -1393,6 +1393,9 @@
   "hub.goodMorning": {
     "defaultMessage": "Selamat pagi"
   },
+  "hub.resumeProviderSession": {
+    "defaultMessage": "Lanjutkan sesi Claude Code"
+  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "Unduh"
   },
@@ -3285,6 +3288,24 @@
   },
   "responseStyle.detailedLabel": {
     "defaultMessage": "Terperinci"
+  },
+  "resumeProviderSession.cancel": {
+    "defaultMessage": "Batal"
+  },
+  "resumeProviderSession.description": {
+    "defaultMessage": "Lanjutkan percakapan dari Claude Code di goose. Hanya sesi dari direktori saat ini yang ditampilkan."
+  },
+  "resumeProviderSession.empty": {
+    "defaultMessage": "Tidak ada sesi Claude Code yang ditemukan untuk direktori ini."
+  },
+  "resumeProviderSession.loading": {
+    "defaultMessage": "Memuat sesi…"
+  },
+  "resumeProviderSession.title": {
+    "defaultMessage": "Lanjutkan sesi Claude Code"
+  },
+  "resumeProviderSession.untitled": {
+    "defaultMessage": "Sesi tanpa judul"
   },
   "scheduleDetailView.actions": {
     "defaultMessage": "Tindakan"

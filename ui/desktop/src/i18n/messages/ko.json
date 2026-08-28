@@ -1393,6 +1393,9 @@
   "hub.goodMorning": {
     "defaultMessage": "좋은 아침이에요"
   },
+  "hub.resumeProviderSession": {
+    "defaultMessage": "Claude Code 세션 이어하기"
+  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "다운로드"
   },
@@ -3285,6 +3288,24 @@
   },
   "responseStyle.detailedLabel": {
     "defaultMessage": "자세히"
+  },
+  "resumeProviderSession.cancel": {
+    "defaultMessage": "취소"
+  },
+  "resumeProviderSession.description": {
+    "defaultMessage": "Claude Code의 대화를 goose에서 이어갑니다. 현재 디렉터리의 세션만 표시됩니다."
+  },
+  "resumeProviderSession.empty": {
+    "defaultMessage": "이 디렉터리에 대한 Claude Code 세션을 찾을 수 없습니다."
+  },
+  "resumeProviderSession.loading": {
+    "defaultMessage": "세션을 불러오는 중…"
+  },
+  "resumeProviderSession.title": {
+    "defaultMessage": "Claude Code 세션 이어하기"
+  },
+  "resumeProviderSession.untitled": {
+    "defaultMessage": "제목 없는 세션"
   },
   "scheduleDetailView.actions": {
     "defaultMessage": "작업"

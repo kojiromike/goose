@@ -9,11 +9,11 @@ use common_tests::fixtures::run_test;
 use common_tests::run_prompt_codemode;
 use common_tests::{
     run_close_session, run_config_mcp, run_delete_session, run_fs_read_text_file_true,
-    run_fs_write_text_file_false, run_fs_write_text_file_true, run_load_mode, run_load_model,
-    run_load_session_error, run_load_session_mcp, run_model_list, run_permission_persistence,
-    run_prompt_basic, run_prompt_error, run_prompt_image, run_prompt_image_attachment,
-    run_prompt_mcp, run_prompt_model_mismatch, run_prompt_skill, run_shell_terminal_false,
-    run_shell_terminal_true,
+    run_fs_write_text_file_false, run_fs_write_text_file_true, run_list_sessions, run_load_mode,
+    run_load_model, run_load_session_error, run_load_session_mcp, run_model_list,
+    run_permission_persistence, run_prompt_basic, run_prompt_error, run_prompt_image,
+    run_prompt_image_attachment, run_prompt_mcp, run_prompt_model_mismatch, run_prompt_skill,
+    run_shell_terminal_false, run_shell_terminal_true,
 };
 
 #[test]
@@ -50,25 +50,28 @@ fn test_fs_write_text_file_true() {
 }
 
 #[test]
-#[ignore = "TODO: implement load_session in ACP provider"]
+#[ignore = "needs fixture set_mode plus session mode state on new_session; AcpProvider::send_set_mode is pub(crate)"]
 fn test_load_mode() {
     run_test(async { run_load_mode::<AcpProviderConnection>().await });
 }
 
 #[test]
-#[ignore = "TODO: implement load_session in ACP provider"]
+#[ignore = "needs fixture set_model; AcpProvider::send_set_config_option is pub(crate)"]
 fn test_load_model() {
     run_test(async { run_load_model::<AcpProviderConnection>().await });
 }
 
 #[test]
-#[ignore = "TODO: implement load_session in ACP provider"]
+fn test_list_sessions() {
+    run_test(async { run_list_sessions::<AcpProviderConnection>().await });
+}
+
+#[test]
 fn test_load_session_error_session_not_found() {
     run_test(async { run_load_session_error::<AcpProviderConnection>().await });
 }
 
 #[test]
-#[ignore = "TODO: implement load_session in ACP provider"]
 fn test_load_session_mcp() {
     run_test(async { run_load_session_mcp::<AcpProviderConnection>().await });
 }

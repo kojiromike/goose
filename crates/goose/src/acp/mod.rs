@@ -4,6 +4,7 @@ mod handoff;
 mod mcp_app_proxy;
 mod provider;
 mod response_builder;
+pub mod resume_context;
 pub mod server;
 pub mod server_factory;
 pub(crate) mod tool_call_notifier;

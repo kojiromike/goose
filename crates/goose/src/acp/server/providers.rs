@@ -14,6 +14,13 @@ const SUPPORTED_MODELS_TIMEOUT: Duration = Duration::from_secs(10);
 
 const ACP_READINESS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
+/// `/tmp` and home directories are symlinked on macOS, so two spellings of the
+/// same directory compare unequal until resolved. A path that no longer exists
+/// keeps its original spelling.
+fn resolved_dir(path: PathBuf) -> PathBuf {
+    path.canonicalize().unwrap_or(path)
+}
+
 fn provider_secret_to_dto(secret: provider_secrets::ProviderSecret) -> ProviderSecretDto {
     let storage = match secret.storage {
         provider_secrets::ProviderSecretStorage::SecretStore => {
@@ -586,6 +593,53 @@ impl GooseAcpAgent {
             ready,
             error,
         })
+    }
+
+    pub(super) async fn on_list_provider_sessions(
+        &self,
+        req: ProviderSessionsListRequest,
+    ) -> Result<ProviderSessionsListResponse, agent_client_protocol::Error> {
+        // Only the Claude adapter is wired up so far. Other ACP providers reach
+        // their agents the same way, but each builds its own command and env,
+        // so they need explicit opt-in rather than a guess.
+        if req.provider_id != crate::providers::claude_acp::CLAUDE_ACP_PROVIDER_NAME {
+            return Err(agent_client_protocol::Error::invalid_params().data(format!(
+                "provider '{}' does not support listing resumable sessions",
+                req.provider_id
+            )));
+        }
+
+        let cwd = req.cwd.map(PathBuf::from);
+        let working_dir = cwd
+            .clone()
+            .unwrap_or_else(crate::providers::base::current_working_dir);
+        let sessions = crate::providers::claude_acp::ClaudeAcpProvider::list_sessions(
+            working_dir,
+            cwd.clone(),
+        )
+        .await
+        .internal_err_ctx("Failed to list provider sessions")?;
+
+        // claude-agent-acp accepts the cwd argument but lists globally anyway,
+        // so scope the results here instead of leaving each caller to redo it.
+        let scope = cwd.map(resolved_dir);
+        let mut sessions: Vec<ProviderSessionEntry> = sessions
+            .into_iter()
+            .filter(|session| {
+                scope
+                    .as_ref()
+                    .is_none_or(|scope| &resolved_dir(session.cwd.clone()) == scope)
+            })
+            .map(|session| ProviderSessionEntry {
+                session_id: session.session_id.0.to_string(),
+                cwd: session.cwd.to_string_lossy().to_string(),
+                title: session.title,
+                updated_at: session.updated_at,
+            })
+            .collect();
+        sessions.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+
+        Ok(ProviderSessionsListResponse { sessions })
     }
 
     pub(super) async fn on_list_provider_catalog(

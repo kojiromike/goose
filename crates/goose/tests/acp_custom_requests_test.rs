@@ -187,6 +187,29 @@ fn test_custom_get_tools() {
     });
 }
 
+/// Listing resumable sessions means spawning the provider's agent, so this
+/// covers the reachable half: the method is dispatched, its params deserialize,
+/// and a provider with no such support is rejected rather than guessed at.
+#[test]
+#[serial]
+fn test_custom_list_provider_sessions_rejects_unsupported_provider() {
+    write_acp_global_config(DEFAULT_ACP_TEST_CONFIG);
+    run_test(async move {
+        let openai = OpenAiFixture::new(vec![], Arc::new(IgnoreSessionId)).await;
+        let conn = AcpServerConnection::new(TestConnectionConfig::default(), openai).await;
+
+        let error = send_custom(
+            conn.cx(),
+            "_goose/unstable/providers/sessions/list",
+            serde_json::json!({ "providerId": "openai", "cwd": "/tmp" }),
+        )
+        .await
+        .expect_err("openai holds no resumable agent sessions");
+
+        assert_eq!(error.code, agent_client_protocol::ErrorCode::InvalidParams);
+    });
+}
+
 #[test]
 #[serial]
 fn test_custom_get_extensions() {
