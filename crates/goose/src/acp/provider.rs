@@ -307,7 +307,9 @@ pub struct AcpProvider {
     goose_mode: Arc<Mutex<GooseMode>>,
     mode_mapping: HashMap<GooseMode, Vec<String>>,
 
-    session: Mutex<AcpSession>,
+    /// Replaced wholesale by `reset_context()`, which starts a fresh agent-side
+    /// session so `/clear` discards the history the agent is holding.
+    session: Arc<Mutex<AcpSession>>,
 
     pending_confirmations:
         Arc<TokioMutex<HashMap<String, oneshot::Sender<PermissionConfirmation>>>>,
@@ -505,7 +507,7 @@ impl AcpConnection {
             name,
             goose_mode: self.goose_mode,
             mode_mapping: self.mode_mapping,
-            session: Mutex::new(session),
+            session: Arc::new(Mutex::new(session)),
             pending_confirmations: Arc::new(TokioMutex::new(HashMap::new())),
             pending_tool_updates: self.pending_tool_updates,
             handoff_context_sent: Arc::new(AtomicBool::new(false)),
@@ -526,14 +528,7 @@ impl AcpProvider {
         goose_mode: GooseMode,
         config: AcpProviderConfig,
     ) -> Result<Self> {
-        Self::start(
-            name,
-            goose_mode,
-            config,
-            None,
-            subprocess_loop(),
-        )
-        .await
+        Self::start(name, goose_mode, config, None, subprocess_loop()).await
     }
 
     /// Connects and resumes an existing session on the ACP agent instead of
@@ -577,12 +572,7 @@ impl AcpProvider {
         config: AcpProviderConfig,
         cwd: Option<PathBuf>,
     ) -> Result<Vec<SessionInfo>> {
-        Self::query(
-            config,
-            cwd,
-            subprocess_loop(),
-        )
-        .await
+        Self::query(config, cwd, subprocess_loop()).await
     }
 
     #[doc(hidden)]
@@ -624,7 +614,14 @@ impl AcpProvider {
     }
 
     fn acp_session_id(&self) -> SessionId {
-        self.session.lock().unwrap().id.clone()
+        self.session().id
+    }
+
+    fn session(&self) -> AcpSession {
+        self.session
+            .lock()
+            .expect("ACP session lock poisoned")
+            .clone()
     }
 
     async fn load_session(&self, session_id: SessionId) -> Result<AcpSession> {
@@ -832,9 +829,7 @@ impl AcpProvider {
     }
 
     fn session_has_config_option(&self, category: SessionConfigOptionCategory) -> bool {
-        self.session
-            .lock()
-            .unwrap()
+        self.session()
             .response
             .config_options
             .as_ref()
@@ -926,9 +921,8 @@ impl Provider for AcpProvider {
 
     async fn update_mode(&self, session_id: &str, mode: GooseMode) -> Result<(), ProviderError> {
         if let Some(candidates) = self.mode_mapping.get(&mode) {
-            let session = self.session.lock().unwrap().clone();
-            let mode_str =
-                select_mode_id(candidates, session.response.modes.as_ref()).ok_or_else(|| {
+            let mode_str = select_mode_id(candidates, self.session().response.modes.as_ref())
+                .ok_or_else(|| {
                     ProviderError::RequestFailed(format!(
                         "None of the mode ids [{}] are offered by the agent",
                         candidates.join(", ")
@@ -1000,6 +994,7 @@ impl Provider for AcpProvider {
     async fn apply_model_selection(&self, model_config: &ModelConfig) -> Result<(), ProviderError> {
         self.apply_model_if_changed(&model_config.model_name)
             .await
+            .map(|_| ())
             .map_err(|e| {
                 ProviderError::RequestFailed(format!("Failed to set ACP model option: {e}"))
             })
@@ -1286,7 +1281,7 @@ impl Provider for AcpProvider {
                                         yield (Some(message), None);
                                     }
                                     Ok(Some(AcpUpdate::Error(e))) => {
-                                        Err(ProviderError::RequestFailed(e))?;
+                                        Err(provider_error_from_acp(e))?;
                                     }
                                     _ => break,
                                 }
@@ -1350,9 +1345,83 @@ impl Provider for AcpProvider {
     }
 
     async fn fetch_supported_models(&self) -> Result<Vec<String>, ProviderError> {
-        let session = self.session.lock().unwrap().clone();
-        let (_, available) = resolve_model_info(&self.name, &session.response)?;
+        let (_, available) = resolve_model_info(&self.name, &self.session().response)?;
         Ok(available)
+    }
+
+    async fn reset_context(&self) -> Result<(), ProviderError> {
+        let tx = self.tx.as_ref().ok_or_else(|| {
+            ProviderError::ExecutionError("ACP client is unavailable".to_string())
+        })?;
+
+        let session = open_session(tx).await.map_err(|e| {
+            ProviderError::ExecutionError(format!(
+                "ACP {} failed: {e}",
+                AGENT_METHOD_NAMES.session_new
+            ))
+        })?;
+
+        let previous = std::mem::replace(
+            &mut *self.session.lock().expect("ACP session lock poisoned"),
+            session,
+        );
+        close_session(tx, previous.id).await;
+        self.handoff_context_sent.store(false, Ordering::Release);
+        self.context_size.store(0, Ordering::Relaxed);
+        *self
+            .applied_model
+            .lock()
+            .expect("applied_model lock poisoned") = None;
+
+        Ok(())
+    }
+}
+
+/// Ask the client loop for a fresh agent-side session.
+async fn open_session(tx: &mpsc::Sender<ClientRequest>) -> Result<AcpSession> {
+    let (response_tx, response_rx) = oneshot::channel();
+    tx.send(ClientRequest::NewSession { response_tx })
+        .await
+        .context("ACP client is unavailable")?;
+    let response = response_rx
+        .await
+        .context("ACP session creation cancelled")??;
+
+    Ok(AcpSession {
+        id: response.session_id.clone(),
+        response,
+    })
+}
+
+/// Updates arriving before any session exists cannot be attributed, so they are
+/// accepted; once a session is known, only that session's updates are.
+fn is_active_session(active: &Arc<Mutex<Option<SessionId>>>, incoming: &SessionId) -> bool {
+    match active.lock() {
+        Ok(guard) => guard.as_ref().is_none_or(|active| active == incoming),
+        Err(_) => true,
+    }
+}
+
+/// Points the update filter at a session that finished setup. Both `session/new`
+/// and `session/load` land here: whichever ran last is the session goose prompts
+/// against, and only its updates may be delivered. A session that failed setup
+/// is never returned to the caller, so it never becomes that session.
+fn latch_active_session(
+    active: &Arc<Mutex<Option<SessionId>>>,
+    result: &Result<NewSessionResponse>,
+) {
+    if let Ok(session) = result {
+        if let Ok(mut guard) = active.lock() {
+            *guard = Some(session.session_id.clone());
+        }
+    }
+}
+
+/// Best-effort release of a session goose no longer prompts against. Failures
+/// only leak an idle agent-side session, which shutdown cleans up anyway.
+async fn close_session(tx: &mpsc::Sender<ClientRequest>, session_id: SessionId) {
+    if let Err(e) = tx.send(ClientRequest::CloseSession { session_id }).await {
+        tracing::debug!(method = AGENT_METHOD_NAMES.session_close, error = %e, "failed to queue close");
     }
 }
 
@@ -1375,6 +1444,10 @@ struct AcpClientLoop {
     pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
     context_size: Arc<AtomicU64>,
     effort: AcpEffortState,
+    /// Session the notification handler will accept updates for. `reset_context`
+    /// leaves a superseded session that may still emit trailing usage and mode
+    /// updates; without this those would overwrite the fresh session's state.
+    active_session: Arc<Mutex<Option<SessionId>>>,
 }
 
 impl AcpClientLoop {
@@ -1392,6 +1465,7 @@ impl AcpClientLoop {
             pending_tool_updates,
             context_size,
             effort,
+            active_session: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -1447,6 +1521,7 @@ impl AcpClientLoop {
             pending_tool_updates,
             context_size,
             effort,
+            active_session,
         } = self;
         let notification_callback = config.notification_callback.clone();
         let reverse_modes = reverse_mode_mapping(&config.mode_mapping);
@@ -1462,14 +1537,18 @@ impl AcpClientLoop {
                     let pending_tool_updates = pending_tool_updates.clone();
                     let context_size = context_size.clone();
                     let session_state = session_state.clone();
+                    let active_session = active_session.clone();
                     async move |notification: SessionNotification, _cx| {
-                        let is_active_session =
-                            session_state.active_id.lock().is_ok_and(|active| {
-                                active
-                                    .as_ref()
-                                    .is_none_or(|id| id == &notification.session_id)
-                            });
-                        if !is_active_session {
+                        let is_current = session_state.active_id.lock().is_ok_and(|active| {
+                            active
+                                .as_ref()
+                                .is_none_or(|id| id == &notification.session_id)
+                        }) && is_active_session(&active_session, &notification.session_id);
+                        if !is_current {
+                            tracing::debug!(
+                                session_id = %notification.session_id,
+                                "ignoring update for superseded ACP session"
+                            );
                             return Ok(());
                         }
                         if let Some(ref cb) = notification_callback {
@@ -1678,6 +1757,7 @@ impl AcpClientLoop {
                     rx,
                     prompt_response_tx,
                     session_state,
+                    active_session,
                     init_tx,
                 )
                 .await
@@ -1784,6 +1864,7 @@ async fn handle_requests(
     rx: &mut mpsc::Receiver<ClientRequest>,
     prompt_response_tx: Arc<Mutex<Option<mpsc::Sender<AcpUpdate>>>>,
     session_state: AcpSessionState,
+    active_session: Arc<Mutex<Option<SessionId>>>,
     init_tx: oneshot::Sender<Result<InitializeResponse>>,
 ) -> Result<(), agent_client_protocol::Error> {
     let mut init_tx = Some(init_tx);
@@ -1873,6 +1954,7 @@ async fn handle_requests(
                         STARTUP_TIMEOUT.as_secs()
                     ))
                 });
+                latch_active_session(&active_session, &result);
                 log_undelivered(response_tx.send(result), AGENT_METHOD_NAMES.session_new);
             }
             ClientRequest::LoadSession {
@@ -1925,6 +2007,10 @@ async fn handle_requests(
                         Err(error)
                     }
                 };
+                // Without this latch a resume leaves the filter on the session
+                // it replaced, and every chunk of every later turn is dropped
+                // as superseded: turns arrive empty though the backend answered.
+                latch_active_session(&active_session, &result);
                 log_undelivered(response_tx.send(result), AGENT_METHOD_NAMES.session_load);
             }
             ClientRequest::CloseSession { session_id } => {
@@ -2086,39 +2172,99 @@ async fn apply_session_mode(
     let current_mode = goose_mode.lock().ok().map(|mode| *mode);
     let candidates = initial_mode_candidates(config, current_mode);
 
-    if let Some(modes) = session.modes.as_ref() {
-        if !candidates.is_empty() {
-            let Some(mode_id) = select_mode_id(&candidates, Some(modes)) else {
-                let available: Vec<String> = modes
-                    .available_modes
-                    .iter()
-                    .map(|mode| mode.id.0.to_string())
-                    .collect();
-                return Err(anyhow::anyhow!(
-                    "Requested mode(s) [{}] not offered by agent. Available modes: {}",
-                    candidates.join(", "),
-                    available.join(", ")
-                ));
-            };
-            if modes.current_mode_id.0.as_ref() != mode_id.as_str() {
-                let _: SetSessionModeResponse = cx
-                    .send_request(SetSessionModeRequest::new(
-                        session.session_id.clone(),
-                        mode_id,
-                    ))
-                    .block_task()
-                    .await
-                    .map_err(|err| {
-                        anyhow::anyhow!(
-                            "ACP agent rejected {}: {err}",
-                            AGENT_METHOD_NAMES.session_set_mode
-                        )
-                    })?;
-            }
+    match initial_session_mode(&session, &candidates)? {
+        InitialSessionMode::ConfigOption(mode_id) => {
+            let value_id = agent_client_protocol::schema::v1::SessionConfigValueId::new(mode_id);
+            cx.send_request(SetSessionConfigOptionRequest::new(
+                session.session_id.clone(),
+                "mode",
+                value_id,
+            ))
+            .block_task()
+            .await
+            .map_err(|err| {
+                anyhow::anyhow!(
+                    "ACP agent rejected {} for 'mode': {err}",
+                    AGENT_METHOD_NAMES.session_set_config_option
+                )
+            })?;
         }
+        InitialSessionMode::Mode(mode_id) => {
+            let _: SetSessionModeResponse = cx
+                .send_request(SetSessionModeRequest::new(
+                    session.session_id.clone(),
+                    mode_id,
+                ))
+                .block_task()
+                .await
+                .map_err(|err| {
+                    anyhow::anyhow!(
+                        "ACP agent rejected {}: {err}",
+                        AGENT_METHOD_NAMES.session_set_mode
+                    )
+                })?;
+        }
+        InitialSessionMode::Unchanged => {}
     }
 
     Ok(session)
+}
+
+#[derive(Debug, PartialEq)]
+enum InitialSessionMode {
+    ConfigOption(String),
+    Mode(String),
+    Unchanged,
+}
+
+/// Decide how the current goose mode reaches a freshly opened session. Agents
+/// that expose mode as a config option (rather than `session.modes`) start
+/// every new session in their own default, so the mode must be re-sent or a
+/// session opened by `reset_context` quietly reverts while goose still reports
+/// the previously selected mode. Running as part of session setup means a
+/// refusal fails the whole `session/new`: the caller keeps its old session
+/// instead of adopting one whose permission mode is unknown.
+fn initial_session_mode(
+    session: &NewSessionResponse,
+    candidates: &[String],
+) -> Result<InitialSessionMode> {
+    if candidates.is_empty() {
+        return Ok(InitialSessionMode::Unchanged);
+    }
+
+    if session_advertises_mode_config_option(session) {
+        return Ok(match select_mode_id(candidates, session.modes.as_ref()) {
+            Some(mode_id) => InitialSessionMode::ConfigOption(mode_id),
+            None => InitialSessionMode::Unchanged,
+        });
+    }
+
+    let Some(modes) = session.modes.as_ref() else {
+        return Ok(InitialSessionMode::Unchanged);
+    };
+    let Some(mode_id) = select_mode_id(candidates, Some(modes)) else {
+        let available: Vec<String> = modes
+            .available_modes
+            .iter()
+            .map(|mode| mode.id.0.to_string())
+            .collect();
+        return Err(anyhow::anyhow!(
+            "Requested mode(s) [{}] not offered by agent. Available modes: {}",
+            candidates.join(", "),
+            available.join(", ")
+        ));
+    };
+    if modes.current_mode_id.0.as_ref() == mode_id.as_str() {
+        return Ok(InitialSessionMode::Unchanged);
+    }
+    Ok(InitialSessionMode::Mode(mode_id))
+}
+
+fn session_advertises_mode_config_option(session: &NewSessionResponse) -> bool {
+    session.config_options.as_ref().is_some_and(|opts| {
+        opts.iter()
+            .any(|o| o.category.as_ref() == Some(&SessionConfigOptionCategory::Mode))
+    })
 }
 
 fn initial_mode_candidates(
@@ -2813,10 +2959,10 @@ mod tests {
                 name: "acp-test".to_string(),
                 goose_mode: Arc::new(Mutex::new(GooseMode::Auto)),
                 mode_mapping: HashMap::new(),
-                session: Mutex::new(AcpSession {
+                session: Arc::new(Mutex::new(AcpSession {
                     id: SessionId::new("test-session"),
                     response: NewSessionResponse::new("test-session"),
-                }),
+                })),
                 pending_confirmations: Arc::new(TokioMutex::new(HashMap::new())),
                 pending_tool_updates: Arc::new(Mutex::new(HashMap::new())),
                 handoff_context_sent: Arc::new(AtomicBool::new(false)),
@@ -4471,6 +4617,7 @@ mod tests {
             "acp-test".to_string(),
             GooseMode::Auto,
             test_acp_config(HashMap::new(), None),
+            None,
             Box::new(move |_, _, init_tx, cancel_rx| {
                 Box::pin(async move {
                     let _init_tx = init_tx;
@@ -4664,6 +4811,165 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn reset_context_opens_a_fresh_session_and_closes_the_old_one() {
+        let (tx, mut rx) = mpsc::channel(4);
+        let (provider, _) = test_provider_with_tx(Some(tx));
+        provider.handoff_context_sent.store(true, Ordering::Release);
+        provider.context_size.store(120_000, Ordering::Relaxed);
+        *provider.applied_model.lock().unwrap() = Some("stale-model".to_string());
+
+        let handle = tokio::spawn(async move {
+            provider.reset_context().await.unwrap();
+            provider
+        });
+
+        match rx.recv().await.expect("expected a NewSession request") {
+            ClientRequest::NewSession { response_tx } => {
+                let _ = response_tx.send(Ok(NewSessionResponse::new("fresh-session")));
+            }
+            _ => panic!("unexpected request kind"),
+        }
+        match rx.recv().await.expect("expected a CloseSession request") {
+            ClientRequest::CloseSession { session_id } => {
+                assert_eq!(session_id, SessionId::new("test-session"));
+            }
+            _ => panic!("unexpected request kind"),
+        }
+
+        let provider = handle.await.unwrap();
+        assert_eq!(provider.acp_session_id(), SessionId::new("fresh-session"));
+        assert!(!provider.handoff_context_sent.load(Ordering::Acquire));
+        assert_eq!(provider.context_size.load(Ordering::Relaxed), 0);
+        assert!(provider.applied_model.lock().unwrap().is_none());
+        assert!(
+            rx.try_recv().is_err(),
+            "session setup (mode, config options) belongs to the client loop; reset_context must send nothing beyond the swap"
+        );
+    }
+
+    fn mode_config_option_session() -> NewSessionResponse {
+        NewSessionResponse::new("fresh-session").config_options(vec![SessionConfigOption::select(
+            "mode",
+            "Mode",
+            "read-only",
+            vec![
+                SessionConfigSelectOption::new("read-only", "Read only"),
+                SessionConfigSelectOption::new("full-access", "Full access"),
+            ],
+        )
+        .category(SessionConfigOptionCategory::Mode)])
+    }
+
+    #[test]
+    fn a_new_session_sends_the_mode_to_a_config_option_agent() {
+        let session = mode_config_option_session();
+        let action = initial_session_mode(&session, &["full-access".to_string()]).unwrap();
+        assert_eq!(
+            action,
+            InitialSessionMode::ConfigOption("full-access".to_string())
+        );
+    }
+
+    #[test]
+    fn a_config_option_agent_is_preferred_over_session_modes() {
+        let session = mode_config_option_session()
+            .modes(mode_state("read-only", &["read-only", "full-access"]));
+        let action = initial_session_mode(&session, &["full-access".to_string()]).unwrap();
+        assert_eq!(
+            action,
+            InitialSessionMode::ConfigOption("full-access".to_string())
+        );
+    }
+
+    #[test]
+    fn an_agent_without_mode_surfaces_is_not_sent_a_mode() {
+        let session = NewSessionResponse::new("fresh-session");
+        let action = initial_session_mode(&session, &["full-access".to_string()]).unwrap();
+        assert_eq!(action, InitialSessionMode::Unchanged);
+    }
+
+    #[test]
+    fn a_session_modes_agent_gets_set_mode_only_when_it_differs() {
+        let session = NewSessionResponse::new("fresh-session")
+            .modes(mode_state("read-only", &["read-only", "agent"]));
+        let action = initial_session_mode(&session, &["agent".to_string()]).unwrap();
+        assert_eq!(action, InitialSessionMode::Mode("agent".to_string()));
+
+        let session = NewSessionResponse::new("fresh-session")
+            .modes(mode_state("agent", &["read-only", "agent"]));
+        let action = initial_session_mode(&session, &["agent".to_string()]).unwrap();
+        assert_eq!(action, InitialSessionMode::Unchanged);
+    }
+
+    #[test]
+    fn a_session_modes_agent_offering_no_candidate_fails_setup() {
+        let session = NewSessionResponse::new("fresh-session")
+            .modes(mode_state("agent", &["agent", "agent-full-access"]));
+        let result = initial_session_mode(&session, &["read-only".to_string()]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn updates_for_a_superseded_session_are_ignored() {
+        let active = Arc::new(Mutex::new(None));
+        assert!(
+            is_active_session(&active, &SessionId::new("anything")),
+            "updates arriving before a session exists cannot be attributed"
+        );
+
+        *active.lock().unwrap() = Some(SessionId::new("fresh-session"));
+        assert!(is_active_session(&active, &SessionId::new("fresh-session")));
+        assert!(!is_active_session(&active, &SessionId::new("old-session")));
+    }
+
+    #[test]
+    fn a_loaded_session_becomes_the_one_updates_are_accepted_for() {
+        let active = Arc::new(Mutex::new(Some(SessionId::new("replaced-session"))));
+
+        latch_active_session(&active, &Ok(NewSessionResponse::new("resumed-session")));
+
+        assert!(
+            is_active_session(&active, &SessionId::new("resumed-session")),
+            "a resumed session's updates must reach the turn, not be dropped as superseded"
+        );
+        assert!(!is_active_session(
+            &active,
+            &SessionId::new("replaced-session")
+        ));
+    }
+
+    #[test]
+    fn a_session_that_failed_setup_does_not_take_over_the_filter() {
+        let active = Arc::new(Mutex::new(Some(SessionId::new("live-session"))));
+
+        latch_active_session(&active, &Err(anyhow::anyhow!("session/load failed")));
+
+        assert!(is_active_session(&active, &SessionId::new("live-session")));
+    }
+
+    #[tokio::test]
+    async fn reset_context_leaves_the_session_in_place_when_the_agent_refuses() {
+        let (tx, mut rx) = mpsc::channel(4);
+        let (provider, _) = test_provider_with_tx(Some(tx));
+
+        let handle = tokio::spawn(async move {
+            let result = provider.reset_context().await;
+            (provider, result)
+        });
+
+        match rx.recv().await.expect("expected a NewSession request") {
+            ClientRequest::NewSession { response_tx } => {
+                let _ = response_tx.send(Err(anyhow::anyhow!("agent said no")));
+            }
+            _ => panic!("unexpected request kind"),
+        }
+
+        let (provider, result) = handle.await.unwrap();
+        assert!(result.is_err());
+        assert_eq!(provider.acp_session_id(), SessionId::new("test-session"));
+        assert!(rx.try_recv().is_err(), "the old session must not be closed");
+    }
+
     async fn messages_to_prompt_includes_all_prior_handoff_context() {
         let messages = vec![
             Message::user().with_text("older context that should be retained"),
