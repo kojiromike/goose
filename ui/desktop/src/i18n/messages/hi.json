@@ -3974,6 +3974,9 @@
   "sessions.noArchivedDesc": {
     "defaultMessage": "आपके द्वारा संग्रहित किए गए सत्र यहाँ दिखाई देंगे।"
   },
+  "sessions.refreshing": {
+    "defaultMessage": "सत्र रीफ़्रेश किए जा रहे हैं..."
+  },
   "sessions.save": {
     "defaultMessage": "सहेजें"
   },
@@ -3994,6 +3997,9 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "खोज इतिहास..."
+  },
+  "sessions.searching": {
+    "defaultMessage": "सत्र खोजे जा रहे हैं..."
   },
   "sessions.shareNostr.description": {
     "defaultMessage": "इस लिंक वाला कोई भी व्यक्ति सत्र को ला सकता है और डिक्रिप्ट कर सकता है। इसे एक रहस्य की तरह समझो."

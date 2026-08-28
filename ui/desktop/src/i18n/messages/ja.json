@@ -3974,6 +3974,9 @@
   "sessions.noArchivedDesc": {
     "defaultMessage": "アーカイブしたセッションがここに表示されます。"
   },
+  "sessions.refreshing": {
+    "defaultMessage": "セッションを更新中..."
+  },
   "sessions.save": {
     "defaultMessage": "保存"
   },
@@ -3994,6 +3997,9 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "履歴を検索..."
+  },
+  "sessions.searching": {
+    "defaultMessage": "セッションを検索中..."
   },
   "sessions.shareNostr.description": {
     "defaultMessage": "このリンクを持つ人は誰でもセッションを取得して復号できます。秘密情報として扱ってください。"

@@ -122,6 +122,8 @@ const i18n = defineMessages({
     defaultMessage: 'Try adjusting your search terms',
   },
   loadingMore: { id: 'sessions.loadingMore', defaultMessage: 'Loading more sessions...' },
+  searching: { id: 'sessions.searching', defaultMessage: 'Searching sessions...' },
+  refreshing: { id: 'sessions.refreshing', defaultMessage: 'Refreshing sessions...' },
   deleteTitle: { id: 'sessions.delete.title', defaultMessage: 'Delete Session' },
   deleteMessage: {
     id: 'sessions.delete.message',
@@ -350,6 +352,9 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
   const intl = useIntl();
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [isPrefetchingSessions, setIsPrefetchingSessions] = useState(false);
+  // A keyword re-query reuses the already-rendered list instead of the skeleton, so
+  // without this the view looks frozen while the server-side search runs.
+  const [isReloading, setIsReloading] = useState(false);
   const [dateGroups, setDateGroups] = useState<DateGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showSkeleton, setShowSkeleton] = useState(true);
@@ -477,6 +482,8 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
         setIsLoading(true);
         setShowSkeleton(true);
         setShowContent(false);
+      } else {
+        setIsReloading(true);
       }
       try {
         const resp = await acpListSessions(undefined, { keyword, includeAcp, archived });
@@ -497,8 +504,14 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
         setError('Failed to load sessions. Please try again later.');
         setSessions([]);
       } finally {
-        if (loadGenerationRef.current === loadId && isFirstLoad) {
-          setIsLoading(false);
+        // A superseded load leaves the flag set on purpose — the load that replaced it
+        // is still running and owns the indicator.
+        if (loadGenerationRef.current === loadId) {
+          if (isFirstLoad) {
+            setIsLoading(false);
+          } else {
+            setIsReloading(false);
+          }
         }
       }
     },
@@ -1417,7 +1430,17 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
                       showContent ? 'opacity-100 z-10' : 'opacity-0 z-0'
                     }`}
                   >
-                    {renderActualContent()}
+                    {isReloading && (
+                      <div className="flex items-center gap-2 pb-4 text-text-secondary text-sm">
+                        <LoaderCircle className="w-4 h-4 animate-spin" />
+                        <span>
+                          {intl.formatMessage(
+                            debouncedSearchTerm ? i18n.searching : i18n.refreshing
+                          )}
+                        </span>
+                      </div>
+                    )}
+                    <div className={cn(isReloading && 'opacity-50')}>{renderActualContent()}</div>
                   </div>
                 </SearchView>
               </div>

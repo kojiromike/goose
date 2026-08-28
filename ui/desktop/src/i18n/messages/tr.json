@@ -3974,6 +3974,9 @@
   "sessions.noArchivedDesc": {
     "defaultMessage": "Arşivlediğiniz oturumlar burada görünecek."
   },
+  "sessions.refreshing": {
+    "defaultMessage": "Oturumlar yenileniyor..."
+  },
   "sessions.save": {
     "defaultMessage": "Kaydet"
   },
@@ -3994,6 +3997,9 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "Arama geçmişi..."
+  },
+  "sessions.searching": {
+    "defaultMessage": "Oturumlar aranıyor..."
   },
   "sessions.shareNostr.description": {
     "defaultMessage": "Bu bağlantıya sahip olan herkes oturumu alıp şifresini çözebilir. Buna bir sırmış gibi davran."

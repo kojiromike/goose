@@ -3974,6 +3974,9 @@
   "sessions.noArchivedDesc": {
     "defaultMessage": "Le sessioni che archivi appariranno qui."
   },
+  "sessions.refreshing": {
+    "defaultMessage": "Aggiornamento sessioni..."
+  },
   "sessions.save": {
     "defaultMessage": "Salva"
   },
@@ -3994,6 +3997,9 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "Cerca nella cronologia..."
+  },
+  "sessions.searching": {
+    "defaultMessage": "Ricerca sessioni..."
   },
   "sessions.shareNostr.description": {
     "defaultMessage": "Chiunque abbia questo link può recuperare e decifrare la sessione. Trattalo come un segreto."

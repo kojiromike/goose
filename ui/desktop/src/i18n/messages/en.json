@@ -3974,6 +3974,9 @@
   "sessions.noArchivedDesc": {
     "defaultMessage": "Sessions you archive will appear here."
   },
+  "sessions.refreshing": {
+    "defaultMessage": "Refreshing sessions..."
+  },
   "sessions.save": {
     "defaultMessage": "Save"
   },
@@ -3994,6 +3997,9 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "Search history..."
+  },
+  "sessions.searching": {
+    "defaultMessage": "Searching sessions..."
   },
   "sessions.shareNostr.description": {
     "defaultMessage": "Anyone with this link can fetch and decrypt the session. Treat it like a secret."

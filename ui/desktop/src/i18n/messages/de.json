@@ -3974,6 +3974,9 @@
   "sessions.noArchivedDesc": {
     "defaultMessage": "Von Ihnen archivierte Sitzungen werden hier angezeigt."
   },
+  "sessions.refreshing": {
+    "defaultMessage": "Sitzungen werden aktualisiert..."
+  },
   "sessions.save": {
     "defaultMessage": "Speichern"
   },
@@ -3994,6 +3997,9 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "Verlauf durchsuchen..."
+  },
+  "sessions.searching": {
+    "defaultMessage": "Sitzungen werden durchsucht..."
   },
   "sessions.shareNostr.description": {
     "defaultMessage": "Jeder mit diesem Link kann die Sitzung abrufen und entschlüsseln. Behandeln Sie ihn wie ein Geheimnis."

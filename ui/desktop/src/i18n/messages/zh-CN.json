@@ -3974,6 +3974,9 @@
   "sessions.noArchivedDesc": {
     "defaultMessage": "您归档的会话将显示在此处。"
   },
+  "sessions.refreshing": {
+    "defaultMessage": "正在刷新会话..."
+  },
   "sessions.save": {
     "defaultMessage": "保存"
   },
@@ -3994,6 +3997,9 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "搜索历史…"
+  },
+  "sessions.searching": {
+    "defaultMessage": "正在搜索会话..."
   },
   "sessions.shareNostr.description": {
     "defaultMessage": "任何拥有此链接的人都可以获取并解密该会话。请像对待密钥一样保护它。"

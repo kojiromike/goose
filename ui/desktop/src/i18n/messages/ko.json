@@ -3974,6 +3974,9 @@
   "sessions.noArchivedDesc": {
     "defaultMessage": "보관한 세션이 여기에 표시됩니다."
   },
+  "sessions.refreshing": {
+    "defaultMessage": "세션 새로 고치는 중..."
+  },
   "sessions.save": {
     "defaultMessage": "저장"
   },
@@ -3994,6 +3997,9 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "기록 검색..."
+  },
+  "sessions.searching": {
+    "defaultMessage": "세션 검색 중..."
   },
   "sessions.shareNostr.description": {
     "defaultMessage": "이 링크가 있는 사람은 누구나 세션을 가져오고 복호화할 수 있습니다. 비밀처럼 다루세요."

@@ -3974,6 +3974,9 @@
   "sessions.noArchivedDesc": {
     "defaultMessage": "Здесь будут отображаться архивированные вами сеансы."
   },
+  "sessions.refreshing": {
+    "defaultMessage": "Обновление сессий..."
+  },
   "sessions.save": {
     "defaultMessage": "Сохранить"
   },
@@ -3994,6 +3997,9 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "Поиск по истории..."
+  },
+  "sessions.searching": {
+    "defaultMessage": "Поиск сессий..."
   },
   "sessions.shareNostr.description": {
     "defaultMessage": "Любой, у кого есть эта ссылка, сможет получить и расшифровать ваш сеанс. Обращайтесь с ней как с секретом."

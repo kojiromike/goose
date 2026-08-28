@@ -3974,6 +3974,9 @@
   "sessions.noArchivedDesc": {
     "defaultMessage": "Sesi yang Anda arsipkan akan muncul di sini."
   },
+  "sessions.refreshing": {
+    "defaultMessage": "Menyegarkan sesi..."
+  },
   "sessions.save": {
     "defaultMessage": "Simpan"
   },
@@ -3994,6 +3997,9 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "Cari riwayat..."
+  },
+  "sessions.searching": {
+    "defaultMessage": "Mencari sesi..."
   },
   "sessions.shareNostr.description": {
     "defaultMessage": "Siapa pun yang memiliki tautan ini dapat mengambil dan mendekripsi sesi. Perlakukan seperti rahasia."

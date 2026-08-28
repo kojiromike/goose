@@ -3974,6 +3974,9 @@
   "sessions.noArchivedDesc": {
     "defaultMessage": "您封存的工作階段將顯示在此處。"
   },
+  "sessions.refreshing": {
+    "defaultMessage": "正在重新整理工作階段..."
+  },
   "sessions.save": {
     "defaultMessage": "儲存"
   },
@@ -3994,6 +3997,9 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "搜尋記錄..."
+  },
+  "sessions.searching": {
+    "defaultMessage": "正在搜尋工作階段..."
   },
   "sessions.shareNostr.description": {
     "defaultMessage": "任何持有此連結的人都能擷取並解密該工作階段。請將其視為機密。"

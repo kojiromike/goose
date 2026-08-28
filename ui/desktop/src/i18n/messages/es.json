@@ -3974,6 +3974,9 @@
   "sessions.noArchivedDesc": {
     "defaultMessage": "Las sesiones que archives aparecerán aquí."
   },
+  "sessions.refreshing": {
+    "defaultMessage": "Actualizando sesiones..."
+  },
   "sessions.save": {
     "defaultMessage": "Guardar"
   },
@@ -3994,6 +3997,9 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "Buscar en el historial..."
+  },
+  "sessions.searching": {
+    "defaultMessage": "Buscando sesiones..."
   },
   "sessions.shareNostr.description": {
     "defaultMessage": "Cualquiera que tenga este enlace puede obtener y descifrar la sesión. Trátalo como un secreto."

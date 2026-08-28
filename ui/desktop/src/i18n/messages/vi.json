@@ -3974,6 +3974,9 @@
   "sessions.noArchivedDesc": {
     "defaultMessage": "Các phiên bạn lưu trữ sẽ xuất hiện ở đây."
   },
+  "sessions.refreshing": {
+    "defaultMessage": "Đang làm mới phiên..."
+  },
   "sessions.save": {
     "defaultMessage": "Lưu"
   },
@@ -3994,6 +3997,9 @@
   },
   "sessions.searchPlaceholder": {
     "defaultMessage": "Tìm kiếm lịch sử..."
+  },
+  "sessions.searching": {
+    "defaultMessage": "Đang tìm kiếm phiên..."
   },
   "sessions.shareNostr.description": {
     "defaultMessage": "Bất kỳ ai có liên kết này đều có thể tải về và giải mã phiên làm việc. Hãy coi nó như một bí mật."
