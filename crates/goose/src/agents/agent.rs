@@ -3247,15 +3247,24 @@ impl Agent {
                                     // silent exit. Retry a bounded number of
                                     // times, then surface a visible message so
                                     // the user is never left with no response.
+                                    let provider_name = self
+                                        .provider()
+                                        .await
+                                        .map(|p| p.get_name().to_string())
+                                        .unwrap_or_else(|_| "unknown".to_string());
                                     if empty_turn_retries < MAX_EMPTY_TURN_RETRIES {
                                         empty_turn_retries += 1;
                                         retrying_after_empty_turn = true;
                                         warn!(
+                                            provider = %provider_name,
                                             "Provider returned an empty response; retrying ({}/{})",
                                             empty_turn_retries, MAX_EMPTY_TURN_RETRIES
                                         );
                                     } else {
-                                        warn!("Provider returned an empty response after retries; ending turn");
+                                        warn!(
+                                            provider = %provider_name,
+                                            "Provider returned an empty response after retries; ending turn"
+                                        );
                                         last_assistant_text = EMPTY_TURN_MESSAGE.to_string();
                                         let message = push_message_with_id(
                                             &mut messages_to_add,

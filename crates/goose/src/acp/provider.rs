@@ -76,6 +76,10 @@ pub(super) const THINKING_EFFORT_PARAM: &str = "thinking_effort";
 /// its own into a permanent failure.
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(360);
 
+/// How long an empty-looking turn waits for message chunks that trail the
+/// prompt response before it is declared empty.
+const LATE_CHUNK_GRACE: std::time::Duration = std::time::Duration::from_millis(250);
+
 pub struct AcpProviderConfig {
     pub command: PathBuf,
     pub args: Vec<String>,
@@ -1122,6 +1126,7 @@ impl Provider for AcpProvider {
             // Stable id+timestamp per contiguous run so Desktop coalesces chunks into one bubble.
             let mut text_run: Option<(String, i64)> = None;
             let mut thought_run: Option<(String, i64)> = None;
+            let mut yielded_content = false;
 
             while let Some(update) = rx.recv().await {
                 updates_seen += 1;
@@ -1132,6 +1137,7 @@ impl Provider for AcpProvider {
                                 .get_or_insert_with(fresh_text_run)
                                 .clone();
                             let message = acp_text_update_message(text, id, ts);
+                            yielded_content = true;
                             yield (Some(message), None);
                         }
                     }
@@ -1143,11 +1149,13 @@ impl Provider for AcpProvider {
                             .with_thinking(text, "")
                             .with_visibility(true, false)
                             .with_id(id);
+                        yielded_content = true;
                         yield (Some(message), None);
                     }
                     AcpUpdate::ToolCallStart { id, name, kind, raw_input } => {
                         text_run = None;
                         thought_run = None;
+                        yielded_content = true;
                         if reject_all_tools {
                             suppress_text = true;
                             rejected_tool_calls.insert(id);
@@ -1181,6 +1189,7 @@ impl Provider for AcpProvider {
                     } => {
                         text_run = None;
                         thought_run = None;
+                        yielded_content = true;
                         if rejected_tool_calls.remove(&id) {
                             // In chat mode no tool_request was emitted (suppressed at
                             // ToolCallStart), so surface a plain text message. In other
@@ -1247,6 +1256,42 @@ impl Provider for AcpProvider {
                         let _ = response_tx.send(map_permission_response(&request, decision));
                     }
                     AcpUpdate::Complete(reason, usage) => {
+                        if !yielded_content {
+                            // An empty-looking turn usually means the final
+                            // text chunks are still in flight: they arrive on
+                            // the dispatch loop while the request loop forwards
+                            // Complete, so they can land behind it. Give them a
+                            // bounded window before ending the turn — an empty
+                            // turn makes the agent loop re-run the whole prompt.
+                            let deadline = tokio::time::Instant::now() + LATE_CHUNK_GRACE;
+                            loop {
+                                match tokio::time::timeout_at(deadline, rx.recv()).await {
+                                    Ok(Some(AcpUpdate::Text(text))) => {
+                                        if !suppress_text {
+                                            let (id, ts) = text_run
+                                                .get_or_insert_with(fresh_text_run)
+                                                .clone();
+                                            let message = acp_text_update_message(text, id, ts);
+                                            yield (Some(message), None);
+                                        }
+                                    }
+                                    Ok(Some(AcpUpdate::Thought(text))) => {
+                                        let (id, ts) = thought_run
+                                            .get_or_insert_with(fresh_text_run)
+                                            .clone();
+                                        let message = Message::new(Role::Assistant, ts, vec![])
+                                            .with_thinking(text, "")
+                                            .with_visibility(true, false)
+                                            .with_id(id);
+                                        yield (Some(message), None);
+                                    }
+                                    Ok(Some(AcpUpdate::Error(e))) => {
+                                        Err(ProviderError::RequestFailed(e))?;
+                                    }
+                                    _ => break,
+                                }
+                            }
+                        }
                         // Prefer retrying context over silently losing it. A harness may have
                         // ingested the memo before cancelling or refusing, so a retry can duplicate
                         // it, but treating an unprocessed handoff as delivered is unrecoverable.
@@ -1465,24 +1510,29 @@ impl AcpClientLoop {
                             }
                             _ => {}
                         }
-                        if let Some(tx) = prompt_response_tx
-                            .lock()
-                            .ok()
-                            .as_ref()
-                            .and_then(|g| g.as_ref())
-                        {
+                        // Clone the sender out of the lock so sends can be
+                        // awaited: a full channel must back-pressure the
+                        // dispatch loop rather than silently drop the chunk,
+                        // and a guard held across an await could deadlock
+                        // against the request loop.
+                        let tx = prompt_response_tx.lock().ok().and_then(|g| g.clone());
+                        if let Some(tx) = tx {
                             match notification.update {
                                 SessionUpdate::AgentMessageChunk(ContentChunk {
                                     content: ContentBlock::Text(text),
                                     ..
                                 }) => {
-                                    let _ = tx.try_send(AcpUpdate::Text(text));
+                                    if let Err(e) = tx.send(AcpUpdate::Text(text)).await {
+                                        tracing::warn!(error = %e, "undelivered ACP agent message chunk");
+                                    }
                                 }
                                 SessionUpdate::AgentThoughtChunk(ContentChunk {
                                     content: ContentBlock::Text(TextContent { text, .. }),
                                     ..
                                 }) => {
-                                    let _ = tx.try_send(AcpUpdate::Thought(text));
+                                    if let Err(e) = tx.send(AcpUpdate::Thought(text)).await {
+                                        tracing::warn!(error = %e, "undelivered ACP agent thought chunk");
+                                    }
                                 }
                                 SessionUpdate::ToolCall(tool_call) => {
                                     let id = tool_call.tool_call_id.0.to_string();
@@ -1972,7 +2022,12 @@ async fn handle_requests(
                     }
                 }
 
-                *prompt_response_tx.lock().unwrap() = None;
+                // Deliberately keep prompt_response_tx registered: message
+                // chunks dispatched after the prompt response resolves would
+                // otherwise race this handler clearing the sender and be
+                // dropped silently (turns arrive empty). The next prompt
+                // replaces the sender; between turns the receiver is gone,
+                // so late sends fail and are logged by the dispatch handler.
             }
         }
     }
@@ -3033,6 +3088,86 @@ mod tests {
         assert!(first_id.starts_with("msg_"));
         assert!(second_id.starts_with("msg_"));
         assert_ne!(first_id, second_id);
+    }
+
+    #[tokio::test]
+    async fn stream_recovers_text_chunks_that_trail_the_prompt_response() {
+        use futures::StreamExt;
+
+        let (tx, mut rx) = mpsc::channel(1);
+        let (provider, model) = test_provider_with_tx(Some(tx));
+
+        let messages = vec![Message::user().with_text("hello")];
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+
+        let response_tx = match rx.recv().await.expect("expected ACP prompt request") {
+            ClientRequest::Prompt { response_tx, .. } => response_tx,
+            _ => panic!("expected ACP prompt request"),
+        };
+
+        response_tx
+            .send(AcpUpdate::Complete(StopReason::EndTurn, None))
+            .await
+            .unwrap();
+        response_tx
+            .send(AcpUpdate::Text(TextContent::new("late reply")))
+            .await
+            .unwrap();
+        drop(response_tx);
+
+        let mut messages = Vec::new();
+        while let Some(item) = stream.next().await {
+            let (message, usage) = item.unwrap();
+            assert!(usage.is_none());
+            if let Some(message) = message {
+                messages.push(message);
+            }
+        }
+
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].as_concat_text(), "late reply");
+    }
+
+    #[tokio::test]
+    async fn stream_ends_at_complete_when_the_turn_produced_content() {
+        use futures::StreamExt;
+
+        let (tx, mut rx) = mpsc::channel(1);
+        let (provider, model) = test_provider_with_tx(Some(tx));
+
+        let messages = vec![Message::user().with_text("hello")];
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+
+        let response_tx = match rx.recv().await.expect("expected ACP prompt request") {
+            ClientRequest::Prompt { response_tx, .. } => response_tx,
+            _ => panic!("expected ACP prompt request"),
+        };
+
+        response_tx
+            .send(AcpUpdate::Text(TextContent::new("reply")))
+            .await
+            .unwrap();
+        response_tx
+            .send(AcpUpdate::Complete(StopReason::EndTurn, None))
+            .await
+            .unwrap();
+        response_tx
+            .send(AcpUpdate::Text(TextContent::new("after the turn ended")))
+            .await
+            .unwrap();
+        drop(response_tx);
+
+        let mut messages = Vec::new();
+        while let Some(item) = stream.next().await {
+            let (message, usage) = item.unwrap();
+            assert!(usage.is_none());
+            if let Some(message) = message {
+                messages.push(message);
+            }
+        }
+
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].as_concat_text(), "reply");
     }
 
     #[test]
