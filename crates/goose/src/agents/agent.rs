@@ -347,6 +347,30 @@ fn user_visible_message_text(message: &Message) -> String {
     message.user_visible_content().as_concat_text()
 }
 
+/// Replaces the agent-visible text of a message, collapsing it into the first
+/// such block so the stored message matches what the provider receives. Blocks
+/// annotated for the user only are left alone.
+fn replace_agent_visible_text(message: &mut Message, text: &str) {
+    let mut replaced = false;
+    message.content.retain_mut(|content| {
+        if content
+            .filter_for_audience(rmcp::model::Role::Assistant)
+            .is_none()
+        {
+            return true;
+        }
+        let MessageContent::Text(block) = content else {
+            return true;
+        };
+        if replaced {
+            return false;
+        }
+        block.text = text.to_string();
+        replaced = true;
+        true
+    });
+}
+
 fn attach_turn_usage(
     messages: &mut Conversation,
     usage: &ProviderUsage,
@@ -1808,7 +1832,7 @@ impl Agent {
         session_config: SessionConfig,
         cancel_token: Option<CancellationToken>,
     ) -> Result<BoxStream<'_, Result<AgentEvent>>> {
-        let user_message = user_message.with_generated_id_if_missing();
+        let mut user_message = user_message.with_generated_id_if_missing();
         let session_manager = self.config.session_manager.clone();
 
         let message_text_for_trace = agent_visible_message_text(&user_message);
@@ -1858,17 +1882,31 @@ impl Agent {
             }
         }
 
+        // `/acp <command>` unshadows a command goose would otherwise handle
+        // itself, rewriting the message so the provider receives the bare
+        // command as prompt text and goose's own dispatch is skipped.
+        let passthrough_command =
+            crate::agents::execute_commands::unwrap_passthrough_command(&message_text_for_trace);
+        let message_text = match &passthrough_command {
+            Some(command) => {
+                replace_agent_visible_text(&mut user_message, command);
+                command.clone()
+            }
+            None => message_text_for_trace,
+        };
+
         if super::state_machine::enabled()
-            || super::state_machine::bang_shell_command(&user_visible_message_text(&user_message))
-                .is_some()
+            || (passthrough_command.is_none()
+                && super::state_machine::bang_shell_command(&user_visible_message_text(
+                    &user_message,
+                ))
+                .is_some())
         {
             tracing::info!("dispatching reply via experimental state machine");
             return self
                 .reply_with_state_machine(user_message, session_config, cancel_token)
                 .await;
         }
-
-        let message_text = message_text_for_trace;
 
         let session = session_manager
             .get_session(&session_config.id, true)
@@ -1916,9 +1954,13 @@ impl Agent {
                 .await;
         }
 
-        let command_result = self
-            .execute_command(&message_text, &session_config.id)
-            .await;
+        let command_result = match passthrough_command {
+            Some(_) => Ok(None),
+            None => {
+                self.execute_command(&message_text, &session_config.id)
+                    .await
+            }
+        };
 
         let mut command_preamble: Vec<AgentEvent> = Vec::new();
 
@@ -4266,6 +4308,27 @@ mod tests {
             .as_ref()
             .expect("successful hidden tool result");
         assert!(result.content.is_empty());
+    }
+
+    #[test]
+    fn replace_agent_visible_text_collapses_agent_blocks_and_keeps_user_only_blocks() {
+        use rmcp::model::{Annotations, Role, TextContent};
+
+        let user_only = TextContent::new("SECRET_USER_ONLY")
+            .with_annotations(Annotations::default().with_audience(vec![Role::User]));
+        let mut message = Message::user()
+            .with_text("/acp compact")
+            .with_text("trailing")
+            .with_content(MessageContent::Text(user_only));
+
+        replace_agent_visible_text(&mut message, "/compact");
+
+        assert_eq!(agent_visible_message_text(&message), "/compact");
+        assert!(message
+            .content
+            .iter()
+            .filter_map(|c| c.as_text())
+            .any(|text| text == "SECRET_USER_ONLY"));
     }
 
     #[test]

@@ -13,6 +13,8 @@ use super::Agent;
 pub const COMPACT_TRIGGERS: &[&str] =
     &["/compact", "Please compact this conversation", "/summarize"];
 
+pub const PASSTHROUGH_COMMAND: &str = "acp";
+
 pub struct CommandDef {
     pub name: &'static str,
     pub description: &'static str,
@@ -56,6 +58,11 @@ static COMMANDS: &[CommandDef] = &[
         name: "status",
         description: "Show session status: model, provider, mode, and token usage",
     },
+    CommandDef {
+        name: PASSTHROUGH_COMMAND,
+        description:
+            "Send a slash command to the underlying agent instead of goose, e.g. /acp compact",
+    },
 ];
 
 pub struct ParsedSlashCommand<'a> {
@@ -83,6 +90,33 @@ pub fn parse_slash_command(message_text: &str) -> Option<ParsedSlashCommand<'_>>
     Some(ParsedSlashCommand {
         command,
         params_str,
+    })
+}
+
+/// Unwraps `/acp <command>` into the command text to forward to the provider
+/// verbatim, e.g. `/acp compact` -> `/compact`. Goose shadows names like
+/// `/compact` and handles them locally, but a provider that runs its own agent
+/// session (ACP) keeps conversation state goose cannot reach, so the local
+/// handling is a no-op against the state that actually matters. Forwarding the
+/// command as prompt text lets that agent handle it instead.
+///
+/// Returns `None` for a bare `/acp`, which `execute_command` answers with usage
+/// text rather than sending a meaningless prompt to the agent.
+pub fn unwrap_passthrough_command(message_text: &str) -> Option<String> {
+    let inner = message_text
+        .trim()
+        .strip_prefix('/')?
+        .strip_prefix(PASSTHROUGH_COMMAND)?
+        .strip_prefix(char::is_whitespace)?
+        .trim();
+
+    if inner.is_empty() {
+        return None;
+    }
+
+    Some(match inner.strip_prefix('/') {
+        Some(_) => inner.to_string(),
+        None => format!("/{inner}"),
     })
 }
 
@@ -153,6 +187,11 @@ impl Agent {
             "skills" => self.handle_skills_command(session_id).await,
             "doctor" => Ok(Some(crate::doctor::run(self, session_id).await?)),
             "status" => self.handle_status_command(session_id).await,
+            // Only the bare `/acp` reaches here; `reply` intercepts the form
+            // with a command and forwards it to the provider instead.
+            PASSTHROUGH_COMMAND => Ok(Some(Message::assistant().with_text(
+                "Usage: `/acp <command>` — sends the command to the underlying agent instead of goose, e.g. `/acp compact`.",
+            ))),
             "goal" => self.handle_goal_command(params_str).await,
             "grind" => self.handle_grind_command(params_str).await,
             _ => {
@@ -595,6 +634,49 @@ mod tests {
         let parsed = parse_slash_command("/speckit.plan\nhello").unwrap();
         assert_eq!(parsed.command, "speckit.plan\nhello");
         assert_eq!(parsed.params_str, "");
+    }
+
+    #[test]
+    fn unwrap_passthrough_command_strips_the_acp_wrapper() {
+        assert_eq!(
+            unwrap_passthrough_command("/acp compact").as_deref(),
+            Some("/compact")
+        );
+        assert_eq!(
+            unwrap_passthrough_command("  /acp   compact  ").as_deref(),
+            Some("/compact")
+        );
+        // An already-slashed inner command must not gain a second slash,
+        // which the agent would not honor.
+        assert_eq!(
+            unwrap_passthrough_command("/acp /compact").as_deref(),
+            Some("/compact")
+        );
+        assert_eq!(
+            unwrap_passthrough_command("/acp model opus").as_deref(),
+            Some("/model opus")
+        );
+    }
+
+    #[test]
+    fn unwrap_passthrough_command_ignores_non_passthrough_text() {
+        // Bare `/acp` is answered with usage text, not forwarded.
+        assert_eq!(unwrap_passthrough_command("/acp"), None);
+        assert_eq!(unwrap_passthrough_command("/acp   "), None);
+        assert_eq!(unwrap_passthrough_command("/acpfoo bar"), None);
+        assert_eq!(unwrap_passthrough_command("/compact"), None);
+        assert_eq!(unwrap_passthrough_command("acp compact"), None);
+        assert_eq!(
+            unwrap_passthrough_command("tell me about /acp compact"),
+            None
+        );
+    }
+
+    #[test]
+    fn passthrough_command_is_listed_so_it_is_not_treated_as_a_recipe() {
+        assert!(list_commands()
+            .iter()
+            .any(|cmd| cmd.name == PASSTHROUGH_COMMAND));
     }
 
     #[test]
