@@ -3,10 +3,9 @@
 #[path = "acp_common_tests/mod.rs"]
 mod common_tests;
 use agent_client_protocol::schema::v1::{
-    ContentBlock, ListSessionsRequest, ListSessionsResponse, NewSessionRequest,
-    NewSessionResponse, PromptRequest, SessionConfigKind, SessionConfigOptionCategory,
-    SessionConfigOptionValue, SessionInfo, SetSessionConfigOptionRequest, StopReason,
-    TextContent,
+    ContentBlock, ListSessionsRequest, ListSessionsResponse, NewSessionRequest, NewSessionResponse,
+    PromptRequest, SessionConfigKind, SessionConfigOptionCategory, SessionConfigOptionValue,
+    SessionInfo, SetSessionConfigOptionRequest, StopReason, TextContent,
 };
 use agent_client_protocol::ErrorCode;
 use common_tests::fixtures::server::{

@@ -210,6 +210,23 @@ fn retry_without_memo_could_help(error: &agent_client_protocol::Error) -> bool {
         != Some(crate::acp::CREDITS_EXHAUSTED_REASON)
 }
 
+/// The agent's session transcript no longer fits its model's context window.
+/// claude-agent-acp reports this with the SDK's generic `invalid_request`
+/// errorKind, so the message text is the only discriminator; `context_exhausted`
+/// is accepted for agents that send a categorical kind.
+fn is_context_exhausted_error(error: &agent_client_protocol::Error) -> bool {
+    error
+        .data
+        .as_ref()
+        .and_then(|data| data.get("errorKind"))
+        .and_then(serde_json::Value::as_str)
+        == Some("context_exhausted")
+        || error
+            .to_string()
+            .to_lowercase()
+            .contains("prompt is too long")
+}
+
 fn provider_error_from_acp(error: agent_client_protocol::Error) -> ProviderError {
     if error.code == agent_client_protocol::schema::v1::ErrorCode::AuthRequired {
         ProviderError::Authentication(error.to_string())
@@ -320,6 +337,11 @@ pub struct AcpProvider {
     /// Latest `size` reported by the ACP server in a `session/update` →
     /// `usage_update` notification. 0 means no real update has arrived yet.
     context_size: Arc<AtomicU64>,
+    /// Set when the agent rejected a prompt because its session transcript no
+    /// longer fits the model's context window. The next `stream()` call
+    /// abandons the exhausted backend session and starts a fresh one, so the
+    /// bounded handoff memo can rebuild context from goose's own history.
+    session_exhausted: Arc<AtomicBool>,
 
     /// Config option id used to select the model, if this agent supports it.
     model_config_option_id: Option<String>,
@@ -512,6 +534,7 @@ impl AcpConnection {
             pending_tool_updates: self.pending_tool_updates,
             handoff_context_sent: Arc::new(AtomicBool::new(false)),
             context_size: self.context_size,
+            session_exhausted: Arc::new(AtomicBool::new(false)),
             model_config_option_id: self.model_config_option_id,
             applied_model: Arc::new(Mutex::new(self.applied_model)),
             effort: self.effort,
@@ -654,6 +677,42 @@ impl AcpProvider {
             .await
             .context("ACP client is unavailable")?;
         response_rx.await.context("ACP request cancelled")?
+    }
+
+    /// Abandon the current backend session and start a fresh one. The exhausted
+    /// transcript lives on the agent side where goose cannot trim it, so the only
+    /// way forward is a new session rebuilt from goose's history via the handoff
+    /// memo — which the cleared `handoff_context_sent` re-arms.
+    async fn reset_backend_session(&self) -> Result<()> {
+        let (response_tx, response_rx) = oneshot::channel();
+        self.tx
+            .as_ref()
+            .unwrap()
+            .send(ClientRequest::NewSession { response_tx })
+            .await
+            .context("ACP client is unavailable")?;
+        let response = response_rx
+            .await
+            .context("ACP session creation cancelled")??;
+        let previous_session_id = {
+            let mut session = self.session.lock().unwrap();
+            let previous = session.id.clone();
+            *session = AcpSession {
+                id: response.session_id.clone(),
+                response,
+            };
+            previous
+        };
+        self.handoff_context_sent.store(false, Ordering::Release);
+        let _ = self
+            .tx
+            .as_ref()
+            .unwrap()
+            .send(ClientRequest::CloseSession {
+                session_id: previous_session_id,
+            })
+            .await;
+        Ok(())
     }
 
     pub(crate) async fn send_set_mode(&self, _goose_id: &str, mode_id: String) -> Result<()> {
@@ -1028,6 +1087,13 @@ impl Provider for AcpProvider {
         messages: &[Message],
         _tools: &[Tool],
     ) -> Result<MessageStream, ProviderError> {
+        if self.session_exhausted.swap(false, Ordering::AcqRel) {
+            self.reset_backend_session().await.map_err(|e| {
+                ProviderError::RequestFailed(format!(
+                    "Failed to replace exhausted ACP session: {e}"
+                ))
+            })?;
+        }
         let session_id = self.session_id();
 
         let model_name = self
@@ -1107,6 +1173,7 @@ impl Provider for AcpProvider {
             bare_retry_blocks.map(|blocks| (self.tx.as_ref().unwrap().clone(), session_id, blocks));
 
         let pending_confirmations = self.pending_confirmations.clone();
+        let session_exhausted = self.session_exhausted.clone();
         let goose_mode = *self
             .goose_mode
             .lock()
@@ -1310,6 +1377,7 @@ impl Provider for AcpProvider {
                     }
                     AcpUpdate::Error(e) => {
                         let retry_could_help = retry_without_memo_could_help(&e);
+                        let context_exhausted = is_context_exhausted_error(&e);
                         let error = provider_error_from_acp(e);
                         if updates_seen == 1 && retry_could_help {
                             if let Some((tx, session_id, blocks)) = bare_retry.take() {
@@ -1337,6 +1405,14 @@ impl Provider for AcpProvider {
                         // Reset before yielding so an immediate retry can include the handoff even
                         // while the failed stream value is still alive.
                         handoff_claim_guard.rollback();
+                        if context_exhausted {
+                            // No memo left to drop: the agent's own transcript no longer
+                            // fits its context window, and goose cannot trim it there.
+                            // Mark the session for replacement so the next prompt starts
+                            // fresh and rebuilds context via the handoff memo.
+                            session_exhausted.store(true, Ordering::Release);
+                            Err(ProviderError::ContextLengthExceeded(error.to_string()))?;
+                        }
                         Err(error)?;
                     }
                 }
@@ -2967,6 +3043,7 @@ mod tests {
                 pending_tool_updates: Arc::new(Mutex::new(HashMap::new())),
                 handoff_context_sent: Arc::new(AtomicBool::new(false)),
                 context_size: Arc::new(AtomicU64::new(0)),
+                session_exhausted: Arc::new(AtomicBool::new(false)),
                 model_config_option_id: None,
                 applied_model: Arc::new(Mutex::new(None)),
                 effort: AcpEffortState::new(),
@@ -3415,6 +3492,95 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn context_exhausted_error_replaces_session_and_rearms_handoff() {
+        use futures::StreamExt;
+
+        let (tx, mut rx) = mpsc::channel(4);
+        let (provider, model) = test_provider_with_tx(Some(tx));
+        provider.handoff_context_sent.store(true, Ordering::Release);
+
+        let messages = vec![Message::user().with_text("current request")];
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+
+        let response_tx = match rx.recv().await.expect("expected ACP prompt request") {
+            ClientRequest::Prompt { response_tx, .. } => response_tx,
+            _ => panic!("expected ACP prompt request"),
+        };
+        let mut error = agent_client_protocol::Error::internal_error();
+        error.message = "Internal error: Prompt is too long".to_string();
+        response_tx
+            .send(AcpUpdate::Error(
+                error.data(serde_json::json!({"errorKind": "invalid_request"})),
+            ))
+            .await
+            .unwrap();
+
+        let error = stream
+            .next()
+            .await
+            .expect("expected stream error")
+            .unwrap_err();
+        assert!(
+            matches!(error, ProviderError::ContextLengthExceeded(_)),
+            "expected ContextLengthExceeded, got {error:?}"
+        );
+        assert!(provider.session_exhausted.load(Ordering::Acquire));
+
+        let messages = vec![
+            Message::assistant().with_text("prior answer"),
+            Message::user().with_text("retry request"),
+        ];
+        let (stream_result, _) = tokio::join!(provider.stream(&model, "", &messages, &[]), async {
+            let ClientRequest::NewSession { response_tx } =
+                rx.recv().await.expect("expected session/new")
+            else {
+                panic!("expected session/new");
+            };
+            response_tx
+                .send(Ok(NewSessionResponse::new("fresh-session")))
+                .unwrap();
+
+            let ClientRequest::CloseSession { session_id } =
+                rx.recv().await.expect("expected exhausted session close")
+            else {
+                panic!("expected exhausted session close");
+            };
+            assert_eq!(session_id.to_string(), "test-session");
+
+            let ClientRequest::Prompt {
+                content,
+                response_tx,
+                ..
+            } = rx.recv().await.expect("expected retry prompt")
+            else {
+                panic!("expected retry prompt");
+            };
+            let text: String = content
+                .iter()
+                .filter_map(|block| match block {
+                    ContentBlock::Text(t) => Some(t.text.as_str()),
+                    _ => None,
+                })
+                .collect();
+            assert!(
+                text.contains("prior answer"),
+                "retry prompt should carry the handoff memo: {text}"
+            );
+            response_tx
+                .send(AcpUpdate::Complete(StopReason::EndTurn, None))
+                .await
+                .unwrap();
+        });
+        let mut stream = stream_result.unwrap();
+        assert!(stream.next().await.is_none());
+        assert_eq!(
+            provider.provider_session_id().as_deref(),
+            Some("fresh-session")
+        );
+        assert!(!provider.session_exhausted.load(Ordering::Acquire));
+    }
+
+    #[tokio::test]
     async fn get_context_limit_surfaces_captured_context_size() {
         let (provider, model) = test_provider();
         assert_eq!(
@@ -3721,7 +3887,7 @@ mod tests {
         let results = handle.await.unwrap();
         assert!(matches!(
             results.as_slice(),
-            [Err(ProviderError::RequestFailed(_))]
+            [Err(ProviderError::ContextLengthExceeded(_))]
         ));
         assert!(rx.try_recv().is_err(), "exactly one retry");
     }
