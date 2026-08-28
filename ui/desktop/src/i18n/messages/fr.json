@@ -1,4 +1,25 @@
 {
+  "acpReadinessPanel.adapterFound": {
+    "defaultMessage": "Adaptateur ACP trouvé"
+  },
+  "acpReadinessPanel.adapterNotFound": {
+    "defaultMessage": "Adaptateur ACP introuvable"
+  },
+  "acpReadinessPanel.authenticationHelp": {
+    "defaultMessage": "Connectez-vous à partir de la CLI du fournisseur, puis vérifiez à nouveau."
+  },
+  "acpReadinessPanel.checkAgain": {
+    "defaultMessage": "Vérifier à nouveau"
+  },
+  "acpReadinessPanel.checking": {
+    "defaultMessage": "Vérification..."
+  },
+  "acpReadinessPanel.connected": {
+    "defaultMessage": "Connexion réussie"
+  },
+  "acpReadinessPanel.connectionNotChecked": {
+    "defaultMessage": "Vérifiez la connexion de votre compte avant de continuer."
+  },
   "alertBox.autoCompactAt": {
     "defaultMessage": "Compactage automatique à"
   },
@@ -124,6 +145,18 @@
   },
   "backButton.back": {
     "defaultMessage": "Retour"
+  },
+  "baseChat.archivedNotice": {
+    "defaultMessage": "Cette conversation est archivée et masquée de vos conversations récentes."
+  },
+  "baseChat.archivedRestore": {
+    "defaultMessage": "Restaurer"
+  },
+  "baseChat.archivedRestoreFailed": {
+    "defaultMessage": "Échec de la restauration de la session : {error}"
+  },
+  "baseChat.archivedRestored": {
+    "defaultMessage": "Session restaurée"
   },
   "baseChat.failedToLoadSession": {
     "defaultMessage": "Échec du chargement de la session"
@@ -920,14 +953,12 @@
   "dirSwitcher.enterPath": {
     "defaultMessage": "Enter path"
   },
-  "dirSwitcher.enterPathPlaceholder": {
-    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
-  },
   "dirSwitcher.enterPathInvalid": {
     "defaultMessage": "Working directory must be an absolute path"
   },
-
-
+  "dirSwitcher.enterPathPlaceholder": {
+    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
+  },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Échec de la mise à jour du répertoire de travail"
   },
@@ -942,18 +973,6 @@
   },
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "Répertoires récents"
-  },
-  "gitBranchIndicator.failedToSwitch": {
-    "defaultMessage": "Impossible de basculer vers {branch}"
-  },
-  "gitBranchIndicator.noBranchesFound": {
-    "defaultMessage": "Aucune branche trouvée"
-  },
-  "gitBranchIndicator.searchBranches": {
-    "defaultMessage": "Rechercher des branches…"
-  },
-  "gitBranchIndicator.uncommittedChanges": {
-    "defaultMessage": "Vous avez peut-être des modifications non validées."
   },
   "elicitationRequest.accept": {
     "defaultMessage": "Accepter"
@@ -1263,6 +1282,18 @@
   },
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
+  },
+  "gitBranchIndicator.failedToSwitch": {
+    "defaultMessage": "Impossible de basculer vers {branch}"
+  },
+  "gitBranchIndicator.noBranchesFound": {
+    "defaultMessage": "Aucune branche trouvée"
+  },
+  "gitBranchIndicator.searchBranches": {
+    "defaultMessage": "Rechercher des branches…"
+  },
+  "gitBranchIndicator.uncommittedChanges": {
+    "defaultMessage": "Vous avez peut-être des modifications non validées."
   },
   "goosehintsModal.close": {
     "defaultMessage": "Fermer"
@@ -2332,6 +2363,9 @@
   "modelsBottomBar.localModelSettingsTitle": {
     "defaultMessage": "Paramètres du modèle local — {modelName}"
   },
+  "modelsBottomBar.recentModels": {
+    "defaultMessage": "Récents"
+  },
   "modelsBottomBar.resolvedModel": {
     "defaultMessage": "Modèle résolu"
   },
@@ -2368,8 +2402,38 @@
   "navigation.itemSkills": {
     "defaultMessage": "Compétences"
   },
+  "navigationPanel.archive": {
+    "defaultMessage": "Archiver"
+  },
+  "navigationPanel.archiveFailed": {
+    "defaultMessage": "Échec de l’archivage de la session : {error}"
+  },
+  "navigationPanel.archiveSuccess": {
+    "defaultMessage": "“{name}” archivée"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "Discussions"
+  },
+  "navigationPanel.delete": {
+    "defaultMessage": "Supprimer"
+  },
+  "navigationPanel.deleteCancel": {
+    "defaultMessage": "Annuler"
+  },
+  "navigationPanel.deleteConfirm": {
+    "defaultMessage": "Supprimer"
+  },
+  "navigationPanel.deleteFailed": {
+    "defaultMessage": "Échec de la suppression de la session : {error}"
+  },
+  "navigationPanel.deleteMessage": {
+    "defaultMessage": "Voulez-vous vraiment supprimer “{name}” ? Cette action est irréversible."
+  },
+  "navigationPanel.deleteSuccess": {
+    "defaultMessage": "Conversation supprimée"
+  },
+  "navigationPanel.deleteTitle": {
+    "defaultMessage": "Supprimer la conversation"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Créé"
@@ -2388,6 +2452,12 @@
   },
   "navigationPanel.noChats": {
     "defaultMessage": "Aucune discussion récente"
+  },
+  "navigationPanel.rename": {
+    "defaultMessage": "Renommer"
+  },
+  "navigationPanel.sessionActions": {
+    "defaultMessage": "Actions de session"
   },
   "navigationPanel.statusError": {
     "defaultMessage": "Erreur"
@@ -2704,6 +2774,9 @@
   "promptsSettings.unsavedChanges": {
     "defaultMessage": "Vous avez des modifications non enregistrées"
   },
+  "providerCard.deprecatedReplacement": {
+    "defaultMessage": "Obsolète — utilisez plutôt {replacement}."
+  },
   "providerCard.noMetadata": {
     "defaultMessage": "Erreur ProviderCard : aucune métadonnée fournie"
   },
@@ -2758,8 +2831,17 @@
   "providerConfigForm.continue": {
     "defaultMessage": "Continuer"
   },
+  "providerConfigForm.deviceCodeAndEnter": {
+    "defaultMessage": "et entrez :"
+  },
+  "providerConfigForm.deviceCodeCopy": {
+    "defaultMessage": "Copier"
+  },
   "providerConfigForm.deviceCodeFlowHint": {
     "defaultMessage": "Une fenêtre de navigateur s’ouvrira. Le code de vérification apparaîtra ici afin que vous puissiez le saisir pour terminer la connexion."
+  },
+  "providerConfigForm.deviceCodeVisit": {
+    "defaultMessage": "Visitez"
   },
   "providerConfigForm.noApiKey": {
     "defaultMessage": "Vous n'avez pas de clé API ?"
@@ -2785,6 +2867,9 @@
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Vérifiez à nouveau votre configuration pour utiliser ce fournisseur."
   },
+  "providerConfigurationModal.chooseModel": {
+    "defaultMessage": "Choisir un modèle"
+  },
   "providerConfigurationModal.close": {
     "defaultMessage": "Fermer"
   },
@@ -2797,8 +2882,17 @@
   "providerConfigurationModal.deleteConfirmation": {
     "defaultMessage": "Cette action supprimera définitivement la configuration actuelle du fournisseur."
   },
+  "providerConfigurationModal.deviceCodeAndEnter": {
+    "defaultMessage": "et entrez :"
+  },
+  "providerConfigurationModal.deviceCodeCopy": {
+    "defaultMessage": "Copier"
+  },
   "providerConfigurationModal.deviceCodeFlowHint": {
     "defaultMessage": "Une fenêtre de navigateur s’ouvrira. Le code de vérification apparaîtra ici afin que vous puissiez le saisir pour terminer la connexion."
+  },
+  "providerConfigurationModal.deviceCodeVisit": {
+    "defaultMessage": "Visitez"
   },
   "providerConfigurationModal.errorCheckingConfig": {
     "defaultMessage": "Une erreur s'est produite lors de la vérification de la configuration de ce fournisseur."
@@ -3811,6 +3905,9 @@
   "sessions.acpBadge": {
     "defaultMessage": "ACP"
   },
+  "sessions.action.archive": {
+    "defaultMessage": "Archiver la session"
+  },
   "sessions.action.delete": {
     "defaultMessage": "Supprimer la session"
   },
@@ -3834,6 +3931,9 @@
   },
   "sessions.action.shareNostr": {
     "defaultMessage": "Partager un lien Nostr chiffré"
+  },
+  "sessions.action.unarchive": {
+    "defaultMessage": "Restaurer depuis l’archive"
   },
   "sessions.cancel": {
     "defaultMessage": "Annuler"
@@ -3895,6 +3995,15 @@
   "sessions.loadingMore": {
     "defaultMessage": "Chargement de sessions supplémentaires..."
   },
+  "sessions.noArchived": {
+    "defaultMessage": "Aucune session archivée"
+  },
+  "sessions.noArchivedDesc": {
+    "defaultMessage": "Les sessions que vous archivez apparaîtront ici."
+  },
+  "sessions.refreshing": {
+    "defaultMessage": "Actualisation des sessions..."
+  },
   "sessions.save": {
     "defaultMessage": "Enregistrer"
   },
@@ -3916,11 +4025,26 @@
   "sessions.searchPlaceholder": {
     "defaultMessage": "Rechercher dans l'historique..."
   },
+  "sessions.searching": {
+    "defaultMessage": "Recherche de sessions..."
+  },
   "sessions.shareNostr.description": {
     "defaultMessage": "Toute personne disposant de ce lien peut récupérer et déchiffrer la session. Traitez-le comme un secret."
   },
   "sessions.shareNostr.title": {
     "defaultMessage": "Lien de partage Nostr chiffré"
+  },
+  "sessions.tab.active": {
+    "defaultMessage": "Actives"
+  },
+  "sessions.tab.archived": {
+    "defaultMessage": "Archivées"
+  },
+  "sessions.toast.archiveFailed": {
+    "defaultMessage": "Échec de l’archivage de la session : {error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "Session archivée"
   },
   "sessions.toast.copied": {
     "defaultMessage": "Copié dans le presse-papiers"
@@ -3954,6 +4078,12 @@
   },
   "sessions.toast.shareNostrFailed": {
     "defaultMessage": "Échec de la création du lien de partage Nostr : {error}"
+  },
+  "sessions.toast.unarchiveFailed": {
+    "defaultMessage": "Échec de la restauration de la session : {error}"
+  },
+  "sessions.toast.unarchived": {
+    "defaultMessage": "Session restaurée"
   },
   "sessions.toast.updateFailed": {
     "defaultMessage": "Échec de la mise à jour de la description de la session : {error}"
@@ -4659,53 +4789,5 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Supprimer l'image du message"
-  },
-  "modelsBottomBar.recentModels": {
-    "defaultMessage": "Récents"
-  },
-  "providerConfigurationModal.chooseModel": {
-    "defaultMessage": "Choisir un modèle"
-  },
-  "providerCard.deprecatedReplacement": {
-    "defaultMessage": "Obsolète — utilisez plutôt {replacement}."
-  },
-  "acpReadinessPanel.adapterFound": {
-    "defaultMessage": "Adaptateur ACP trouvé"
-  },
-  "acpReadinessPanel.adapterNotFound": {
-    "defaultMessage": "Adaptateur ACP introuvable"
-  },
-  "acpReadinessPanel.authenticationHelp": {
-    "defaultMessage": "Connectez-vous à partir de la CLI du fournisseur, puis vérifiez à nouveau."
-  },
-  "acpReadinessPanel.checkAgain": {
-    "defaultMessage": "Vérifier à nouveau"
-  },
-  "acpReadinessPanel.checking": {
-    "defaultMessage": "Vérification..."
-  },
-  "acpReadinessPanel.connected": {
-    "defaultMessage": "Connexion réussie"
-  },
-  "acpReadinessPanel.connectionNotChecked": {
-    "defaultMessage": "Vérifiez la connexion de votre compte avant de continuer."
-  },
-  "providerConfigForm.deviceCodeAndEnter": {
-    "defaultMessage": "et entrez :"
-  },
-  "providerConfigForm.deviceCodeCopy": {
-    "defaultMessage": "Copier"
-  },
-  "providerConfigForm.deviceCodeVisit": {
-    "defaultMessage": "Visitez"
-  },
-  "providerConfigurationModal.deviceCodeAndEnter": {
-    "defaultMessage": "et entrez :"
-  },
-  "providerConfigurationModal.deviceCodeCopy": {
-    "defaultMessage": "Copier"
-  },
-  "providerConfigurationModal.deviceCodeVisit": {
-    "defaultMessage": "Visitez"
   }
 }

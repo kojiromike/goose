@@ -1,4 +1,11 @@
 import { AppEvents } from '../constants/events';
+import { dispatchSessionLifecycleEvent } from '../sessionLifecycleBridge';
+import {
+  beginSessionStatusReporting,
+  endSessionStatusReporting,
+  reportSessionStatus,
+  sessionStreamStateFor,
+} from '../sessionStatusBroadcast';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { defineMessages, useIntl } from '../i18n';
 import { useLocation, useNavigate } from 'react-router';
@@ -17,7 +24,10 @@ import { useIsMobile } from '../hooks/use-mobile';
 import { useNavigationContextSafe } from './Layout/NavigationContext';
 import { cn } from '../utils';
 import { useChatSession } from '../hooks/useChatSession';
-import { acpDeleteSession, acpUpdateWorkingDir } from '../acp/sessions';
+import { acpDeleteSession, acpUnarchiveSession, acpUpdateWorkingDir } from '../acp/sessions';
+import { errorMessage } from '../utils/conversionUtils';
+import { toast } from 'react-toastify';
+import { ArchiveRestore } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
 import { RecipeHeader } from './RecipeHeader';
 import { RecipeWarningModal } from './ui/RecipeWarningModal';
@@ -53,6 +63,22 @@ const i18n = defineMessages({
   reconnecting: {
     id: 'baseChat.reconnecting',
     defaultMessage: 'Connection lost. Reconnecting…',
+  },
+  archivedNotice: {
+    id: 'baseChat.archivedNotice',
+    defaultMessage: 'This chat is archived and hidden from your recent chats.',
+  },
+  archivedRestore: {
+    id: 'baseChat.archivedRestore',
+    defaultMessage: 'Restore',
+  },
+  archivedRestored: {
+    id: 'baseChat.archivedRestored',
+    defaultMessage: 'Session restored',
+  },
+  archivedRestoreFailed: {
+    id: 'baseChat.archivedRestoreFailed',
+    defaultMessage: 'Failed to restore session: {error}',
   },
 });
 
@@ -172,19 +198,15 @@ export default function BaseChat({
     handleSubmit,
   });
 
+  // Hand reporting back to the ACP store when this chat unmounts mid-run, so a
+  // session evicted while busy still reports idle once its run finishes.
   useEffect(() => {
-    let streamState: 'idle' | 'loading' | 'streaming' | 'error' = 'idle';
-    if (chatState === ChatState.LoadingConversation) {
-      streamState = 'loading';
-    } else if (
-      chatState === ChatState.Streaming ||
-      chatState === ChatState.Thinking ||
-      chatState === ChatState.Compacting
-    ) {
-      streamState = 'streaming';
-    } else if (sessionLoadError) {
-      streamState = 'error';
-    }
+    beginSessionStatusReporting(sessionId);
+    return () => endSessionStatusReporting(sessionId);
+  }, [sessionId]);
+
+  useEffect(() => {
+    const streamState = sessionStreamStateFor(chatState, sessionLoadError);
 
     window.dispatchEvent(
       new CustomEvent(AppEvents.SESSION_STATUS_UPDATE, {
@@ -195,6 +217,7 @@ export default function BaseChat({
         },
       })
     );
+    reportSessionStatus(sessionId, streamState);
   }, [sessionId, chatState, messages.length, sessionLoadError]);
 
   // Generate command history from user messages (most recent first)
@@ -218,6 +241,28 @@ export default function BaseChat({
     }
     handleSubmit(input);
   };
+
+  const isArchived = !!session?.archived_at;
+  const [isUnarchiving, setIsUnarchiving] = useState(false);
+  const handleUnarchive = useCallback(async () => {
+    if (!session) return;
+    setIsUnarchiving(true);
+    try {
+      await acpUnarchiveSession(session.id);
+      updateSession((current) => ({ ...current, archived_at: null }));
+      dispatchSessionLifecycleEvent(AppEvents.SESSION_ARCHIVED, {
+        sessionId: session.id,
+        archived: false,
+      });
+      toast.success(intl.formatMessage(i18n.archivedRestored));
+    } catch (error) {
+      toast.error(
+        intl.formatMessage(i18n.archivedRestoreFailed, { error: errorMessage(error, 'Unknown error') })
+      );
+    } finally {
+      setIsUnarchiving(false);
+    }
+  }, [session, updateSession, intl]);
 
   const sessionModel = session?.model_config?.model_name ?? null;
   const sessionProvider = session?.provider_name ?? null;
@@ -441,6 +486,21 @@ export default function BaseChat({
           </div>
 
           <SessionActionsHeader session={session} onSessionChange={updateSession} />
+
+          {isArchived && (
+            <div className="no-drag flex items-center gap-2 px-6 py-1.5 text-xs text-text-secondary bg-background-secondary/60 border-b border-border-secondary">
+              <ArchiveRestore className="size-3.5 flex-shrink-0" />
+              <span className="flex-1 truncate">{intl.formatMessage(i18n.archivedNotice)}</span>
+              <button
+                type="button"
+                onClick={() => void handleUnarchive()}
+                disabled={isUnarchiving}
+                className="flex-shrink-0 font-medium text-text-primary hover:underline disabled:opacity-60 disabled:cursor-wait"
+              >
+                {intl.formatMessage(i18n.archivedRestore)}
+              </button>
+            </div>
+          )}
 
           <ScrollArea
             ref={scrollRef}

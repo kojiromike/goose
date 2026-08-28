@@ -159,6 +159,11 @@ type ElectronAPI = {
     theme: string;
     tokensUpdated?: boolean;
   }) => void;
+  broadcastSessionStatus: (status: { sessionId: string; streamState: string }) => void;
+  getRemoteSessionStatuses: () => Promise<
+    Array<{ windowId: number; sessionId: string; streamState: string }>
+  >;
+  broadcastSessionLifecycle: (event: { name: string; detail: unknown }) => void;
   openExternal: (url: string) => Promise<OpenExternalUrlResult>;
   // Update-related functions
   getVersion: () => string;
@@ -300,6 +305,13 @@ const electronAPI: ElectronAPI = {
     tokensUpdated?: boolean;
   }) => {
     ipcRenderer.send('broadcast-theme-change', themeData);
+  },
+  broadcastSessionStatus: (status: { sessionId: string; streamState: string }) => {
+    ipcRenderer.send('broadcast-session-status', status);
+  },
+  getRemoteSessionStatuses: () => ipcRenderer.invoke('get-remote-session-statuses'),
+  broadcastSessionLifecycle: (event: { name: string; detail: unknown }) => {
+    ipcRenderer.send('broadcast-session-lifecycle', event);
   },
   openExternal: (url: string): Promise<OpenExternalUrlResult> => {
     return ipcRenderer.invoke('open-external', url);

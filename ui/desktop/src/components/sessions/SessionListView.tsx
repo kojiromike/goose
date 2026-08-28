@@ -17,6 +17,8 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  Archive,
+  ArchiveRestore,
 } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
@@ -27,6 +29,7 @@ import { SearchView } from '../conversation/SearchView';
 import { MainPanelLayout } from '../Layout/MainPanelLayout';
 import { groupSessionsByDate, sessionActivityAt, type DateGroup } from '../../utils/dateUtils';
 import { errorMessage } from '../../utils/conversionUtils';
+import { cn } from '../../utils';
 import { Skeleton } from '../ui/skeleton';
 import { toast } from 'react-toastify';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
@@ -45,6 +48,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import {
+  acpArchiveSession,
   acpDeleteSession,
   acpExportSession,
   acpForkSession,
@@ -52,13 +56,23 @@ import {
   acpListSessions,
   acpRenameSession,
   acpShareSessionNostr,
+  acpUnarchiveSession,
+  type ArchivedFilter,
   type SessionListItem,
 } from '../../acp/sessions';
 import type { SessionExportFormat } from '@aaif/goose-sdk';
-import { acpChatSessionActions } from '../../acp/chatSessionStore';
-import { cancelAcpPermissionRequestsForSession } from '../../acp/permissionRequests';
-import { cancelAcpElicitationRequestsForSession } from '../../acp/elicitationRequests';
+import { isSessionBusy, useSessionBusy } from '../../hooks/useSessionBusyElsewhere';
+import { dispatchSessionLifecycleEvent } from '../../sessionLifecycleBridge';
 import { getSearchShortcutText } from '../../utils/keyboardShortcuts';
+
+// In the Active view a keyword search still surfaces archived matches so a
+// deliberately hidden session remains findable; the Archived view is scoped.
+function archivedFilterFor(keyword: string, archivedView: boolean): ArchivedFilter {
+  if (archivedView) return 'archived';
+  // Match acpListSessions, which trims the keyword and omits an empty query — a
+  // whitespace-only term must not widen the Active view to archived sessions.
+  return keyword.trim() ? 'all' : 'active';
+}
 
 const i18n = defineMessages({
   editSessionTitle: { id: 'sessions.edit.title', defaultMessage: 'Edit Session Description' },
@@ -108,6 +122,8 @@ const i18n = defineMessages({
     defaultMessage: 'Try adjusting your search terms',
   },
   loadingMore: { id: 'sessions.loadingMore', defaultMessage: 'Loading more sessions...' },
+  searching: { id: 'sessions.searching', defaultMessage: 'Searching sessions...' },
+  refreshing: { id: 'sessions.refreshing', defaultMessage: 'Refreshing sessions...' },
   deleteTitle: { id: 'sessions.delete.title', defaultMessage: 'Delete Session' },
   deleteMessage: {
     id: 'sessions.delete.message',
@@ -166,6 +182,16 @@ const i18n = defineMessages({
     defaultMessage:
       'Anyone with this link can fetch and decrypt the session. Treat it like a secret.',
   },
+  archiveSession: { id: 'sessions.action.archive', defaultMessage: 'Archive session' },
+  unarchiveSession: { id: 'sessions.action.unarchive', defaultMessage: 'Restore from archive' },
+  archiveSuccess: { id: 'sessions.toast.archived', defaultMessage: 'Session archived' },
+  archiveFailed: { id: 'sessions.toast.archiveFailed', defaultMessage: 'Failed to archive session: {error}' },
+  unarchiveSuccess: { id: 'sessions.toast.unarchived', defaultMessage: 'Session restored' },
+  unarchiveFailed: { id: 'sessions.toast.unarchiveFailed', defaultMessage: 'Failed to restore session: {error}' },
+  activeTab: { id: 'sessions.tab.active', defaultMessage: 'Active' },
+  archivedTab: { id: 'sessions.tab.archived', defaultMessage: 'Archived' },
+  noArchived: { id: 'sessions.noArchived', defaultMessage: 'No archived sessions' },
+  noArchivedDesc: { id: 'sessions.noArchivedDesc', defaultMessage: 'Sessions you archive will appear here.' },
   close: { id: 'sessions.close', defaultMessage: 'Close' },
   scheduledJobs: {
     id: 'sessions.scheduledJobs',
@@ -326,6 +352,9 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
   const intl = useIntl();
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [isPrefetchingSessions, setIsPrefetchingSessions] = useState(false);
+  // A keyword re-query reuses the already-rendered list instead of the skeleton, so
+  // without this the view looks frozen while the server-side search runs.
+  const [isReloading, setIsReloading] = useState(false);
   const [dateGroups, setDateGroups] = useState<DateGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showSkeleton, setShowSkeleton] = useState(true);
@@ -363,6 +392,9 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
   const debouncedSearchTermRef = useRef(debouncedSearchTerm);
   debouncedSearchTermRef.current = debouncedSearchTerm;
 
+    const [archivedView, setArchivedView] = useState(false);
+    const archivedFilterRef = useRef<ArchivedFilter>('active');
+
   const containerRef = useRef<HTMLDivElement>(null);
   const loadGenerationRef = useRef(0);
   const hasLoadedRef = useRef(false);
@@ -398,13 +430,19 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
   }, [debouncedSearchTerm, memoizedAllDateGroups.length]);
 
   const loadRemainingSessionPages = useCallback(
-    async (initialCursor: string, loadId: number, keyword: string, includeAcp: boolean) => {
+    async (
+      initialCursor: string,
+      loadId: number,
+      keyword: string,
+      includeAcp: boolean,
+      archived: ArchivedFilter = archivedFilterRef.current
+    ) => {
       let cursor: string | null = initialCursor;
       setIsPrefetchingSessions(true);
 
       try {
         while (cursor && loadGenerationRef.current === loadId) {
-          const resp = await acpListSessions(cursor, { keyword, includeAcp });
+          const resp = await acpListSessions(cursor, { keyword, includeAcp, archived });
           if (loadGenerationRef.current !== loadId) return;
 
           cursor = resp.nextCursor;
@@ -429,8 +467,10 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
   const loadSessions = useCallback(
     async (
       keyword: string = debouncedSearchTermRef.current,
-      includeAcp: boolean = includeAcpSessionsRef.current
+      includeAcp: boolean = includeAcpSessionsRef.current,
+      archived: ArchivedFilter = archivedFilterRef.current
     ) => {
+      archivedFilterRef.current = archived;
       const loadId = loadGenerationRef.current + 1;
       loadGenerationRef.current = loadId;
       // Only show the skeleton on the first load; subsequent loads (e.g. typing a
@@ -442,9 +482,11 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
         setIsLoading(true);
         setShowSkeleton(true);
         setShowContent(false);
+      } else {
+        setIsReloading(true);
       }
       try {
-        const resp = await acpListSessions(undefined, { keyword, includeAcp });
+        const resp = await acpListSessions(undefined, { keyword, includeAcp, archived });
         if (loadGenerationRef.current !== loadId) return;
         hasLoadedRef.current = true;
 
@@ -453,7 +495,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
         });
 
         if (resp.nextCursor) {
-          void loadRemainingSessionPages(resp.nextCursor, loadId, keyword, includeAcp);
+          void loadRemainingSessionPages(resp.nextCursor, loadId, keyword, includeAcp, archived);
         }
       } catch (err) {
         if (loadGenerationRef.current !== loadId) return;
@@ -462,8 +504,14 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
         setError('Failed to load sessions. Please try again later.');
         setSessions([]);
       } finally {
-        if (loadGenerationRef.current === loadId && isFirstLoad) {
-          setIsLoading(false);
+        // A superseded load leaves the flag set on purpose — the load that replaced it
+        // is still running and owns the indicator.
+        if (loadGenerationRef.current === loadId) {
+          if (isFirstLoad) {
+            setIsLoading(false);
+          } else {
+            setIsReloading(false);
+          }
         }
       }
     },
@@ -485,12 +533,73 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
   );
 
   useEffect(() => {
-    loadSessions(debouncedSearchTerm, includeAcpSessions);
+    loadSessions(
+      debouncedSearchTerm,
+      includeAcpSessions,
+      archivedFilterFor(debouncedSearchTerm, archivedView)
+    );
     return () => {
       // Bump the generation so any in-flight load for the previous keyword is discarded.
       loadGenerationRef.current += 1;
     };
-  }, [loadSessions, debouncedSearchTerm, includeAcpSessions]);
+  }, [loadSessions, debouncedSearchTerm, includeAcpSessions, archivedView]);
+
+    // Sessions can be archived, restored, or deleted from the sidebar menu or
+    // another window while this view stays mounted, so consume the lifecycle
+    // events to keep the list current. A row leaving the current filter is
+    // dropped in place; an event that can surface a new row refetches under the
+    // current keyword/filter.
+    useEffect(() => {
+      const handleSessionDeleted = (event: Event) => {
+        const { sessionId } = (event as CustomEvent<{ sessionId: string }>).detail;
+        setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      };
+
+      const handleSessionArchived = (event: Event) => {
+        const { sessionId, archived } = (
+          event as CustomEvent<{ sessionId: string; archived?: boolean }>
+        ).detail;
+        const filter = archivedFilterRef.current;
+        if (filter === 'all') {
+          setSessions((prev) =>
+            prev.map((s) =>
+              s.id === sessionId
+                ? { ...s, archivedAt: archived ? new Date().toISOString() : undefined }
+                : s
+            )
+          );
+          return;
+        }
+        const leavesView = archived ? filter === 'active' : filter === 'archived';
+        if (leavesView) {
+          setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+        } else {
+          void loadSessions();
+        }
+      };
+
+      const handleSessionRenamed = (event: Event) => {
+        const { sessionId, newName, userInitiated } = (
+          event as CustomEvent<{ sessionId: string; newName: string; userInitiated?: boolean }>
+        ).detail;
+        setSessions((prev) =>
+          prev.map((s) =>
+            s.id === sessionId
+              ? { ...s, name: newName, ...(userInitiated && { userSetName: true }) }
+              : s
+          )
+        );
+      };
+
+      window.addEventListener(AppEvents.SESSION_DELETED, handleSessionDeleted);
+      window.addEventListener(AppEvents.SESSION_ARCHIVED, handleSessionArchived);
+      window.addEventListener(AppEvents.SESSION_RENAMED, handleSessionRenamed);
+      return () => {
+        window.removeEventListener(AppEvents.SESSION_DELETED, handleSessionDeleted);
+        window.removeEventListener(AppEvents.SESSION_ARCHIVED, handleSessionArchived);
+        window.removeEventListener(AppEvents.SESSION_RENAMED, handleSessionRenamed);
+      };
+    }, [loadSessions]);
 
   // Hide Nostr sharing when explicitly disabled via env var (restricted/enterprise bundles)
   useEffect(() => {
@@ -568,7 +677,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
     // Update state immediately for optimistic UI
     setSessions((prevSessions) =>
       prevSessions.map((s) =>
-        s.id === sessionId ? { ...s, name: newDescription, user_set_name: true } : s
+          s.id === sessionId ? { ...s, name: newDescription, userSetName: true } : s
       )
     );
     window.dispatchEvent(
@@ -605,8 +714,50 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
     [loadSessions, intl]
   );
 
+    const handleToggleArchive = useCallback(
+      async (session: SessionListItem) => {
+        const isArchived = !!session.archivedAt;
+        const nextArchivedAt = isArchived ? undefined : new Date().toISOString();
+        // The `all` filter (Active tab with a search) shows both states, so the row
+        // still matches after toggling — update it in place. In the scoped `active`
+        // or `archived` views the toggled row leaves the filter, so drop it.
+        const staysInView = archivedFilterRef.current === 'all';
+        setSessions((prev) =>
+          staysInView
+            ? prev.map((s) => (s.id === session.id ? { ...s, archivedAt: nextArchivedAt } : s))
+            : prev.filter((s) => s.id !== session.id)
+        );
+        try {
+          if (isArchived) {
+            await acpUnarchiveSession(session.id);
+            toast.success(intl.formatMessage(i18n.unarchiveSuccess));
+          } else {
+            await acpArchiveSession(session.id);
+            toast.success(intl.formatMessage(i18n.archiveSuccess));
+          }
+          dispatchSessionLifecycleEvent(AppEvents.SESSION_ARCHIVED, {
+            sessionId: session.id,
+            archived: !isArchived,
+          });
+        } catch (error) {
+          toast.error(
+            intl.formatMessage(isArchived ? i18n.unarchiveFailed : i18n.archiveFailed, {
+              error: errorMessage(error, 'Unknown error'),
+            })
+          );
+          await loadSessions();
+        }
+      },
+      [intl, loadSessions]
+    );
+
+    // The dialog can sit open while the session starts a run elsewhere, so
+    // re-check instead of trusting the state the button was disabled on.
+    const pendingDeleteBusy = useSessionBusy(sessionToDelete?.id ?? '');
+
   const handleConfirmDelete = useCallback(async () => {
     if (!sessionToDelete) return;
+      if (isSessionBusy(sessionToDelete.id)) return;
 
     setShowDeleteConfirmation(false);
     const sessionToDeleteId = sessionToDelete.id;
@@ -616,12 +767,9 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
     try {
       await acpDeleteSession(sessionToDeleteId);
       toast.success(intl.formatMessage(i18n.deleteSuccess));
-      window.dispatchEvent(
-        new CustomEvent(AppEvents.SESSION_DELETED, { detail: { sessionId: sessionToDeleteId } })
-      );
-      cancelAcpPermissionRequestsForSession(sessionToDeleteId);
-      cancelAcpElicitationRequestsForSession(sessionToDeleteId);
-      acpChatSessionActions.deleteSnapshot(sessionToDeleteId);
+        dispatchSessionLifecycleEvent(AppEvents.SESSION_DELETED, {
+          sessionId: sessionToDeleteId,
+        });
     } catch (error) {
       console.error('Error deleting session:', error);
       toast.error(
@@ -780,6 +928,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
     onExportClick,
     onShareClick,
     onOpenInNewWindow,
+      onToggleArchive,
     isSharing,
   }: {
     session: SessionListItem;
@@ -789,8 +938,19 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
     onExportClick: (session: SessionListItem, format: SessionExportFormat) => void;
     onShareClick: (session: SessionListItem, e: React.MouseEvent) => void;
     onOpenInNewWindow: (session: SessionListItem, e: React.MouseEvent) => void;
+      onToggleArchive: (session: SessionListItem) => void;
     isSharing: boolean;
   }) {
+      // Archive and delete remove the loaded agent without cancelling an active
+      // prompt run, and doing so mid-load races the server re-registering the
+      // agent, so gate both unless the session is idle (like the sidebar does).
+      // Anything non-idle — streaming, thinking, compacting, loading, waiting
+      // on a permission/elicitation, restarting — still has server-side work
+      // that would resume into a removed session. The local snapshot cannot see
+      // runs owned by other desktop windows, so also consult the cross-window
+      // busy registry.
+      const isBusy = useSessionBusy(session.id);
+
     const handleEditClick = useCallback(
       (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -814,6 +974,14 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
       },
       [onDeleteClick, session]
     );
+
+      const handleArchiveClick = useCallback(
+        (e: React.MouseEvent) => {
+          e.stopPropagation();
+          onToggleArchive(session);
+        },
+        [onToggleArchive, session]
+      );
 
     const handleCardClick = useCallback(() => {
       onSelectSession(session.id);
@@ -897,10 +1065,25 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
           </button>
           <button
             onClick={handleDeleteClick}
-            className="p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer transition-colors"
+              disabled={isBusy}
+              className="p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-60"
             title={intl.formatMessage(i18n.deleteSession)}
           >
             <Trash2 className="w-3 h-3 text-red-500 hover:text-red-600" />
+          </button>
+          <button
+            onClick={handleArchiveClick}
+              disabled={isBusy}
+              className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+            title={intl.formatMessage(
+              session.archivedAt ? i18n.unarchiveSession : i18n.archiveSession
+            )}
+          >
+            {session.archivedAt ? (
+              <ArchiveRestore className="w-3 h-3 text-text-secondary hover:text-text-primary" />
+            ) : (
+              <Archive className="w-3 h-3 text-text-secondary hover:text-text-primary" />
+            )}
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -1010,8 +1193,12 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
       return (
         <div className="flex flex-col justify-center h-full text-text-secondary">
           <MessageSquareText className="h-12 w-12 mb-4" />
-          <p className="text-lg mb-2">{intl.formatMessage(i18n.noSessions)}</p>
-          <p className="text-sm">{intl.formatMessage(i18n.noSessionsDesc)}</p>
+            <p className="text-lg mb-2">
+              {intl.formatMessage(archivedView ? i18n.noArchived : i18n.noSessions)}
+            </p>
+            <p className="text-sm">
+              {intl.formatMessage(archivedView ? i18n.noArchivedDesc : i18n.noSessionsDesc)}
+            </p>
         </div>
       );
     }
@@ -1034,6 +1221,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
                   onExportClick={handleExportSession}
                   onShareClick={handleShareSessionNostr}
                   onOpenInNewWindow={handleOpenInNewWindow}
+                    onToggleArchive={handleToggleArchive}
                   isSharing={sharingSessionId === session.id}
                 />
               ))}
@@ -1150,6 +1338,32 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
                 />
                 {intl.formatMessage(i18n.includeAcpSessions)}
               </label>
+              <div className="inline-flex items-center gap-1 rounded-full bg-background-secondary p-0.5 self-start">
+                <button
+                  type="button"
+                  onClick={() => setArchivedView(false)}
+                  className={cn(
+                    'rounded-full px-3 py-1 text-sm transition-colors',
+                    archivedView
+                      ? 'text-text-secondary hover:text-text-primary'
+                      : 'bg-background-primary text-text-primary shadow-sm'
+                  )}
+                >
+                  {intl.formatMessage(i18n.activeTab)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setArchivedView(true)}
+                  className={cn(
+                    'rounded-full px-3 py-1 text-sm transition-colors',
+                    archivedView
+                      ? 'bg-background-primary text-text-primary shadow-sm'
+                      : 'text-text-secondary hover:text-text-primary'
+                  )}
+                >
+                  {intl.formatMessage(i18n.archivedTab)}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1216,7 +1430,17 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
                       showContent ? 'opacity-100 z-10' : 'opacity-0 z-0'
                     }`}
                   >
-                    {renderActualContent()}
+                    {isReloading && (
+                      <div className="flex items-center gap-2 pb-4 text-text-secondary text-sm">
+                        <LoaderCircle className="w-4 h-4 animate-spin" />
+                        <span>
+                          {intl.formatMessage(
+                            debouncedSearchTerm ? i18n.searching : i18n.refreshing
+                          )}
+                        </span>
+                      </div>
+                    )}
+                    <div className={cn(isReloading && 'opacity-50')}>{renderActualContent()}</div>
                   </div>
                 </SearchView>
               </div>
@@ -1324,6 +1548,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
         confirmLabel={intl.formatMessage(i18n.deleteTitle)}
         cancelLabel={intl.formatMessage(i18n.cancel)}
         confirmVariant="destructive"
+          confirmDisabled={pendingDeleteBusy}
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
       />

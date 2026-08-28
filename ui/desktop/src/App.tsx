@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { IpcRendererEvent } from 'electron';
 import { HashRouter, Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router';
 import { importNostrSessionFromDeepLink } from './sessionLinks';
+import { initSessionLifecycleBridge } from './sessionLifecycleBridge';
 import { ErrorUI } from './components/ErrorBoundary';
 import { ExtensionInstallModal } from './components/ExtensionInstallModal';
 import RecipeParamsModalContainer from './components/RecipeParamsModalContainer';
@@ -12,6 +13,9 @@ import TelemetryConsentPrompt from './components/TelemetryConsentPrompt';
 import OnboardingGuard from './components/onboarding/OnboardingGuard';
 import { createSession } from './sessions';
 import { acpListSessions, acpDeleteSession } from './acp/sessions';
+import { acpChatSessionActions, acpChatSessionStore } from './acp/chatSessionStore';
+import { cancelAcpPermissionRequestsForSession } from './acp/permissionRequests';
+import { cancelAcpElicitationRequestsForSession } from './acp/elicitationRequests';
 
 import { ChatType } from './types/chat';
 import Hub from './components/Hub';
@@ -366,23 +370,81 @@ export function AppInner() {
       });
     };
 
+    // Removing a session (delete or archive) only filters activeSessions; if the
+    // removed chat is the one open at /pair?resumeSessionId=..., the URL still carries
+    // it so PairRouteWrapper re-adds and ChatSessionsContainer re-renders it against a
+    // now-gone server session. Leave the route when that session is the current one.
+    const leaveRouteIfCurrent = (sessionId: string) => {
+      const hash = window.location.hash;
+      const queryIndex = hash.indexOf('?');
+      const currentSessionId =
+        queryIndex >= 0
+          ? new URLSearchParams(hash.slice(queryIndex + 1)).get('resumeSessionId')
+          : null;
+      if (currentSessionId === sessionId) {
+        navigate('/');
+      }
+    };
+
     const handleSessionDeleted = (event: Event) => {
       const { sessionId } = (event as CustomEvent<{ sessionId: string }>).detail;
 
-      setActiveSessions((prev) => {
-        return prev.filter((session) => session.sessionId !== sessionId);
-      });
+      setActiveSessions((prev) => prev.filter((session) => session.sessionId !== sessionId));
+
+      // Centralized here so relayed deletes from other windows clear their ACP
+      // state too, not just the window that initiated the delete.
+      cancelAcpPermissionRequestsForSession(sessionId);
+      cancelAcpElicitationRequestsForSession(sessionId);
+      acpChatSessionActions.deleteSnapshot(sessionId);
+
+      leaveRouteIfCurrent(sessionId);
     };
+
+    // Archiving removes the loaded agent on the server, so unmount the chat
+    // like a delete does; otherwise the open tab keeps talking to a hidden session.
+    const handleSessionArchived = (event: Event) => {
+      const { sessionId, archived } = (
+        event as CustomEvent<{ sessionId: string; archived?: boolean }>
+      ).detail;
+      if (archived === false) {
+        // A restore from the History card or another window bypasses the mounted
+        // chat's updateSession, and loadSession short-circuits on a cached
+        // snapshot, so clear the stale archived flag on the session metadata —
+        // otherwise revisiting the chat keeps showing the archived banner.
+        const session = acpChatSessionStore.getSnapshot(sessionId)?.session;
+        if (session?.archived_at) {
+          acpChatSessionActions.setSessionMetadata(sessionId, { ...session, archived_at: null });
+        }
+        return;
+      }
+
+      setActiveSessions((prev) => prev.filter((session) => session.sessionId !== sessionId));
+
+      // The archive server path drops the loaded agent, and loadSession short-circuits
+      // on a cached snapshot, so clear the session-scoped ACP state like delete does —
+      // otherwise reopening a restored chat reuses stale pending/waiting state.
+      cancelAcpPermissionRequestsForSession(sessionId);
+      cancelAcpElicitationRequestsForSession(sessionId);
+      acpChatSessionActions.deleteSnapshot(sessionId);
+
+      leaveRouteIfCurrent(sessionId);
+    };
+
+    // Re-dispatch archive/delete events relayed from other windows so this
+    // window's handlers below run for them too.
+    initSessionLifecycleBridge();
 
     window.addEventListener(AppEvents.ADD_ACTIVE_SESSION, handleAddActiveSession);
     window.addEventListener(AppEvents.CLEAR_INITIAL_MESSAGE, handleClearInitialMessage);
     window.addEventListener(AppEvents.SESSION_DELETED, handleSessionDeleted);
+    window.addEventListener(AppEvents.SESSION_ARCHIVED, handleSessionArchived);
     return () => {
       window.removeEventListener(AppEvents.ADD_ACTIVE_SESSION, handleAddActiveSession);
       window.removeEventListener(AppEvents.CLEAR_INITIAL_MESSAGE, handleClearInitialMessage);
       window.removeEventListener(AppEvents.SESSION_DELETED, handleSessionDeleted);
+      window.removeEventListener(AppEvents.SESSION_ARCHIVED, handleSessionArchived);
     };
-  }, []);
+  }, [navigate]);
 
   const { addExtension } = useConfig();
 

@@ -1,4 +1,25 @@
 {
+  "acpReadinessPanel.adapterFound": {
+    "defaultMessage": "Đã tìm thấy bộ điều hợp ACP"
+  },
+  "acpReadinessPanel.adapterNotFound": {
+    "defaultMessage": "Không tìm thấy bộ điều hợp ACP"
+  },
+  "acpReadinessPanel.authenticationHelp": {
+    "defaultMessage": "Đăng nhập qua CLI của nhà cung cấp, sau đó kiểm tra lại."
+  },
+  "acpReadinessPanel.checkAgain": {
+    "defaultMessage": "Kiểm tra lại"
+  },
+  "acpReadinessPanel.checking": {
+    "defaultMessage": "Đang kiểm tra..."
+  },
+  "acpReadinessPanel.connected": {
+    "defaultMessage": "Kết nối thành công"
+  },
+  "acpReadinessPanel.connectionNotChecked": {
+    "defaultMessage": "Hãy kiểm tra kết nối tài khoản trước khi tiếp tục."
+  },
   "alertBox.autoCompactAt": {
     "defaultMessage": "Tự động nén tại"
   },
@@ -124,6 +145,18 @@
   },
   "backButton.back": {
     "defaultMessage": "Quay lại"
+  },
+  "baseChat.archivedNotice": {
+    "defaultMessage": "Cuộc trò chuyện này đã được lưu trữ và ẩn khỏi các cuộc trò chuyện gần đây."
+  },
+  "baseChat.archivedRestore": {
+    "defaultMessage": "Khôi phục"
+  },
+  "baseChat.archivedRestoreFailed": {
+    "defaultMessage": "Không thể khôi phục phiên: {error}"
+  },
+  "baseChat.archivedRestored": {
+    "defaultMessage": "Đã khôi phục phiên"
   },
   "baseChat.failedToLoadSession": {
     "defaultMessage": "Không thể tải phiên"
@@ -920,14 +953,12 @@
   "dirSwitcher.enterPath": {
     "defaultMessage": "Enter path"
   },
-  "dirSwitcher.enterPathPlaceholder": {
-    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
-  },
   "dirSwitcher.enterPathInvalid": {
     "defaultMessage": "Working directory must be an absolute path"
   },
-
-
+  "dirSwitcher.enterPathPlaceholder": {
+    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
+  },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Không thể cập nhật thư mục làm việc"
   },
@@ -942,18 +973,6 @@
   },
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "Thư mục gần đây"
-  },
-  "gitBranchIndicator.failedToSwitch": {
-    "defaultMessage": "Không thể chuyển sang {branch}"
-  },
-  "gitBranchIndicator.noBranchesFound": {
-    "defaultMessage": "Không tìm thấy nhánh"
-  },
-  "gitBranchIndicator.searchBranches": {
-    "defaultMessage": "Tìm kiếm nhánh…"
-  },
-  "gitBranchIndicator.uncommittedChanges": {
-    "defaultMessage": "Bạn có thể có các thay đổi chưa commit."
   },
   "elicitationRequest.accept": {
     "defaultMessage": "Chấp nhận"
@@ -1263,6 +1282,18 @@
   },
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
+  },
+  "gitBranchIndicator.failedToSwitch": {
+    "defaultMessage": "Không thể chuyển sang {branch}"
+  },
+  "gitBranchIndicator.noBranchesFound": {
+    "defaultMessage": "Không tìm thấy nhánh"
+  },
+  "gitBranchIndicator.searchBranches": {
+    "defaultMessage": "Tìm kiếm nhánh…"
+  },
+  "gitBranchIndicator.uncommittedChanges": {
+    "defaultMessage": "Bạn có thể có các thay đổi chưa commit."
   },
   "goosehintsModal.close": {
     "defaultMessage": "Đóng"
@@ -2332,6 +2363,9 @@
   "modelsBottomBar.localModelSettingsTitle": {
     "defaultMessage": "Cài đặt mô hình cục bộ — {modelName}"
   },
+  "modelsBottomBar.recentModels": {
+    "defaultMessage": "Gần đây"
+  },
   "modelsBottomBar.resolvedModel": {
     "defaultMessage": "Mô hình đã phân giải"
   },
@@ -2368,8 +2402,38 @@
   "navigation.itemSkills": {
     "defaultMessage": "Kỹ năng"
   },
+  "navigationPanel.archive": {
+    "defaultMessage": "Lưu trữ"
+  },
+  "navigationPanel.archiveFailed": {
+    "defaultMessage": "Không thể lưu trữ phiên: {error}"
+  },
+  "navigationPanel.archiveSuccess": {
+    "defaultMessage": "Đã lưu trữ “{name}”"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "Cuộc trò chuyện"
+  },
+  "navigationPanel.delete": {
+    "defaultMessage": "Xóa"
+  },
+  "navigationPanel.deleteCancel": {
+    "defaultMessage": "Hủy"
+  },
+  "navigationPanel.deleteConfirm": {
+    "defaultMessage": "Xóa"
+  },
+  "navigationPanel.deleteFailed": {
+    "defaultMessage": "Không thể xóa phiên: {error}"
+  },
+  "navigationPanel.deleteMessage": {
+    "defaultMessage": "Bạn có chắc muốn xóa “{name}”? Hành động này không thể hoàn tác."
+  },
+  "navigationPanel.deleteSuccess": {
+    "defaultMessage": "Đã xóa cuộc trò chuyện"
+  },
+  "navigationPanel.deleteTitle": {
+    "defaultMessage": "Xóa cuộc trò chuyện"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Đã tạo"
@@ -2388,6 +2452,12 @@
   },
   "navigationPanel.noChats": {
     "defaultMessage": "Không có cuộc trò chuyện gần đây"
+  },
+  "navigationPanel.rename": {
+    "defaultMessage": "Đổi tên"
+  },
+  "navigationPanel.sessionActions": {
+    "defaultMessage": "Tác vụ phiên"
   },
   "navigationPanel.statusError": {
     "defaultMessage": "Lỗi"
@@ -2704,6 +2774,9 @@
   "promptsSettings.unsavedChanges": {
     "defaultMessage": "Bạn có các thay đổi chưa lưu"
   },
+  "providerCard.deprecatedReplacement": {
+    "defaultMessage": "Không còn được dùng — hãy sử dụng {replacement}."
+  },
   "providerCard.noMetadata": {
     "defaultMessage": "Lỗi ProviderCard: Không có metadata được cung cấp"
   },
@@ -2758,8 +2831,17 @@
   "providerConfigForm.continue": {
     "defaultMessage": "Tiếp tục"
   },
+  "providerConfigForm.deviceCodeAndEnter": {
+    "defaultMessage": "và nhập:"
+  },
+  "providerConfigForm.deviceCodeCopy": {
+    "defaultMessage": "Sao chép"
+  },
   "providerConfigForm.deviceCodeFlowHint": {
     "defaultMessage": "Một cửa sổ trình duyệt sẽ mở ra. Mã xác minh sẽ xuất hiện tại đây để bạn nhập và hoàn tất đăng nhập."
+  },
+  "providerConfigForm.deviceCodeVisit": {
+    "defaultMessage": "Truy cập"
   },
   "providerConfigForm.noApiKey": {
     "defaultMessage": "Bạn chưa có khóa API?"
@@ -2785,6 +2867,9 @@
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Kiểm tra lại cấu hình của bạn để sử dụng nhà cung cấp này."
   },
+  "providerConfigurationModal.chooseModel": {
+    "defaultMessage": "Chọn mô hình"
+  },
   "providerConfigurationModal.close": {
     "defaultMessage": "Đóng"
   },
@@ -2797,8 +2882,17 @@
   "providerConfigurationModal.deleteConfirmation": {
     "defaultMessage": "Thao tác này sẽ xóa vĩnh viễn cấu hình nhà cung cấp hiện tại."
   },
+  "providerConfigurationModal.deviceCodeAndEnter": {
+    "defaultMessage": "và nhập:"
+  },
+  "providerConfigurationModal.deviceCodeCopy": {
+    "defaultMessage": "Sao chép"
+  },
   "providerConfigurationModal.deviceCodeFlowHint": {
     "defaultMessage": "Một cửa sổ trình duyệt sẽ mở ra. Mã xác minh sẽ xuất hiện tại đây để bạn nhập và hoàn tất đăng nhập."
+  },
+  "providerConfigurationModal.deviceCodeVisit": {
+    "defaultMessage": "Truy cập"
   },
   "providerConfigurationModal.errorCheckingConfig": {
     "defaultMessage": "Đã xảy ra lỗi khi kiểm tra cấu hình nhà cung cấp này."
@@ -3811,6 +3905,9 @@
   "sessions.acpBadge": {
     "defaultMessage": "ACP"
   },
+  "sessions.action.archive": {
+    "defaultMessage": "Lưu trữ phiên"
+  },
   "sessions.action.delete": {
     "defaultMessage": "Xóa phiên"
   },
@@ -3834,6 +3931,9 @@
   },
   "sessions.action.shareNostr": {
     "defaultMessage": "Chia sẻ liên kết Nostr được mã hóa"
+  },
+  "sessions.action.unarchive": {
+    "defaultMessage": "Khôi phục từ kho lưu trữ"
   },
   "sessions.cancel": {
     "defaultMessage": "Hủy"
@@ -3895,6 +3995,15 @@
   "sessions.loadingMore": {
     "defaultMessage": "Đang tải thêm phiên..."
   },
+  "sessions.noArchived": {
+    "defaultMessage": "Không có phiên đã lưu trữ"
+  },
+  "sessions.noArchivedDesc": {
+    "defaultMessage": "Các phiên bạn lưu trữ sẽ xuất hiện ở đây."
+  },
+  "sessions.refreshing": {
+    "defaultMessage": "Đang làm mới phiên..."
+  },
   "sessions.save": {
     "defaultMessage": "Lưu"
   },
@@ -3916,11 +4025,26 @@
   "sessions.searchPlaceholder": {
     "defaultMessage": "Tìm kiếm lịch sử..."
   },
+  "sessions.searching": {
+    "defaultMessage": "Đang tìm kiếm phiên..."
+  },
   "sessions.shareNostr.description": {
     "defaultMessage": "Bất kỳ ai có liên kết này đều có thể tải về và giải mã phiên làm việc. Hãy coi nó như một bí mật."
   },
   "sessions.shareNostr.title": {
     "defaultMessage": "Liên kết chia sẻ Nostr được mã hóa"
+  },
+  "sessions.tab.active": {
+    "defaultMessage": "Đang hoạt động"
+  },
+  "sessions.tab.archived": {
+    "defaultMessage": "Đã lưu trữ"
+  },
+  "sessions.toast.archiveFailed": {
+    "defaultMessage": "Không thể lưu trữ phiên: {error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "Đã lưu trữ phiên"
   },
   "sessions.toast.copied": {
     "defaultMessage": "Đã sao chép vào bộ nhớ tạm"
@@ -3954,6 +4078,12 @@
   },
   "sessions.toast.shareNostrFailed": {
     "defaultMessage": "Không thể tạo liên kết chia sẻ Nostr: {error}"
+  },
+  "sessions.toast.unarchiveFailed": {
+    "defaultMessage": "Không thể khôi phục phiên: {error}"
+  },
+  "sessions.toast.unarchived": {
+    "defaultMessage": "Đã khôi phục phiên"
   },
   "sessions.toast.updateFailed": {
     "defaultMessage": "Không thể cập nhật mô tả phiên làm việc: {error}"
@@ -4659,53 +4789,5 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Xóa hình ảnh khỏi tin nhắn"
-  },
-  "modelsBottomBar.recentModels": {
-    "defaultMessage": "Gần đây"
-  },
-  "providerConfigurationModal.chooseModel": {
-    "defaultMessage": "Chọn mô hình"
-  },
-  "providerCard.deprecatedReplacement": {
-    "defaultMessage": "Không còn được dùng — hãy sử dụng {replacement}."
-  },
-  "acpReadinessPanel.adapterFound": {
-    "defaultMessage": "Đã tìm thấy bộ điều hợp ACP"
-  },
-  "acpReadinessPanel.adapterNotFound": {
-    "defaultMessage": "Không tìm thấy bộ điều hợp ACP"
-  },
-  "acpReadinessPanel.authenticationHelp": {
-    "defaultMessage": "Đăng nhập qua CLI của nhà cung cấp, sau đó kiểm tra lại."
-  },
-  "acpReadinessPanel.checkAgain": {
-    "defaultMessage": "Kiểm tra lại"
-  },
-  "acpReadinessPanel.checking": {
-    "defaultMessage": "Đang kiểm tra..."
-  },
-  "acpReadinessPanel.connected": {
-    "defaultMessage": "Kết nối thành công"
-  },
-  "acpReadinessPanel.connectionNotChecked": {
-    "defaultMessage": "Hãy kiểm tra kết nối tài khoản trước khi tiếp tục."
-  },
-  "providerConfigForm.deviceCodeAndEnter": {
-    "defaultMessage": "và nhập:"
-  },
-  "providerConfigForm.deviceCodeCopy": {
-    "defaultMessage": "Sao chép"
-  },
-  "providerConfigForm.deviceCodeVisit": {
-    "defaultMessage": "Truy cập"
-  },
-  "providerConfigurationModal.deviceCodeAndEnter": {
-    "defaultMessage": "và nhập:"
-  },
-  "providerConfigurationModal.deviceCodeCopy": {
-    "defaultMessage": "Sao chép"
-  },
-  "providerConfigurationModal.deviceCodeVisit": {
-    "defaultMessage": "Truy cập"
   }
 }

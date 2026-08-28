@@ -146,6 +146,18 @@
   "backButton.back": {
     "defaultMessage": "Back"
   },
+  "baseChat.archivedNotice": {
+    "defaultMessage": "This chat is archived and hidden from your recent chats."
+  },
+  "baseChat.archivedRestore": {
+    "defaultMessage": "Restore"
+  },
+  "baseChat.archivedRestoreFailed": {
+    "defaultMessage": "Failed to restore session: {error}"
+  },
+  "baseChat.archivedRestored": {
+    "defaultMessage": "Session restored"
+  },
   "baseChat.failedToLoadSession": {
     "defaultMessage": "Failed to Load Session"
   },
@@ -2390,8 +2402,38 @@
   "navigation.itemSkills": {
     "defaultMessage": "Skills"
   },
+  "navigationPanel.archive": {
+    "defaultMessage": "Archive"
+  },
+  "navigationPanel.archiveFailed": {
+    "defaultMessage": "Failed to archive session: {error}"
+  },
+  "navigationPanel.archiveSuccess": {
+    "defaultMessage": "Archived “{name}”"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "Chats"
+  },
+  "navigationPanel.delete": {
+    "defaultMessage": "Delete"
+  },
+  "navigationPanel.deleteCancel": {
+    "defaultMessage": "Cancel"
+  },
+  "navigationPanel.deleteConfirm": {
+    "defaultMessage": "Delete"
+  },
+  "navigationPanel.deleteFailed": {
+    "defaultMessage": "Failed to delete session: {error}"
+  },
+  "navigationPanel.deleteMessage": {
+    "defaultMessage": "Are you sure you want to delete “{name}”? This cannot be undone."
+  },
+  "navigationPanel.deleteSuccess": {
+    "defaultMessage": "Chat deleted"
+  },
+  "navigationPanel.deleteTitle": {
+    "defaultMessage": "Delete chat"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Created"
@@ -2410,6 +2452,12 @@
   },
   "navigationPanel.noChats": {
     "defaultMessage": "No recent chats"
+  },
+  "navigationPanel.rename": {
+    "defaultMessage": "Rename"
+  },
+  "navigationPanel.sessionActions": {
+    "defaultMessage": "Session actions"
   },
   "navigationPanel.statusError": {
     "defaultMessage": "Error"
@@ -3857,6 +3905,9 @@
   "sessions.acpBadge": {
     "defaultMessage": "ACP"
   },
+  "sessions.action.archive": {
+    "defaultMessage": "Archive session"
+  },
   "sessions.action.delete": {
     "defaultMessage": "Delete session"
   },
@@ -3880,6 +3931,9 @@
   },
   "sessions.action.shareNostr": {
     "defaultMessage": "Share encrypted Nostr link"
+  },
+  "sessions.action.unarchive": {
+    "defaultMessage": "Restore from archive"
   },
   "sessions.cancel": {
     "defaultMessage": "Cancel"
@@ -3941,6 +3995,15 @@
   "sessions.loadingMore": {
     "defaultMessage": "Loading more sessions..."
   },
+  "sessions.noArchived": {
+    "defaultMessage": "No archived sessions"
+  },
+  "sessions.noArchivedDesc": {
+    "defaultMessage": "Sessions you archive will appear here."
+  },
+  "sessions.refreshing": {
+    "defaultMessage": "Refreshing sessions..."
+  },
   "sessions.save": {
     "defaultMessage": "Save"
   },
@@ -3962,11 +4025,26 @@
   "sessions.searchPlaceholder": {
     "defaultMessage": "Search history..."
   },
+  "sessions.searching": {
+    "defaultMessage": "Searching sessions..."
+  },
   "sessions.shareNostr.description": {
     "defaultMessage": "Anyone with this link can fetch and decrypt the session. Treat it like a secret."
   },
   "sessions.shareNostr.title": {
     "defaultMessage": "Encrypted Nostr Share Link"
+  },
+  "sessions.tab.active": {
+    "defaultMessage": "Active"
+  },
+  "sessions.tab.archived": {
+    "defaultMessage": "Archived"
+  },
+  "sessions.toast.archiveFailed": {
+    "defaultMessage": "Failed to archive session: {error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "Session archived"
   },
   "sessions.toast.copied": {
     "defaultMessage": "Copied to clipboard"
@@ -4000,6 +4078,12 @@
   },
   "sessions.toast.shareNostrFailed": {
     "defaultMessage": "Failed to create Nostr share link: {error}"
+  },
+  "sessions.toast.unarchiveFailed": {
+    "defaultMessage": "Failed to restore session: {error}"
+  },
+  "sessions.toast.unarchived": {
+    "defaultMessage": "Session restored"
   },
   "sessions.toast.updateFailed": {
     "defaultMessage": "Failed to update session description: {error}"

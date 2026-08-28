@@ -80,7 +80,9 @@ export function useNavigationSessions() {
   const fetchSessions = useCallback(async () => {
     try {
       const sessions = await acpListRecentSessions(MAX_RECENT_SESSIONS);
-      setRecentSessions(sessions);
+      // Active listings omit message-less sessions, so a refresh would drop a
+      // freshly created or just-restored empty chat; keep those locals.
+      setRecentSessions((prev) => mergeWithEmptyLocals(prev, sessions));
     } catch (error) {
       console.error('Failed to fetch sessions:', error);
     }
@@ -92,6 +94,9 @@ export function useNavigationSessions() {
 
     acpGetSessionListItem(activeSessionId)
       .then((item) => {
+        // Viewing an archived chat must not resurface it in the sidebar; it stays
+        // hidden until the user explicitly restores it.
+        if (item.archivedAt) return;
         setRecentSessions((prev) => prependUnique(prev, item));
       })
       .catch((error) => {
@@ -159,9 +164,42 @@ export function useNavigationSessions() {
       acpListRecentSessions(MAX_RECENT_SESSIONS)
         .then((sessions) => {
           if (version !== fetchVersion) return;
-          setRecentSessions(sessions.filter((session) => session.id !== sessionId));
+          setRecentSessions((prev) =>
+            mergeWithEmptyLocals(prev, sessions).filter((session) => session.id !== sessionId)
+          );
         })
         .catch((error) => console.error('Failed to fetch sessions:', error));
+    };
+
+    const handleSessionArchived = (event: Event) => {
+      const { sessionId, archived } = (
+        event as CustomEvent<{ sessionId: string; archived?: boolean }>
+      ).detail;
+
+      // Archiving hides a session from the sidebar; unarchiving may bring a
+      // recent one back, so refetch to reflect the current active set.
+      if (archived === false) {
+        const version = ++fetchVersion;
+        acpListRecentSessions(MAX_RECENT_SESSIONS)
+          .then(async (sessions) => {
+            // Active listings hide empty sessions, so a restored empty chat is
+            // missing from the refetch; fetch it directly to keep it reachable.
+            if (sessions.some((s) => s.id === sessionId)) return sessions;
+            const restored = await acpGetSessionListItem(sessionId);
+            return prependUnique(sessions, restored);
+          })
+          .then((sessions) => {
+            if (version !== fetchVersion) return;
+            setRecentSessions((prev) => mergeWithEmptyLocals(prev, sessions));
+          })
+          .catch((error) => console.error('Failed to fetch sessions:', error));
+        return;
+      }
+
+      setRecentSessions((prev) => prev.filter((session) => session.id !== sessionId));
+      if (lastSessionIdRef.current === sessionId) {
+        lastSessionIdRef.current = null;
+      }
     };
 
     const handleSessionRenamed = (event: Event) => {
@@ -179,10 +217,12 @@ export function useNavigationSessions() {
     };
 
     window.addEventListener(AppEvents.SESSION_DELETED, handleSessionDeleted);
+    window.addEventListener(AppEvents.SESSION_ARCHIVED, handleSessionArchived);
     window.addEventListener(AppEvents.SESSION_RENAMED, handleSessionRenamed);
 
     return () => {
       window.removeEventListener(AppEvents.SESSION_DELETED, handleSessionDeleted);
+      window.removeEventListener(AppEvents.SESSION_ARCHIVED, handleSessionArchived);
       window.removeEventListener(AppEvents.SESSION_RENAMED, handleSessionRenamed);
     };
   }, []);

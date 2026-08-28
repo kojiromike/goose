@@ -329,12 +329,29 @@ pub(crate) struct SessionListPage {
     pub(crate) next_cursor: Option<SessionListCursor>,
 }
 
+/// Controls whether archived sessions are included when listing.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ArchivedFilter {
+    /// Only sessions that have not been archived (`archived_at IS NULL`).
+    ///
+    /// This is the default so callers using `SessionListFilters::default()`
+    /// (the orchestrator `list_sessions` tool, scheduler listings, etc.) hide
+    /// archived chats just like the UI does; opt in to archived rows explicitly.
+    #[default]
+    Active,
+    /// Only archived sessions (`archived_at IS NOT NULL`).
+    Archived,
+    /// Both active and archived sessions (no filtering).
+    All,
+}
+
 #[derive(Debug, Default, Clone)]
 pub(crate) struct SessionListFilters<'a> {
     pub(crate) types: Option<&'a [SessionType]>,
     pub(crate) working_dir: Option<&'a Path>,
     pub(crate) keyword: Option<&'a str>,
     pub(crate) only_sessions_with_messages: bool,
+    pub(crate) archived: ArchivedFilter,
 }
 
 #[derive(Debug, Clone)]
@@ -2014,6 +2031,11 @@ impl SessionStorage {
         if filters.working_dir.is_some() {
             where_clauses.push("s.working_dir = ?".to_string());
         }
+        match filters.archived {
+            ArchivedFilter::Active => where_clauses.push("s.archived_at IS NULL".to_string()),
+            ArchivedFilter::Archived => where_clauses.push("s.archived_at IS NOT NULL".to_string()),
+            ArchivedFilter::All => {}
+        }
         if !keywords.is_empty() {
             where_clauses.push(message_keyword_clause(keywords.len()));
         }
@@ -2151,9 +2173,19 @@ impl SessionStorage {
     }
 
     async fn list_sessions_by_types(&self, types: Option<&[SessionType]>) -> Result<Vec<Session>> {
+        // `types: None` is the explicit all-sessions path (`list_all_sessions`), which
+        // `goose session remove --name` relies on to find a session by name — it must
+        // include archived rows. Type-scoped queries keep the Active default so archived
+        // chats stay hidden from the orchestrator/scheduler listings.
+        let archived = if types.is_none() {
+            ArchivedFilter::All
+        } else {
+            ArchivedFilter::Active
+        };
         self.list_sessions_matching(SessionListQuery {
             filters: SessionListFilters {
                 types,
+                archived,
                 ..Default::default()
             },
             ..Default::default()
@@ -3978,6 +4010,99 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_session_list_paged_archived_filter() {
+        let temp_dir = TempDir::new().unwrap();
+        let sm = SessionManager::new(temp_dir.path().to_path_buf());
+        let active =
+            create_session_for_list_with_message(&sm, "/tmp/session-list", "active session").await;
+        let archived =
+            create_session_for_list_with_message(&sm, "/tmp/session-list", "archived session")
+                .await;
+        sm.update(&archived)
+            .archived_at(Some(chrono::Utc::now()))
+            .apply()
+            .await
+            .unwrap();
+
+        async fn list_ids(sm: &SessionManager, archived: ArchivedFilter) -> Vec<String> {
+            let types = [SessionType::User];
+            let page = sm
+                .list_sessions_paged(SessionListPageQuery {
+                    filters: SessionListFilters {
+                        types: Some(&types),
+                        only_sessions_with_messages: true,
+                        archived,
+                        ..Default::default()
+                    },
+                    cursor: None,
+                    page_size: 10,
+                    include_last_message_snippet: false,
+                })
+                .await
+                .unwrap();
+            page.sessions
+                .into_iter()
+                .map(|session| session.id)
+                .collect::<Vec<_>>()
+        }
+
+        assert_eq!(
+            list_ids(&sm, ArchivedFilter::Active).await,
+            vec![active.clone()]
+        );
+        assert_eq!(
+            list_ids(&sm, ArchivedFilter::Archived).await,
+            vec![archived.clone()]
+        );
+
+        let mut all = list_ids(&sm, ArchivedFilter::All).await;
+        all.sort();
+        let mut expected = vec![active, archived];
+        expected.sort();
+        assert_eq!(all, expected);
+    }
+
+    #[tokio::test]
+    async fn test_list_all_sessions_includes_archived() {
+        let temp_dir = TempDir::new().unwrap();
+        let sm = SessionManager::new(temp_dir.path().to_path_buf());
+        let active =
+            create_session_for_list_with_message(&sm, "/tmp/session-list", "active session").await;
+        let archived =
+            create_session_for_list_with_message(&sm, "/tmp/session-list", "archived session")
+                .await;
+        sm.update(&archived)
+            .archived_at(Some(chrono::Utc::now()))
+            .apply()
+            .await
+            .unwrap();
+
+        // The explicit all-sessions path (used by `goose session remove --name`) must
+        // still surface archived sessions.
+        let mut all = sm
+            .list_all_sessions()
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|session| session.id)
+            .collect::<Vec<_>>();
+        all.sort();
+        let mut expected = vec![active.clone(), archived.clone()];
+        expected.sort();
+        assert_eq!(all, expected);
+
+        // Type-scoped listings hide archived sessions by default.
+        let active_only = sm
+            .list_sessions_by_types(&[SessionType::User])
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|session| session.id)
+            .collect::<Vec<_>>();
+        assert_eq!(active_only, vec![active]);
+    }
+
+    #[tokio::test]
     async fn test_session_list_paged_keyword_treats_like_wildcards_as_literals() {
         let temp_dir = TempDir::new().unwrap();
         let sm = SessionManager::new(temp_dir.path().to_path_buf());
@@ -4057,6 +4182,7 @@ mod tests {
             working_dir: Some(Path::new("/tmp/session-list/a")),
             keyword: Some("postgres"),
             only_sessions_with_messages: true,
+            ..Default::default()
         };
         let cursor = sm
             .list_sessions_paged(SessionListPageQuery {
