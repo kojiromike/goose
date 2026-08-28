@@ -308,7 +308,7 @@ impl Connection for AcpProviderConnection {
 
         self.notification_sink.lock().unwrap().clear();
 
-        let transport: DynConnectTo<Client> = DynConnectTo::new(transport);
+        let transport: DynConnectTo<Client> = DynConnectTo::new(transport.into_byte_streams());
         let provider = AcpProvider::connect_with_transport(
             "acp-test".to_string(),
             self.respawn.goose_mode,
@@ -354,7 +354,7 @@ impl Connection for AcpProviderConnection {
         )
         .await;
 
-        let transport: DynConnectTo<Client> = DynConnectTo::new(transport);
+        let transport: DynConnectTo<Client> = DynConnectTo::new(transport.into_byte_streams());
         let sessions = AcpProvider::query_sessions_with_transport(
             provider_config(
                 self.work_dir.clone(),
