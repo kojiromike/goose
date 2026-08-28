@@ -5136,6 +5136,7 @@ mod tests {
         assert!(rx.try_recv().is_err(), "the old session must not be closed");
     }
 
+    #[tokio::test]
     async fn messages_to_prompt_includes_all_prior_handoff_context() {
         let messages = vec![
             Message::user().with_text("older context that should be retained"),
