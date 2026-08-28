@@ -104,6 +104,11 @@ enum ClientRequest {
     },
 }
 
+enum SetConfigOptionOutcome {
+    Applied,
+    Rejected(anyhow::Error),
+}
+
 // tokio I/O handles can't move between runtimes, so the child process must be
 // spawned inside the OS thread. This closure lets start() share all other logic.
 type ClientLoopFn = Box<
@@ -499,6 +504,17 @@ impl AcpProvider {
         config_id: String,
         value: String,
     ) -> Result<()> {
+        match self.request_set_config_option(config_id, value).await? {
+            SetConfigOptionOutcome::Applied => Ok(()),
+            SetConfigOptionOutcome::Rejected(error) => Err(error),
+        }
+    }
+
+    async fn request_set_config_option(
+        &self,
+        config_id: String,
+        value: String,
+    ) -> Result<SetConfigOptionOutcome> {
         let session_id = self.acp_session_id();
         let (response_tx, response_rx) = oneshot::channel();
         self.tx
@@ -512,40 +528,56 @@ impl AcpProvider {
             })
             .await
             .context("ACP client is unavailable")?;
-        response_rx.await.context("ACP request cancelled")?
+        match response_rx.await.context("ACP request cancelled")? {
+            Ok(()) => Ok(SetConfigOptionOutcome::Applied),
+            Err(error) => Ok(SetConfigOptionOutcome::Rejected(error)),
+        }
     }
 
     /// Re-apply the model selection config option when the active session model
     /// differs from what was last applied. ACP agents that select their model
     /// via a config option (e.g. Copilot) need this so resumed or switched
     /// sessions actually use the requested model instead of the agent default.
-    async fn apply_model_if_changed(&self, model_name: &str) -> Result<()> {
+    /// Returns the effective model for usage attribution, or `None` when a
+    /// rejected initial selection leaves the active model unknown.
+    async fn apply_model_if_changed(&self, model_name: &str) -> Result<Option<String>> {
         let Some(config_id) = self.model_config_option_id.clone() else {
-            return Ok(());
+            return Ok(Some(model_name.to_string()));
         };
         if model_name == ACP_CURRENT_MODEL {
-            return Ok(());
+            return Ok(Some(model_name.to_string()));
         }
 
+        let applied_model = self
+            .applied_model
+            .lock()
+            .map_err(|_| anyhow::anyhow!("applied_model lock poisoned"))?
+            .clone();
+        if applied_model.as_deref() == Some(model_name) {
+            return Ok(Some(model_name.to_string()));
+        }
+
+        match self
+            .request_set_config_option(config_id, model_name.to_string())
+            .await?
         {
-            let applied = self
-                .applied_model
-                .lock()
-                .map_err(|_| anyhow::anyhow!("applied_model lock poisoned"))?;
-            if applied.as_deref() == Some(model_name) {
-                return Ok(());
+            SetConfigOptionOutcome::Applied => {}
+            SetConfigOptionOutcome::Rejected(error) => {
+                tracing::warn!(
+                    model = model_name,
+                    error = %error,
+                    "ACP agent rejected model config option; continuing with current model"
+                );
+                return Ok(applied_model);
             }
         }
-
-        self.send_set_config_option("", config_id, model_name.to_string())
-            .await?;
 
         let mut applied = self
             .applied_model
             .lock()
             .map_err(|_| anyhow::anyhow!("applied_model lock poisoned"))?;
         *applied = Some(model_name.to_string());
-        Ok(())
+        Ok(Some(model_name.to_string()))
     }
 
     fn effort_capability(&self) -> Result<Option<ThinkingEffortCapability>> {
@@ -826,11 +858,13 @@ impl Provider for AcpProvider {
     ) -> Result<MessageStream, ProviderError> {
         let session_id = self.acp_session_id();
 
-        self.apply_model_if_changed(&model_config.model_name)
+        let model_name = self
+            .apply_model_if_changed(&model_config.model_name)
             .await
             .map_err(|e| {
                 ProviderError::RequestFailed(format!("Failed to set ACP model option: {e}"))
-            })?;
+            })?
+            .unwrap_or_else(|| "unknown".to_string());
 
         self.apply_effort_if_changed(model_config)
             .await
@@ -907,8 +941,6 @@ impl Provider for AcpProvider {
             .map_err(|_| ProviderError::RequestFailed("goose_mode lock poisoned".into()))?;
 
         let reject_all_tools = goose_mode == GooseMode::Chat;
-        let model_name = model_config.model_name.clone();
-
         Ok(Box::pin(try_stream! {
             let mut suppress_text = false;
             let mut bare_retry = bare_retry;
@@ -3357,7 +3389,79 @@ mod tests {
             _ => panic!("unexpected request kind"),
         }
 
-        handle.await.unwrap().unwrap();
+        assert_eq!(handle.await.unwrap().unwrap().as_deref(), Some("new-model"));
+    }
+
+    #[tokio::test]
+    async fn stream_continues_after_model_config_rejection() {
+        use futures::StreamExt;
+
+        let (tx, mut rx) = mpsc::channel(2);
+        let (mut provider, model) = test_provider_with_tx(Some(tx));
+        provider.model_config_option_id = Some("model".to_string());
+        provider.applied_model = Arc::new(Mutex::new(Some("old-model".to_string())));
+        let applied_model = provider.applied_model.clone();
+        let messages = vec![Message::user().with_text("continue this turn")];
+
+        let handle = tokio::spawn(async move { provider.stream(&model, "", &messages, &[]).await });
+
+        match rx.recv().await.expect("expected a SetConfigOption request") {
+            ClientRequest::SetConfigOption { response_tx, .. } => {
+                let _ = response_tx.send(Err(anyhow::anyhow!(
+                    "Invalid value for config option model: test-model"
+                )));
+            }
+            _ => panic!("unexpected request kind"),
+        }
+
+        let response_tx = match rx.recv().await.expect("expected a Prompt request") {
+            ClientRequest::Prompt { response_tx, .. } => response_tx,
+            _ => panic!("unexpected request kind"),
+        };
+        let mut stream = handle.await.unwrap().unwrap();
+        response_tx
+            .send(AcpUpdate::Complete(
+                StopReason::EndTurn,
+                Some(AcpUsage::new(3, 2, 1)),
+            ))
+            .await
+            .unwrap();
+
+        let (_, usage) = stream.next().await.unwrap().unwrap();
+        assert_eq!(usage.unwrap().model, "old-model");
+        assert_eq!(applied_model.lock().unwrap().as_deref(), Some("old-model"));
+    }
+
+    #[tokio::test]
+    async fn apply_model_if_changed_returns_none_after_initial_rejection() {
+        let (tx, mut rx) = mpsc::channel(1);
+        let provider = test_provider_with_model_option(tx, None);
+
+        let handle =
+            tokio::spawn(async move { provider.apply_model_if_changed("new-model").await });
+
+        match rx.recv().await.expect("expected a SetConfigOption request") {
+            ClientRequest::SetConfigOption { response_tx, .. } => {
+                let _ = response_tx.send(Err(anyhow::anyhow!("unsupported model")));
+            }
+            _ => panic!("unexpected request kind"),
+        }
+
+        assert_eq!(handle.await.unwrap().unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn apply_model_if_changed_propagates_client_failure() {
+        let (tx, rx) = mpsc::channel(1);
+        drop(rx);
+        let provider = test_provider_with_model_option(tx, None);
+
+        let error = provider
+            .apply_model_if_changed("new-model")
+            .await
+            .unwrap_err();
+
+        assert!(error.to_string().contains("ACP client is unavailable"));
     }
 
     #[tokio::test]
@@ -3365,7 +3469,14 @@ mod tests {
         let (tx, mut rx) = mpsc::channel(1);
         let provider = test_provider_with_model_option(tx, Some("same-model".to_string()));
 
-        provider.apply_model_if_changed("same-model").await.unwrap();
+        assert_eq!(
+            provider
+                .apply_model_if_changed("same-model")
+                .await
+                .unwrap()
+                .as_deref(),
+            Some("same-model")
+        );
 
         assert!(rx.try_recv().is_err());
     }
@@ -3375,7 +3486,14 @@ mod tests {
         let (tx, mut rx) = mpsc::channel(1);
         let (provider, _) = test_provider_with_tx(Some(tx));
 
-        provider.apply_model_if_changed("any-model").await.unwrap();
+        assert_eq!(
+            provider
+                .apply_model_if_changed("any-model")
+                .await
+                .unwrap()
+                .as_deref(),
+            Some("any-model")
+        );
 
         assert!(rx.try_recv().is_err());
     }
@@ -3385,10 +3503,14 @@ mod tests {
         let (tx, mut rx) = mpsc::channel(1);
         let provider = test_provider_with_model_option(tx, None);
 
-        provider
-            .apply_model_if_changed(ACP_CURRENT_MODEL)
-            .await
-            .unwrap();
+        assert_eq!(
+            provider
+                .apply_model_if_changed(ACP_CURRENT_MODEL)
+                .await
+                .unwrap()
+                .as_deref(),
+            Some(ACP_CURRENT_MODEL)
+        );
 
         assert!(rx.try_recv().is_err());
     }
