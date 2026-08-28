@@ -2,6 +2,8 @@ import type {
   CanonicalModelInfoDto,
   CustomProviderCreateRequest_unstable,
   CustomProviderReadResponse_unstable,
+  ProviderInventoryEntryDto,
+  ProviderInventoryModelDto,
   ProviderSecretDto,
   ProviderInventoryEntryDto,
   RefreshProviderInventoryResponse_unstable,
@@ -199,10 +201,103 @@ export async function acpRefreshProviderDetails(
   };
 }
 
-export async function acpListProviderModels(providerId: string) {
+// Raw model ids from a provider's live supported-models API (e.g. Anthropic's /v1/models,
+// or the model list an ACP adapter advertises). Unlike the inventory cache this is neither
+// canonical-filtered nor asynchronously refreshed, so it reflects what the provider offers now.
+export async function acpListProviderSupportedModels(providerId: string): Promise<string[]> {
+  const client = await getAcpClient();
+  const { models } = await client.goose.providersSupportedModelsList_unstable({ providerId });
+  return models;
+}
+
+// Live discovery spawns/queries the provider, which can stall: Claude Code's control
+// request waits indefinitely for a model_list response and HTTP providers can hang up to
+// their request timeout. Bound it so a single slow provider can't leave the whole picker
+// (RecipeModelSelector awaits every provider via Promise.all) loading forever.
+const LIVE_MODELS_TIMEOUT_MS = 4000;
+
+// Providers whose live supported-models endpoint returns *only* agent-usable models but whose
+// inventory entry isn't category 'agent'. The first-party Anthropic API's /v1/models is all
+// chat/tool-capable. 'claude-code' is the pre-ACP Claude Code provider: still registered, but
+// absent from the curated setup catalog, so its category falls back to 'model' even though it
+// advertises nothing but Claude's own aliases. Other model providers (OpenAI, Google,
+// OpenRouter, …) also return embeddings, audio, and image models from their raw endpoint, which
+// would fail an agent request; for those we keep the canonical-filtered inventory list instead.
+const LIVE_UNION_MODEL_PROVIDERS = new Set(['anthropic', 'claude-code']);
+
+// Whether to union a provider's live supported-models list into the picker. Agent adapters
+// (category 'agent', e.g. Claude Code / Codex over ACP) advertise only the agent's own chat
+// models, so their raw list is always safe; other providers must be explicitly allowlisted.
+function shouldUnionLiveModels(entry: ProviderInventoryEntryDto | undefined): boolean {
+  if (!entry) {
+    return false;
+  }
+  return entry.category === 'agent' || LIVE_UNION_MODEL_PROVIDERS.has(entry.providerId);
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
+export async function acpListProviderModels(
+  providerId: string
+): Promise<ProviderInventoryModelDto[]> {
   const client = await getAcpClient();
   const { entries } = await client.goose.providersList_unstable({ providerIds: [providerId] });
-  return entries.find((e) => e.providerId === providerId)?.models ?? [];
+  const entry = entries.find((e) => e.providerId === providerId);
+  const inventory = entry?.models ?? [];
+
+  // Only union the live list for providers whose supported-models endpoint returns exclusively
+  // agent-usable models (see shouldUnionLiveModels). For the rest we keep the canonical-filtered
+  // inventory so non-chat models (embeddings, audio, image) never leak into the picker.
+  if (!shouldUnionLiveModels(entry)) {
+    return inventory;
+  }
+
+  // The inventory cache is canonical-filtered and populated by a background refresh, so it
+  // lags new releases and can silently drop models the key/adapter actually has (e.g. Opus 5,
+  // or an ACP adapter's advertised aliases). Union in the live supported-models list so the
+  // picker never hides a currently-available model. Live ids lead, in the order the backend
+  // returns them — each provider owns its own ordering (the Anthropic provider sorts
+  // newest-first); cached metadata (context limit, reasoning) is grafted on by id where we
+  // have it.
+  let liveIds: string[];
+  try {
+    liveIds = await withTimeout(
+      acpListProviderSupportedModels(providerId),
+      LIVE_MODELS_TIMEOUT_MS,
+      `live model discovery for ${providerId}`
+    );
+  } catch {
+    // Live discovery is best-effort; fall back to the inventory cache when it's slow or fails.
+    return inventory;
+  }
+
+  const inventoryById = new Map(inventory.map((model) => [model.id, model]));
+  const seen = new Set<string>();
+  const merged: ProviderInventoryModelDto[] = [];
+  for (const id of liveIds) {
+    seen.add(id);
+    merged.push(inventoryById.get(id) ?? { id, name: id });
+  }
+  for (const model of inventory) {
+    if (!seen.has(model.id)) {
+      merged.push(model);
+    }
+  }
+  return merged;
 }
 
 export async function acpListProviderCatalogEntries(

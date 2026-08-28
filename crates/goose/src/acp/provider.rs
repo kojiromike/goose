@@ -27,6 +27,7 @@ use std::sync::{
     Arc, Mutex,
 };
 use std::thread::JoinHandle;
+use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, oneshot, watch, Mutex as TokioMutex};
@@ -57,6 +58,23 @@ const EFFORT_CONFIG_OPTION_ID: &str = "effort";
 
 /// Session request param holding the selected thinking effort.
 pub(super) const THINKING_EFFORT_PARAM: &str = "thinking_effort";
+
+/// Bound on the ACP startup handshake (`initialize`, `session/new`).
+///
+/// The adapter's child process is owned by the client-loop thread, so an unanswered startup
+/// request wedges that thread and keeps the process alive however the caller disposes of its
+/// `connect()` future. Failing the request instead lets the loop unwind to `run_with_child`,
+/// which kills the child. Generous enough for a cold adapter start; this is a wedge backstop,
+/// not a latency budget.
+///
+/// It has to clear the desktop `node` shim's own worst case. An adapter invoked as
+/// `#!/usr/bin/env node` resolves through `Resources/bin/node`, which serializes hermit setup
+/// on a mkdir lock and waits up to 300s before reclaiming an orphaned one
+/// (`ui/desktop/src/bin/node-setup-common.sh`). Timing out inside that window would SIGKILL the
+/// shim mid-wait, and since the shim releases its lock from a `trap ... EXIT` that SIGKILL
+/// skips, every later start would inherit the orphaned lock — turning a stall that recovers on
+/// its own into a permanent failure.
+const STARTUP_TIMEOUT: Duration = Duration::from_secs(360);
 
 pub struct AcpProviderConfig {
     pub command: PathBuf,
@@ -1566,19 +1584,32 @@ async fn handle_requests(
     let mut init_tx = Some(init_tx);
 
     let client_capabilities = ClientCapabilities::new();
-    let init_response: InitializeResponse = cx
-        .send_request(
+    let initialized = tokio::time::timeout(
+        STARTUP_TIMEOUT,
+        cx.send_request(
             InitializeRequest::new(ProtocolVersion::V1).client_capabilities(client_capabilities),
         )
-        .block_task()
-        .await
-        .map_err(|err| {
-            let message = format!("ACP {} failed: {err}", AGENT_METHOD_NAMES.initialize);
-            if let Some(tx) = init_tx.take() {
-                let _ = tx.send(Err(anyhow::anyhow!(message.clone())));
-            }
-            agent_client_protocol::Error::internal_error().data(message)
-        })?;
+        .block_task(),
+    )
+    .await;
+    let init_response: InitializeResponse = match initialized {
+        Ok(Ok(response)) => Ok(response),
+        Ok(Err(err)) => Err(format!(
+            "ACP {} failed: {err}",
+            AGENT_METHOD_NAMES.initialize
+        )),
+        Err(_) => Err(format!(
+            "ACP {} timed out after {}s",
+            AGENT_METHOD_NAMES.initialize,
+            STARTUP_TIMEOUT.as_secs()
+        )),
+    }
+    .map_err(|message| {
+        if let Some(tx) = init_tx.take() {
+            let _ = tx.send(Err(anyhow::anyhow!(message.clone())));
+        }
+        agent_client_protocol::Error::internal_error().data(message)
+    })?;
 
     let supports_close = init_response
         .agent_capabilities
@@ -1597,30 +1628,41 @@ async fn handle_requests(
         match request {
             ClientRequest::NewSession { response_tx } => {
                 let mcp_servers = filter_supported_servers(&config.mcp_servers, &mcp_capabilities);
-                let session = cx
-                    .send_request(
-                        NewSessionRequest::new(config.work_dir.clone()).mcp_servers(mcp_servers),
-                    )
-                    .block_task()
-                    .await;
-                let result = match session {
-                    Ok(session) => {
-                        *session_state.active_id.lock().unwrap() = Some(session.session_id.clone());
-                        session_ids.push(session.session_id.clone());
-                        if let Some(config_options) = session.config_options.as_deref() {
-                            publish_effort_state(&session_state.effort, config_options);
-                        }
-                        apply_session_config_options(
-                            &config,
-                            &cx,
-                            session.session_id.clone(),
-                            &session_state.effort,
+                // One deadline over the whole startup exchange: `session/new` plus the
+                // config-option and mode requests that follow it. Any of them can wedge, and
+                // `AcpProvider::start` is blocked on the session oneshot while this thread owns
+                // the child, so an unbounded await anywhere here pins the adapter process.
+                let started = tokio::time::timeout(STARTUP_TIMEOUT, async {
+                    let session = cx
+                        .send_request(
+                            NewSessionRequest::new(config.work_dir.clone())
+                                .mcp_servers(mcp_servers),
                         )
-                        .await?;
-                        apply_session_mode(&config, &goose_mode, &cx, session).await
+                        .block_task()
+                        .await
+                        .map_err(|err| acp_method_error(AGENT_METHOD_NAMES.session_new, err))?;
+                    *session_state.active_id.lock().unwrap() = Some(session.session_id.clone());
+                    session_ids.push(session.session_id.clone());
+                    if let Some(config_options) = session.config_options.as_deref() {
+                        publish_effort_state(&session_state.effort, config_options);
                     }
-                    Err(error) => Err(acp_method_error(AGENT_METHOD_NAMES.session_new, error)),
-                };
+                    apply_session_config_options(
+                        &config,
+                        &cx,
+                        session.session_id.clone(),
+                        &session_state.effort,
+                    )
+                    .await?;
+                    apply_session_mode(&config, &goose_mode, &cx, session).await
+                })
+                .await;
+                let result = started.unwrap_or_else(|_| {
+                    Err(anyhow::anyhow!(
+                        "ACP {} startup timed out after {}s",
+                        AGENT_METHOD_NAMES.session_new,
+                        STARTUP_TIMEOUT.as_secs()
+                    ))
+                });
                 log_undelivered(response_tx.send(result), AGENT_METHOD_NAMES.session_new);
             }
             ClientRequest::LoadSession {

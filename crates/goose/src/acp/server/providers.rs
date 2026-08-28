@@ -4,6 +4,13 @@ use crate::providers::inventory::ensure_refresh_identity_current;
 use crate::providers::provider_secrets;
 use goose_providers::base::ModelInfo;
 use std::str::FromStr;
+use std::time::Duration;
+
+/// Upper bound on a single live supported-models fetch. Some providers accept the request but
+/// never complete it (e.g. Claude Code's control request waits indefinitely for a model_list
+/// response), and the fetch future may own a spawned child process. Timing out drops that
+/// future, tearing the fetch (and its subprocess) down instead of leaking it.
+const SUPPORTED_MODELS_TIMEOUT: Duration = Duration::from_secs(10);
 
 const ACP_READINESS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
@@ -504,25 +511,36 @@ impl GooseAcpAgent {
         &self,
         req: ProviderSupportedModelsListRequest,
     ) -> Result<ProviderSupportedModelsListResponse, agent_client_protocol::Error> {
-        let provider = self
-            .create_provider(&req.provider_id, Vec::new(), None, true)
-            .await
-            .internal_err_ctx("Failed to initialize provider")?;
-        let models = match provider.fetch_supported_models().await {
-            Ok(models) => models,
-            Err(goose_providers::errors::ProviderError::Authentication(error)) => {
-                return Err(agent_client_protocol::Error::auth_required().data(error));
-            }
-            Err(goose_providers::errors::ProviderError::NotConfigured) => {
-                return Err(agent_client_protocol::Error::invalid_params()
-                    .data(format!("Provider is not configured: {}", req.provider_id)));
-            }
-            Err(error) => {
-                return Err(agent_client_protocol::Error::internal_error().data(format!(
+        // An ACP adapter can hang during startup as easily as during the fetch, so the
+        // deadline has to cover provider creation too.
+        let discover = async {
+            let provider = self
+                .create_provider(&req.provider_id, Vec::new(), None, true)
+                .await
+                .internal_err_ctx("Failed to initialize provider")?;
+            match provider.fetch_supported_models().await {
+                Ok(models) => Ok(models),
+                Err(goose_providers::errors::ProviderError::Authentication(error)) => {
+                    Err(agent_client_protocol::Error::auth_required().data(error))
+                }
+                Err(goose_providers::errors::ProviderError::NotConfigured) => {
+                    Err(agent_client_protocol::Error::invalid_params()
+                        .data(format!("Provider is not configured: {}", req.provider_id)))
+                }
+                Err(error) => Err(agent_client_protocol::Error::internal_error().data(format!(
                     "Failed to fetch provider supported models: {error}"
-                )));
+                ))),
             }
         };
+        let models = tokio::time::timeout(SUPPORTED_MODELS_TIMEOUT, discover)
+            .await
+            .map_err(|_| {
+                agent_client_protocol::Error::internal_error().data(format!(
+                    "Live model discovery for '{}' timed out after {}s",
+                    req.provider_id,
+                    SUPPORTED_MODELS_TIMEOUT.as_secs()
+                ))
+            })??;
 
         Ok(ProviderSupportedModelsListResponse {
             provider_id: req.provider_id,
