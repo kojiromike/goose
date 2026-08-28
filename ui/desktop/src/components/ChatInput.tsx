@@ -543,6 +543,24 @@ export default function ChatInput({
   const [savedInput, setSavedInput] = useState('');
   const [isInGlobalHistory, setIsInGlobalHistory] = useState(false);
   const [hasUserTyped, setHasUserTyped] = useState(false);
+  const [enterInsertsNewline, setEnterInsertsNewline] = useState(false);
+
+  useEffect(() => {
+    const loadEnterInsertsNewline = async () => {
+      const value = await window.electron.getSetting('enterInsertsNewline');
+      setEnterInsertsNewline(value === true);
+    };
+    loadEnterInsertsNewline();
+    // settings-changed is broadcast from the main process to every window,
+    // so toggling the setting in one window updates chat inputs in all of them
+    const handleSettingsChanged = (_event: unknown, payload: unknown) => {
+      if ((payload as { key?: string })?.key === 'enterInsertsNewline') {
+        loadEnterInsertsNewline();
+      }
+    };
+    window.electron.on('settings-changed', handleSettingsChanged);
+    return () => window.electron.off('settings-changed', handleSettingsChanged);
+  }, []);
 
   // Use shared file drop hook for ChatInput
   const {
@@ -1196,17 +1214,28 @@ export default function ChatInput({
     handleHistoryNavigation(evt);
 
     if (evt.key === 'Enter') {
-      // should not trigger submit on Enter if it's composing (IME input in progress) or shift/alt(option) is pressed
-      if (evt.shiftKey || isComposing) {
-        // Allow line break for Shift+Enter, or during IME composition
+      // Never submit while IME composition is in progress
+      if (isComposing) {
         return;
       }
 
-      if (evt.altKey) {
-        const newValue = displayValue + '\n';
-        setDisplayValue(newValue);
-        setValue(newValue);
-        return;
+      if (enterInsertsNewline) {
+        // Inverted mode: plain Enter inserts a newline; Shift/Cmd/Ctrl+Enter sends
+        if (!evt.shiftKey && !evt.metaKey && !evt.ctrlKey) {
+          return;
+        }
+      } else {
+        if (evt.shiftKey) {
+          // Allow line break for Shift+Enter
+          return;
+        }
+
+        if (evt.altKey) {
+          const newValue = displayValue + '\n';
+          setDisplayValue(newValue);
+          setValue(newValue);
+          return;
+        }
       }
 
       evt.preventDefault();

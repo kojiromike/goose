@@ -1984,6 +1984,7 @@ const validSettingKeys: Set<string> = new Set([
   'language',
   'responseStyle',
   'showPricing',
+  'enterInsertsNewline',
   'seenAnnouncementIds',
   'disableAutoDownload',
   'recentModels',
@@ -2017,6 +2018,13 @@ ipcMain.handle('set-setting', (_event, key: SettingKey, value: unknown) => {
 
   if (key === 'disableAutoDownload') {
     setAutoDownloadDisabled(value as boolean);
+  }
+
+  // Notify every window (including the sender) so open views pick up the change
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send('settings-changed', { key });
+    }
   }
 });
 
