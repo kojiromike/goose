@@ -106,6 +106,7 @@ async fn bootstrap_config_option_response_refreshes_the_effort_mirror() {
         GooseMode::default(),
         config,
         ByteStreams::new(client_write.compat_write(), client_read.compat()),
+        None,
     )
     .await
     .expect("provider should connect to the scripted agent");
@@ -185,6 +186,7 @@ async fn new_session_preserves_pre_response_effort_update() {
             notification_callback: None,
         },
         ByteStreams::new(client_write.compat_write(), client_read.compat()),
+        None,
     )
     .await
     .expect("provider should preserve the pre-response update");
@@ -295,6 +297,7 @@ async fn loaded_session_refreshes_the_effort_mirror() {
         GooseMode::default(),
         config,
         ByteStreams::new(client_write.compat_write(), client_read.compat()),
+        None,
     )
     .await
     .expect("provider should connect to the scripted agent");

@@ -102,16 +102,16 @@ impl GooseAcpAgent {
         // Deleting removes the loaded agent, so an in-flight prompt run would
         // resume against a missing session. Client-side gating cannot see runs
         // owned by other windows sharing this server, so refuse here too.
+        let session_id = req.session_id.0.to_string();
         if self
             .active_prompt_runs
             .lock()
             .await
-            .contains_key(&req.session_id)
+            .contains_key(&session_id)
         {
             return Err(agent_client_protocol::Error::invalid_params()
                 .data("cannot delete a session while it has an active prompt run"));
         }
-        let session_id = req.session_id.0.to_string();
         self.session_manager
             .delete_session(&session_id)
             .await
