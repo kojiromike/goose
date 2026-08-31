@@ -77,6 +77,20 @@ mod tests {
     }
 
     #[test]
+    fn configured_model_preserves_context_window_hint() {
+        let directory = tempfile::tempdir().unwrap();
+        let config =
+            crate::config::Config::new(directory.path().join("config.yaml"), "test").unwrap();
+        config.set_goose_provider("claude-acp").unwrap();
+        config.set_goose_model("claude-fable-5[1m]").unwrap();
+
+        assert_eq!(
+            configured_model_for_provider(&config, "claude-acp"),
+            "claude-fable-5[1m]"
+        );
+    }
+
+    #[test]
     fn identifies_typed_auth_required_errors() {
         let error = anyhow::Error::new(agent_client_protocol::Error::auth_required());
 
