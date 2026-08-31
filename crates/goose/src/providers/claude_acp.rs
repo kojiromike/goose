@@ -4,7 +4,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::acp::{
-    extension_configs_to_mcp_servers, AcpProvider, AcpProviderConfig, ACP_CURRENT_MODEL,
+    configured_model_for_provider, extension_configs_to_mcp_servers, AcpProvider,
+    AcpProviderConfig, ACP_CURRENT_MODEL,
 };
 use crate::config::search_path::SearchPaths;
 use crate::config::{Config, GooseMode};
@@ -70,6 +71,19 @@ fn provider_config(
         .resolve(CLAUDE_ACP_BINARY)?;
     let mode_mapping = mode_mapping();
 
+    // Pin the configured model at session creation, before the first prompt.
+    // Sending it only via the later apply_model_if_changed path leaves the
+    // session on the adapter's default model until the first stream, and
+    // context-window hints like "[1m]" in the model name only reliably select
+    // the extended window when the backing session starts on that spelling —
+    // on Vertex a bare model id is a hard 200k window.
+    let model = configured_model_for_provider(Config::global(), CLAUDE_ACP_PROVIDER_NAME);
+    let session_config_options = if model == ACP_CURRENT_MODEL {
+        vec![]
+    } else {
+        vec![("model".to_string(), model)]
+    };
+
     Ok(AcpProviderConfig {
         command: resolved_command,
         args: vec![],
@@ -79,7 +93,7 @@ fn provider_config(
         work_dir: working_dir,
         mcp_servers: extension_configs_to_mcp_servers(extensions),
         session_mode_id: mode_mapping[&goose_mode].first().cloned(),
-        session_config_options: vec![],
+        session_config_options,
         // claude-agent-acp advertises the model as a "model" select config
         // option and applies session/set_config_option for it via
         // query.setModel, so forward the picker's selection.
