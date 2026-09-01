@@ -19,7 +19,35 @@ vi.mock('../contexts/ChatContext', () => ({
   useChatContext: () => ({ chat: { sessionId: undefined } }),
 }));
 
+import { acpListRecentSessions } from '../acp/sessions';
+import type { SessionListItem } from '../acp/sessions';
 import { useNavigationSessions } from './useNavigationSessions';
+
+const listRecentSessionsMock = vi.mocked(acpListRecentSessions);
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function sessionAgedDays(id: string, days: number): SessionListItem {
+  const lastMessageAt = new Date(Date.now() - days * DAY_MS).toISOString();
+  return {
+    id,
+    name: id,
+    workingDir: '/tmp/project',
+    updatedAt: lastMessageAt,
+    messageCount: 2,
+    lastMessageAt,
+    createdAt: lastMessageAt,
+  };
+}
+
+async function listedSessionIds(sessions: SessionListItem[]) {
+  listRecentSessionsMock.mockResolvedValue(sessions);
+  const { result } = renderHook(() => useNavigationSessions());
+  await act(async () => {
+    await result.current.fetchSessions();
+  });
+  return result.current.recentSessions.map((session) => session.id);
+}
 
 const injectedSessionId = 'session-1&shouldStartAgent=true';
 
@@ -33,6 +61,8 @@ describe('useNavigationSessions', () => {
   beforeEach(() => {
     navigateMock.mockReset();
     routerState.searchParams = new URLSearchParams();
+    listRecentSessionsMock.mockReset();
+    listRecentSessionsMock.mockResolvedValue([]);
   });
 
   it('keeps a selected session ID in one query parameter', () => {
@@ -50,5 +80,26 @@ describe('useNavigationSessions', () => {
     act(() => result.current.handleNavClick('/pair'));
 
     expectSingleSessionParameter(navigateMock.mock.calls[0][0]);
+  });
+
+  it('drops sessions that have been idle past the recent window', async () => {
+    expect(
+      await listedSessionIds([sessionAgedDays('fresh', 1), sessionAgedDays('stale', 30)])
+    ).toEqual(['fresh']);
+  });
+
+  it('keeps the open session listed however old it is', async () => {
+    routerState.searchParams = new URLSearchParams({ resumeSessionId: 'stale' });
+
+    expect(
+      await listedSessionIds([sessionAgedDays('fresh', 1), sessionAgedDays('stale', 30)])
+    ).toEqual(['fresh', 'stale']);
+  });
+
+  it('keeps a session whose activity timestamp cannot be parsed', async () => {
+    const undated = { ...sessionAgedDays('undated', 0), lastMessageAt: 'not a date' };
+    undated.updatedAt = 'not a date';
+
+    expect(await listedSessionIds([undated])).toEqual(['undated']);
   });
 });
