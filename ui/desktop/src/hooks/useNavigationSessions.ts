@@ -13,6 +13,24 @@ import { groupSessionsByProject } from '../utils/projectSessions';
 
 const MAX_RECENT_SESSIONS = 25;
 
+// Chats shows what you are working on now, not everything you have ever run: a
+// session leaves the sidebar once it has been idle this long, so the list decays
+// on its own instead of needing a manual archive on every stale chat. Nothing is
+// removed — older chats stay in Session History and in search.
+const RECENT_WINDOW_DAYS = 7;
+const RECENT_WINDOW_MS = RECENT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+function sessionActivityAt(session: SessionListItem): number {
+  return Date.parse(session.lastMessageAt ?? session.updatedAt);
+}
+
+// A timestamp we cannot read keeps the session visible; dropping a chat because
+// its date failed to parse would hide it with nothing to notice.
+export function isWithinRecentWindow(session: SessionListItem, now: number): boolean {
+  const activityAt = sessionActivityAt(session);
+  return Number.isNaN(activityAt) || now - activityAt <= RECENT_WINDOW_MS;
+}
+
 function pairSessionPath(sessionId: string): string {
   const searchParams = new URLSearchParams({ resumeSessionId: sessionId });
   return `/pair?${searchParams.toString()}`;
@@ -61,15 +79,25 @@ export function useNavigationSessions() {
   const chatContext = useChatContext();
 
   const [recentSessions, setRecentSessions] = useState<SessionListItem[]>([]);
-  const recentSessionsByProject = useMemo(
-    () => groupSessionsByProject(recentSessions),
-    [recentSessions]
-  );
   const lastSessionIdRef = useRef<string | null>(null);
 
   const activeSessionId = searchParams.get('resumeSessionId') ?? undefined;
   const currentSessionId =
     location.pathname === '/pair' ? searchParams.get('resumeSessionId') : null;
+
+  // The chat you have open stays listed however old it is; opening a session and
+  // not finding it in the sidebar reads as the app losing it.
+  const visibleSessions = useMemo(() => {
+    const now = Date.now();
+    return recentSessions.filter(
+      (session) => session.id === activeSessionId || isWithinRecentWindow(session, now)
+    );
+  }, [recentSessions, activeSessionId]);
+
+  const recentSessionsByProject = useMemo(
+    () => groupSessionsByProject(visibleSessions),
+    [visibleSessions]
+  );
 
   useEffect(() => {
     if (currentSessionId) {
@@ -252,7 +280,7 @@ export function useNavigationSessions() {
   );
 
   return {
-    recentSessions,
+    recentSessions: visibleSessions,
     recentSessionsByProject,
     activeSessionId,
     fetchSessions,
