@@ -1,6 +1,7 @@
 mod common;
 pub(crate) mod fs;
 mod handoff;
+pub mod llm_backend;
 mod mcp_app_proxy;
 mod provider;
 mod response_builder;
@@ -12,6 +13,7 @@ pub mod transport;
 
 pub use common::{map_permission_response, PermissionDecision};
 pub use goose_sdk_types::{custom_notifications, custom_requests};
+pub use llm_backend::{LlmBackend, LlmBackendKind, LlmBackendSettings, VertexRouting};
 pub use provider::{
     extension_configs_to_mcp_servers, AcpProvider, AcpProviderConfig, ACP_CURRENT_MODEL,
 };

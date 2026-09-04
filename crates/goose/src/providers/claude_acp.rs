@@ -3,6 +3,7 @@ use futures::future::BoxFuture;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use crate::acp::llm_backend::configured_backend;
 use crate::acp::{
     extension_configs_to_mcp_servers, AcpProvider, AcpProviderConfig, ACP_CURRENT_MODEL,
 };
@@ -95,6 +96,7 @@ impl ProviderDef for ClaudeAcpProvider {
                 // via query.setModel, so forward the picker's selection.
                 model_config_option_id: Some("model".to_string()),
                 mode_mapping,
+                llm_backend: configured_backend(config, CLAUDE_ACP_PROVIDER_NAME)?,
                 notification_callback: None,
             };
 

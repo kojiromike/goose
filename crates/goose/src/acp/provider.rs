@@ -33,6 +33,7 @@ use tokio::sync::{mpsc, oneshot, watch, Mutex as TokioMutex};
 use tokio_util::compat::{TokioAsyncReadCompatExt as _, TokioAsyncWriteCompatExt as _};
 
 use crate::acp::handoff::{build_handoff_context_memo, memo_token_budget, prompt_token_cost};
+use crate::acp::llm_backend::{disable_request, set_provider_request, LlmBackend, LlmBackendState};
 use crate::acp::{map_permission_response, PermissionDecision};
 use crate::config::{Config, ExtensionConfig, GooseMode};
 use crate::conversation::message::{Message, MessageContent, TOOL_META_EXTERNAL_DISPATCH_KEY};
@@ -72,6 +73,9 @@ pub struct AcpProviderConfig {
     /// whenever the active session model changes.
     pub model_config_option_id: Option<String>,
     pub mode_mapping: HashMap<GooseMode, Vec<String>>,
+    /// Backend the agent's API traffic should reach, applied with `providers/set`
+    /// before the first session. `None` leaves the agent on its own routing.
+    pub llm_backend: Option<LlmBackend>,
     pub notification_callback: Option<Arc<dyn Fn(SessionNotification) + Send + Sync>>,
 }
 
@@ -101,6 +105,10 @@ enum ClientRequest {
         session_id: SessionId,
         content: Vec<ContentBlock>,
         response_tx: mpsc::Sender<AcpUpdate>,
+    },
+    SetLlmBackend {
+        backend: Option<LlmBackend>,
+        response_tx: oneshot::Sender<Result<()>>,
     },
 }
 
@@ -302,6 +310,13 @@ pub struct AcpProvider {
     /// switch), so the persisted value is re-applied when that happens.
     effort: AcpEffortState,
 
+    /// Whether the agent advertised the `providers` capability, i.e. whether the
+    /// backend can be chosen at all.
+    supports_llm_backends: bool,
+    /// Backend currently applied with `providers/set`. `None` is the agent's own
+    /// routing.
+    llm_backend: Mutex<Option<LlmBackend>>,
+
     tx: Option<mpsc::Sender<ClientRequest>>,
     cancel_tx: Option<oneshot::Sender<()>>,
     loop_thread: Option<JoinHandle<()>>,
@@ -386,6 +401,7 @@ impl AcpProvider {
         let (init_tx, init_rx) = oneshot::channel();
         let mode_mapping = config.mode_mapping.clone();
         let model_config_option_id = config.model_config_option_id.clone();
+        let llm_backend = config.llm_backend.clone();
         let applied_model = config.model_config_option_id.as_ref().and_then(|id| {
             config
                 .session_config_options
@@ -413,9 +429,10 @@ impl AcpProvider {
             thread: Some(loop_thread),
         };
 
-        let _init_response = init_rx
+        let init_response = init_rx
             .await
             .context("ACP client initialization cancelled")??;
+        let supports_llm_backends = init_response.agent_capabilities.providers.is_some();
 
         // Create the ACP session eagerly during connect.
         let (session_tx, session_rx) = oneshot::channel();
@@ -449,6 +466,8 @@ impl AcpProvider {
             model_config_option_id,
             applied_model: Arc::new(Mutex::new(applied_model)),
             effort,
+            supports_llm_backends,
+            llm_backend: Mutex::new(llm_backend),
             tx: client_loop_guard.tx.take(),
             cancel_tx: client_loop_guard.cancel_tx.take(),
             loop_thread: client_loop_guard.thread.take(),
@@ -457,6 +476,44 @@ impl AcpProvider {
 
     fn acp_session_id(&self) -> SessionId {
         self.session.lock().unwrap().id.clone()
+    }
+
+    /// Whether the agent lets its client choose which LLM backend it talks to.
+    pub fn supports_llm_backends(&self) -> bool {
+        self.supports_llm_backends
+    }
+
+    pub fn llm_backend(&self) -> Option<LlmBackend> {
+        self.llm_backend.lock().unwrap().clone()
+    }
+
+    /// Route the agent's API traffic to `backend`, or hand routing back to the
+    /// agent with `None`. claude-agent-acp waits for any running turn and then
+    /// recreates its open sessions against the new backend, so this is safe to
+    /// call mid-conversation.
+    pub async fn switch_llm_backend(&self, backend: Option<LlmBackend>) -> Result<()> {
+        if !self.supports_llm_backends {
+            return Err(anyhow::anyhow!(
+                "{} does not support choosing an LLM backend",
+                self.name
+            ));
+        }
+
+        let (response_tx, response_rx) = oneshot::channel();
+        self.tx
+            .as_ref()
+            .unwrap()
+            .send(ClientRequest::SetLlmBackend {
+                backend: backend.clone(),
+                response_tx,
+            })
+            .await
+            .context("ACP client is unavailable")?;
+        response_rx
+            .await
+            .context("ACP backend switch cancelled")??;
+        *self.llm_backend.lock().unwrap() = backend;
+        Ok(())
     }
 
     async fn load_session(&self, session_id: SessionId) -> Result<AcpSession> {
@@ -755,6 +812,18 @@ impl Provider for AcpProvider {
 
     fn subscribe_thinking_effort_support(&self) -> Option<watch::Receiver<ThinkingEffortSupport>> {
         Some(self.effort.updates.subscribe())
+    }
+
+    fn llm_backend_state(&self) -> Option<LlmBackendState> {
+        self.supports_llm_backends.then(|| LlmBackendState {
+            active: self.llm_backend(),
+        })
+    }
+
+    async fn set_llm_backend(&self, backend: Option<LlmBackend>) -> Result<(), ProviderError> {
+        self.switch_llm_backend(backend)
+            .await
+            .map_err(|error| ProviderError::ExecutionError(error.to_string()))
     }
 
     async fn set_thinking_effort(
@@ -1554,7 +1623,21 @@ async fn handle_requests(
         .close
         .is_some();
     let supports_load = init_response.agent_capabilities.load_session;
+    let supports_llm_backends = init_response.agent_capabilities.providers.is_some();
     let mcp_capabilities = init_response.agent_capabilities.mcp_capabilities.clone();
+
+    // Routing has to be in place before the first session is created: the agent
+    // bakes it into each session's query, so a session created first would keep
+    // talking to the wrong backend until it is recreated.
+    if let Some(backend) = config.llm_backend.clone() {
+        if let Err(error) = apply_llm_backend(&cx, supports_llm_backends, Some(backend)).await {
+            if let Some(tx) = init_tx.take() {
+                let _ = tx.send(Err(error));
+            }
+            return Ok(());
+        }
+    }
+
     if let Some(tx) = init_tx.take() {
         log_undelivered(tx.send(Ok(init_response)), AGENT_METHOD_NAMES.initialize);
     }
@@ -1723,6 +1806,13 @@ async fn handle_requests(
 
                 *prompt_response_tx.lock().unwrap() = None;
             }
+            ClientRequest::SetLlmBackend {
+                backend,
+                response_tx,
+            } => {
+                let result = apply_llm_backend(&cx, supports_llm_backends, backend).await;
+                log_undelivered(response_tx.send(result), PROVIDERS_SET_METHOD);
+            }
         }
     }
 
@@ -1738,6 +1828,41 @@ async fn handle_requests(
         }
     }
 
+    Ok(())
+}
+
+const PROVIDERS_SET_METHOD: &str = "providers/set";
+const PROVIDERS_DISABLE_METHOD: &str = "providers/disable";
+
+/// Point the agent at `backend`, or restore its own routing with `None`.
+async fn apply_llm_backend(
+    cx: &ConnectionTo<Agent>,
+    supported: bool,
+    backend: Option<LlmBackend>,
+) -> Result<()> {
+    if !supported {
+        return Err(anyhow::anyhow!(
+            "ACP agent does not advertise the providers capability, so its LLM backend cannot be selected"
+        ));
+    }
+
+    match backend {
+        Some(backend) => {
+            let label = backend.label();
+            cx.send_request(set_provider_request(&backend))
+                .block_task()
+                .await
+                .map_err(|err| {
+                    anyhow::anyhow!("ACP agent rejected {PROVIDERS_SET_METHOD} for {label}: {err}")
+                })?;
+        }
+        None => {
+            cx.send_request(disable_request())
+                .block_task()
+                .await
+                .map_err(|err| anyhow::anyhow!("ACP {PROVIDERS_DISABLE_METHOD} failed: {err}"))?;
+        }
+    }
     Ok(())
 }
 
@@ -2518,6 +2643,8 @@ mod tests {
                 model_config_option_id: None,
                 applied_model: Arc::new(Mutex::new(None)),
                 effort: AcpEffortState::new(),
+                supports_llm_backends: false,
+                llm_backend: Mutex::new(None),
                 tx,
                 cancel_tx: None,
                 loop_thread: None,
@@ -3983,6 +4110,7 @@ mod tests {
             session_config_options: vec![],
             model_config_option_id: None,
             mode_mapping,
+            llm_backend: None,
             notification_callback: None,
         }
     }
