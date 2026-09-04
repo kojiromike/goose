@@ -2348,6 +2348,9 @@
   "navigationPanel.chats": {
     "defaultMessage": "채팅"
   },
+  "navigationPanel.endSession": {
+    "defaultMessage": "세션 종료"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "생성됨"
   },
@@ -2371,6 +2374,9 @@
   },
   "navigationPanel.statusIdle": {
     "defaultMessage": "유휴"
+  },
+  "navigationPanel.statusLive": {
+    "defaultMessage": "로드됨"
   },
   "navigationPanel.statusStreaming": {
     "defaultMessage": "스트리밍"
@@ -3760,6 +3766,9 @@
   },
   "sessionIndicators.error": {
     "defaultMessage": "세션에 오류가 발생했습니다."
+  },
+  "sessionIndicators.live": {
+    "defaultMessage": "로드됨 — 에이전트를 열어 둔 상태"
   },
   "sessionIndicators.newActivity": {
     "defaultMessage": "새로운 활동 있음"

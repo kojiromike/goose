@@ -15,19 +15,26 @@ const i18n = defineMessages({
     id: 'sessionIndicators.newActivity',
     defaultMessage: 'Has new activity',
   },
+  live: {
+    id: 'sessionIndicators.live',
+    defaultMessage: 'Loaded — holding an agent open',
+  },
 });
 
 interface SessionIndicatorsProps {
   isStreaming: boolean;
   hasUnread: boolean;
   hasError: boolean;
+  isLive: boolean;
 }
 
 /**
- * Visual indicators for session status (priority order: error > streaming > unread)
+ * Visual indicators for session status (priority order: error > streaming >
+ * unread > live). `isStreaming` and `isLive` come from the server, so they
+ * describe the session itself rather than what this window last saw.
  */
 export const SessionIndicators = React.memo<SessionIndicatorsProps>(
-  ({ isStreaming, hasUnread, hasError }) => {
+  ({ isStreaming, hasUnread, hasError, isLive }) => {
     const intl = useIntl();
 
     if (hasError) {
@@ -53,6 +60,17 @@ export const SessionIndicators = React.memo<SessionIndicatorsProps>(
       return (
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 bg-green-500 rounded-full" aria-label={intl.formatMessage(i18n.newActivity)} />
+        </div>
+      );
+    }
+
+    if (isLive) {
+      return (
+        <div className="flex items-center gap-1">
+          <div
+            className="w-2 h-2 rounded-full border border-text-secondary"
+            aria-label={intl.formatMessage(i18n.live)}
+          />
         </div>
       );
     }

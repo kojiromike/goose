@@ -2348,6 +2348,9 @@
   "navigationPanel.chats": {
     "defaultMessage": "Obrolan"
   },
+  "navigationPanel.endSession": {
+    "defaultMessage": "Akhiri sesi"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Dibuat"
   },
@@ -2371,6 +2374,9 @@
   },
   "navigationPanel.statusIdle": {
     "defaultMessage": "Menganggur"
+  },
+  "navigationPanel.statusLive": {
+    "defaultMessage": "Dimuat"
   },
   "navigationPanel.statusStreaming": {
     "defaultMessage": "Streaming"
@@ -3760,6 +3766,9 @@
   },
   "sessionIndicators.error": {
     "defaultMessage": "Sesi mengalami kesalahan"
+  },
+  "sessionIndicators.live": {
+    "defaultMessage": "Dimuat — menahan agen tetap terbuka"
   },
   "sessionIndicators.newActivity": {
     "defaultMessage": "Memiliki aktivitas baru"

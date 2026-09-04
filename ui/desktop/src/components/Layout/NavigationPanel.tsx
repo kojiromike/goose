@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Power } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigationContext } from './NavigationContext';
 import { useConfig } from '../ConfigContext';
@@ -14,7 +14,8 @@ import {
 import { AppEvents } from '../../constants/events';
 import { InlineEditText } from '../common/InlineEditText';
 import { SessionIndicators } from '../SessionIndicators';
-import { acpRenameSession, type SessionListItem } from '../../acp/sessions';
+import { acpCloseSession, acpRenameSession, type SessionListItem } from '../../acp/sessions';
+import type { LiveSession } from '../../acp/liveSessions';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/Tooltip';
 import { formatMessageTimestamp } from '../../utils/timeUtils';
 import { cn } from '../../utils';
@@ -22,6 +23,8 @@ import type { ProjectGroup } from '../../utils/projectSessions';
 import { defineMessages, useIntl } from '../../i18n';
 
 type StreamState = 'idle' | 'loading' | 'streaming' | 'error';
+
+const LIVE_REFRESH_INTERVAL_MS = 5000;
 
 interface SessionStatus {
   streamState: StreamState;
@@ -77,6 +80,14 @@ const i18n = defineMessages({
     id: 'navigationPanel.statusIdle',
     defaultMessage: 'Idle',
   },
+  statusLive: {
+    id: 'navigationPanel.statusLive',
+    defaultMessage: 'Loaded',
+  },
+  endSession: {
+    id: 'navigationPanel.endSession',
+    defaultMessage: 'End session',
+  },
 });
 
 const navItemClass = (active: boolean) =>
@@ -112,8 +123,11 @@ interface SessionRowProps {
   session: SessionListItem;
   active: boolean;
   status: SessionStatus | undefined;
+  /** Present when the server is holding an agent open for this session. */
+  live: LiveSession | undefined;
   onClick: () => void;
   onRenamed: () => void;
+  onEnded: () => void;
 }
 
 const formatTimestamp = (value?: string): string | null => {
@@ -163,13 +177,23 @@ const SessionTooltipContent: React.FC<SessionTooltipContentProps> = ({ session, 
   );
 };
 
-const SessionRow: React.FC<SessionRowProps> = ({ session, active, status, onClick, onRenamed }) => {
+const SessionRow: React.FC<SessionRowProps> = ({
+  session,
+  active,
+  status,
+  live,
+  onClick,
+  onRenamed,
+  onEnded,
+}) => {
   const intl = useIntl();
   const [isEditing, setIsEditing] = useState(false);
   const [tooltipOpen, setTooltipOpen] = useState(false);
-  const isStreaming = status?.streamState === 'streaming';
+  const [isEnding, setIsEnding] = useState(false);
+  const isStreaming = live?.runningTurn ?? false;
   const hasError = status?.streamState === 'error';
   const hasUnread = status?.hasUnreadActivity ?? false;
+  const isLive = live !== undefined;
 
   const statusLabel = isStreaming
     ? intl.formatMessage(i18n.statusStreaming)
@@ -177,7 +201,20 @@ const SessionRow: React.FC<SessionRowProps> = ({ session, active, status, onClic
       ? intl.formatMessage(i18n.statusError)
       : hasUnread
         ? intl.formatMessage(i18n.statusUnread)
-        : intl.formatMessage(i18n.statusIdle);
+        : isLive
+          ? intl.formatMessage(i18n.statusLive)
+          : intl.formatMessage(i18n.statusIdle);
+
+  const handleEnd = async (event: React.MouseEvent) => {
+    event.stopPropagation();
+    setIsEnding(true);
+    try {
+      await acpCloseSession(session.id);
+      onEnded();
+    } finally {
+      setIsEnding(false);
+    }
+  };
 
   return (
     <Tooltip open={tooltipOpen && !isEditing} onOpenChange={setTooltipOpen} delayDuration={400}>
@@ -185,7 +222,7 @@ const SessionRow: React.FC<SessionRowProps> = ({ session, active, status, onClic
         <div
           onClick={() => !isEditing && onClick()}
           className={cn(
-            'flex items-center gap-2 px-3 py-1.5 rounded-full cursor-pointer text-sm',
+            'group flex items-center gap-2 px-3 py-1.5 rounded-full cursor-pointer text-sm',
             'hover:bg-background-tertiary/60 transition-colors',
             active && 'bg-background-tertiary'
           )}
@@ -209,7 +246,23 @@ const SessionRow: React.FC<SessionRowProps> = ({ session, active, status, onClic
             onEditStart={() => setIsEditing(true)}
             onEditEnd={() => setIsEditing(false)}
           />
-          <SessionIndicators isStreaming={isStreaming} hasUnread={hasUnread} hasError={hasError} />
+          {isLive && !isStreaming && (
+            <button
+              onClick={(event) => void handleEnd(event)}
+              disabled={isEnding}
+              aria-label={intl.formatMessage(i18n.endSession)}
+              title={intl.formatMessage(i18n.endSession)}
+              className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-text-secondary hover:text-text-primary transition-opacity"
+            >
+              <Power className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <SessionIndicators
+            isStreaming={isStreaming}
+            hasUnread={hasUnread}
+            hasError={hasError}
+            isLive={isLive}
+          />
         </div>
       </TooltipTrigger>
       <TooltipContent side="right" align="start" className="max-w-xs text-left">
@@ -237,16 +290,17 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
   const isActive = useCallback((path: string) => location.pathname === path, [location.pathname]);
 
   const {
-    recentSessions,
-    recentSessionsByProject,
+    visibleSessions,
+    visibleSessionsByProject,
+    liveSessions,
     activeSessionId,
     fetchSessions,
+    refreshLiveSessions,
     handleNavClick,
     handleSessionClick,
   } = useNavigationSessions();
 
   const [sessionStatuses, setSessionStatuses] = useState<Map<string, SessionStatus>>(new Map());
-
   useEffect(() => {
     const handleStatusUpdate = (event: Event) => {
       const { sessionId, streamState } = (event as CustomEvent).detail;
@@ -265,6 +319,23 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
     window.addEventListener(AppEvents.SESSION_STATUS_UPDATE, handleStatusUpdate);
     return () => window.removeEventListener(AppEvents.SESSION_STATUS_UPDATE, handleStatusUpdate);
   }, []);
+
+  // A chat view only reports the sessions this window has open, so poll the
+  // server for the rest. Turn boundaries are re-read immediately so the
+  // spinner does not wait out the interval.
+  useEffect(() => {
+    if (!isNavExpanded) return undefined;
+
+    void refreshLiveSessions();
+    const onStatusUpdate = () => void refreshLiveSessions();
+    window.addEventListener(AppEvents.SESSION_STATUS_UPDATE, onStatusUpdate);
+    const interval = window.setInterval(() => void refreshLiveSessions(), LIVE_REFRESH_INTERVAL_MS);
+
+    return () => {
+      window.removeEventListener(AppEvents.SESSION_STATUS_UPDATE, onStatusUpdate);
+      window.clearInterval(interval);
+    };
+  }, [isNavExpanded, refreshLiveSessions]);
 
   const clearUnread = useCallback((sessionId: string) => {
     setSessionStatuses((prev) => {
@@ -341,12 +412,12 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
         </button>
         {isChatsExpanded && (
           <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 mt-1">
-            {recentSessions.length === 0 ? (
+            {visibleSessions.length === 0 ? (
               <div className="px-3 py-2 text-xs text-text-secondary">
                 {intl.formatMessage(i18n.noChats)}
               </div>
-            ) : recentSessionsByProject.length > 1 ? (
-              recentSessionsByProject.map((group: ProjectGroup) => {
+            ) : visibleSessionsByProject.length > 1 ? (
+              visibleSessionsByProject.map((group: ProjectGroup) => {
                 const isCollapsed = collapsedProjects.has(group.path);
                 return (
                   <React.Fragment key={group.path}>
@@ -370,28 +441,32 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                           session={session}
                           active={session.id === activeSessionId}
                           status={sessionStatuses.get(session.id)}
+                          live={liveSessions.get(session.id)}
                           onClick={() => {
                             clearUnread(session.id);
                             handleSessionClick(session.id);
                           }}
                           onRenamed={fetchSessions}
+                          onEnded={refreshLiveSessions}
                         />
                       ))}
                   </React.Fragment>
                 );
               })
             ) : (
-              recentSessions.map((session) => (
+              visibleSessions.map((session) => (
                 <SessionRow
                   key={session.id}
                   session={session}
                   active={session.id === activeSessionId}
                   status={sessionStatuses.get(session.id)}
+                  live={liveSessions.get(session.id)}
                   onClick={() => {
                     clearUnread(session.id);
                     handleSessionClick(session.id);
                   }}
                   onRenamed={fetchSessions}
+                  onEnded={refreshLiveSessions}
                 />
               ))
             )}

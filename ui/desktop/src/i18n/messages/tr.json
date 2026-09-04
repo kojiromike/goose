@@ -2348,6 +2348,9 @@
   "navigationPanel.chats": {
     "defaultMessage": "Sohbetler"
   },
+  "navigationPanel.endSession": {
+    "defaultMessage": "Oturumu sonlandır"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Oluşturuldu"
   },
@@ -2371,6 +2374,9 @@
   },
   "navigationPanel.statusIdle": {
     "defaultMessage": "Boşta"
+  },
+  "navigationPanel.statusLive": {
+    "defaultMessage": "Yüklü"
   },
   "navigationPanel.statusStreaming": {
     "defaultMessage": "Akış"
@@ -3760,6 +3766,9 @@
   },
   "sessionIndicators.error": {
     "defaultMessage": "Oturum bir hatayla karşılaştı"
+  },
+  "sessionIndicators.live": {
+    "defaultMessage": "Yüklü — bir aracıyı açık tutuyor"
   },
   "sessionIndicators.newActivity": {
     "defaultMessage": "Yeni aktivite var"

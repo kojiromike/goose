@@ -2372,6 +2372,9 @@
   "navigationPanel.chats": {
     "defaultMessage": "Chats"
   },
+  "navigationPanel.endSession": {
+    "defaultMessage": "End session"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Created"
   },
@@ -2395,6 +2398,9 @@
   },
   "navigationPanel.statusIdle": {
     "defaultMessage": "Idle"
+  },
+  "navigationPanel.statusLive": {
+    "defaultMessage": "Loaded"
   },
   "navigationPanel.statusStreaming": {
     "defaultMessage": "Streaming"
@@ -3808,6 +3814,9 @@
   },
   "sessionIndicators.error": {
     "defaultMessage": "Session encountered an error"
+  },
+  "sessionIndicators.live": {
+    "defaultMessage": "Loaded — holding an agent open"
   },
   "sessionIndicators.newActivity": {
     "defaultMessage": "Has new activity"

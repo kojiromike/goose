@@ -2348,6 +2348,9 @@
   "navigationPanel.chats": {
     "defaultMessage": "Chat"
   },
+  "navigationPanel.endSession": {
+    "defaultMessage": "Termina sessione"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Creato"
   },
@@ -2371,6 +2374,9 @@
   },
   "navigationPanel.statusIdle": {
     "defaultMessage": "Inattivo"
+  },
+  "navigationPanel.statusLive": {
+    "defaultMessage": "Caricata"
   },
   "navigationPanel.statusStreaming": {
     "defaultMessage": "In streaming"
@@ -3760,6 +3766,9 @@
   },
   "sessionIndicators.error": {
     "defaultMessage": "La sessione ha riscontrato un errore"
+  },
+  "sessionIndicators.live": {
+    "defaultMessage": "Caricata — mantiene un agente aperto"
   },
   "sessionIndicators.newActivity": {
     "defaultMessage": "Ha nuova attività"
