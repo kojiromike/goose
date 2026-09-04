@@ -296,6 +296,7 @@ export default function ModelsBottomBar({
   const vertexRouting = {
     projectId: llmBackend.vertex?.projectId ?? '',
     region: llmBackend.vertex?.region ?? '',
+    model: llmBackend.options.find((option) => option.id === 'vertex')?.model ?? '',
   };
 
   const filteredRecentModels = recentModels.filter(
@@ -434,6 +435,7 @@ export default function ModelsBottomBar({
           sessionId={sessionId}
           projectId={vertexRouting.projectId}
           region={vertexRouting.region}
+          model={vertexRouting.model}
           onSaved={setLlmBackend}
           onClose={() => setIsVertexBackendOpen(false)}
         />

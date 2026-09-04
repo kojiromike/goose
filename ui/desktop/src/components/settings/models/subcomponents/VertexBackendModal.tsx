@@ -22,6 +22,15 @@ const i18n = defineMessages({
     id: 'vertexBackendModal.region',
     defaultMessage: 'Region',
   },
+  model: {
+    id: 'vertexBackendModal.model',
+    defaultMessage: 'Model',
+  },
+  modelHelp: {
+    id: 'vertexBackendModal.modelHelp',
+    defaultMessage:
+      'Vertex spells model ids differently and has no 1M context lane, so it needs its own model.',
+  },
   cancel: {
     id: 'vertexBackendModal.cancel',
     defaultMessage: 'Cancel',
@@ -36,6 +45,7 @@ interface VertexBackendModalProps {
   sessionId: string;
   projectId: string;
   region: string;
+  model: string;
   onSaved: (status: LlmBackendStatus) => void;
   onClose: () => void;
 }
@@ -44,25 +54,29 @@ export function VertexBackendModal({
   sessionId,
   projectId,
   region,
+  model,
   onSaved,
   onClose,
 }: VertexBackendModalProps) {
   const intl = useIntl();
   const [project, setProject] = useState(projectId);
   const [location, setLocation] = useState(region);
+  const [vertexModel, setVertexModel] = useState(model);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSave = project.trim() !== '' && location.trim() !== '' && !saving;
+  const canSave =
+    project.trim() !== '' && location.trim() !== '' && vertexModel.trim() !== '' && !saving;
 
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     try {
-      const status = await acpConfigureLlmBackend(sessionId, {
-        projectId: project.trim(),
-        region: location.trim(),
-      });
+      const status = await acpConfigureLlmBackend(
+        sessionId,
+        { projectId: project.trim(), region: location.trim() },
+        vertexModel.trim()
+      );
       onSaved(status);
       onClose();
     } catch (saveError) {
@@ -99,6 +113,17 @@ export function VertexBackendModal({
           onChange={(event) => setLocation(event.target.value)}
           placeholder="us-east5"
         />
+
+        <label className="block text-xs text-text-primary mt-3 mb-1" htmlFor="vertex-model">
+          {intl.formatMessage(i18n.model)}
+        </label>
+        <Input
+          id="vertex-model"
+          value={vertexModel}
+          onChange={(event) => setVertexModel(event.target.value)}
+          placeholder="claude-opus-5@20260514"
+        />
+        <p className="text-xs text-text-muted mt-1">{intl.formatMessage(i18n.modelHelp)}</p>
 
         {error && <p className="text-xs text-text-error mt-3">{error}</p>}
 

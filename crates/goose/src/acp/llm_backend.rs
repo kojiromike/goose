@@ -59,7 +59,7 @@ pub fn set_provider_request(backend: &LlmBackend) -> SetProvider {
         backend.base_url(),
     );
     SetProvider(match backend {
-        LlmBackend::Anthropic { .. } => request,
+        LlmBackend::AnthropicGateway { .. } => request,
         LlmBackend::Vertex(vertex) => request.meta(vertex_meta(vertex)),
     })
 }
@@ -72,7 +72,7 @@ pub fn disable_request() -> DisableProvider {
 
 fn protocol(backend: &LlmBackend) -> LlmProtocol {
     match backend {
-        LlmBackend::Anthropic { .. } => LlmProtocol::Anthropic,
+        LlmBackend::AnthropicGateway { .. } => LlmProtocol::Anthropic,
         LlmBackend::Vertex(_) => LlmProtocol::Vertex,
     }
 }
@@ -118,26 +118,42 @@ pub struct LlmBackendSettings {
 
 impl LlmBackendSettings {
     pub fn resolve(&self) -> Result<Option<LlmBackend>> {
-        let Some(kind) = self.active else {
-            return Ok(None);
-        };
-        self.backend(kind).map(Some)
+        match self.active {
+            Some(kind) => self.backend(kind),
+            None => Ok(None),
+        }
     }
 
-    pub fn backend(&self, kind: LlmBackendKind) -> Result<LlmBackend> {
+    /// Routing to install for `kind`, or `None` when the answer is to install
+    /// none. Selecting Anthropic normally means "use the login the agent
+    /// already has", which is the absence of routing: pointing the agent's
+    /// anthropic protocol at the first-party API makes it blank its own
+    /// credentials and send a placeholder token, which the API rejects with
+    /// 401. Only an explicit gateway URL is worth routing to.
+    pub fn backend(&self, kind: LlmBackendKind) -> Result<Option<LlmBackend>> {
         match kind {
-            LlmBackendKind::Anthropic => Ok(LlmBackend::Anthropic {
-                base_url: self.anthropic_base_url.clone(),
-            }),
+            LlmBackendKind::Anthropic => Ok(self
+                .anthropic_base_url
+                .clone()
+                .filter(|base_url| !base_url.trim().is_empty())
+                .map(|base_url| LlmBackend::AnthropicGateway { base_url })),
             LlmBackendKind::Vertex => match self.vertex.clone() {
                 Some(vertex)
                     if !vertex.project_id.trim().is_empty() && !vertex.region.trim().is_empty() =>
                 {
-                    Ok(LlmBackend::Vertex(vertex))
+                    Ok(Some(LlmBackend::Vertex(vertex)))
                 }
                 _ => bail!("Vertex AI is selected but its project and region are not configured"),
             },
         }
+    }
+
+    /// Whether a model has to be chosen before this backend can be used.
+    /// Vertex silently drops a model id it does not offer — including the
+    /// `[1m]` context spellings — so carrying the current model over collapses
+    /// the context window instead of failing visibly.
+    pub fn requires_model(&self, kind: LlmBackendKind) -> bool {
+        matches!(kind, LlmBackendKind::Vertex) && self.model_for(kind).is_none()
     }
 
     pub fn model_for(&self, kind: LlmBackendKind) -> Option<&str> {
@@ -227,13 +243,49 @@ mod tests {
         );
     }
 
+    /// Routing the agent's anthropic protocol at the first-party API makes it
+    /// blank its own credentials and send a placeholder token, so selecting
+    /// Anthropic must install no routing at all.
     #[test]
-    fn anthropic_request_defaults_to_the_first_party_endpoint() {
-        let SetProvider(request) = set_provider_request(&LlmBackend::Anthropic { base_url: None });
+    fn anthropic_leaves_the_agent_on_its_own_login() {
+        let settings = LlmBackendSettings {
+            active: Some(LlmBackendKind::Anthropic),
+            ..vertex_settings()
+        };
 
+        assert_eq!(settings.resolve().unwrap(), None);
+    }
+
+    #[test]
+    fn an_explicit_gateway_url_is_the_only_anthropic_routing() {
+        let settings = LlmBackendSettings {
+            active: Some(LlmBackendKind::Anthropic),
+            anthropic_base_url: Some("https://gateway.internal".to_string()),
+            ..Default::default()
+        };
+
+        let backend = settings.resolve().unwrap().expect("gateway routing");
+        assert_eq!(
+            backend,
+            LlmBackend::AnthropicGateway {
+                base_url: "https://gateway.internal".to_string()
+            }
+        );
+
+        let SetProvider(request) = set_provider_request(&backend);
         assert_eq!(request.api_type, LlmProtocol::Anthropic);
-        assert_eq!(request.base_url, "https://api.anthropic.com");
+        assert_eq!(request.base_url, "https://gateway.internal");
         assert!(request.meta.is_none());
+    }
+
+    #[test]
+    fn vertex_cannot_be_selected_until_a_model_is_chosen() {
+        let mut settings = vertex_settings();
+        assert!(settings.requires_model(LlmBackendKind::Vertex));
+
+        settings.remember_model(LlmBackendKind::Vertex, "claude-opus-5@20260514");
+
+        assert!(!settings.requires_model(LlmBackendKind::Vertex));
     }
 
     #[test]
@@ -258,10 +310,7 @@ mod tests {
             ..vertex_settings()
         };
 
-        assert!(matches!(
-            settings.resolve().unwrap(),
-            Some(LlmBackend::Anthropic { .. })
-        ));
+        assert_eq!(settings.resolve().unwrap(), None);
         assert!(settings.vertex.is_some());
     }
 

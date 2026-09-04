@@ -4685,6 +4685,12 @@
   "vertexBackendModal.description": {
     "defaultMessage": "Acheminez Claude Code via votre projet Google Cloud. La connexion à Google Cloud a lieu lorsque vous sélectionnez ce backend."
   },
+  "vertexBackendModal.model": {
+    "defaultMessage": "Modèle"
+  },
+  "vertexBackendModal.modelHelp": {
+    "defaultMessage": "Vertex nomme les ids de modèle différemment et n'a pas de couloir de contexte 1M : il lui faut son propre modèle."
+  },
   "vertexBackendModal.project": {
     "defaultMessage": "ID du projet"
   },

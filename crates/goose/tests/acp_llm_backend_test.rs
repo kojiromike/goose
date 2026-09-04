@@ -213,8 +213,11 @@ async fn switching_is_refused_when_the_agent_cannot_route() {
 }
 
 #[test]
-fn anthropic_routing_uses_the_anthropic_protocol() {
-    let SetProvider(request) = set_provider_request(&LlmBackend::Anthropic { base_url: None });
+fn a_gateway_is_the_only_anthropic_routing() {
+    let SetProvider(request) = set_provider_request(&LlmBackend::AnthropicGateway {
+        base_url: "https://gateway.internal".to_string(),
+    });
 
     assert_eq!(request.api_type, LlmProtocol::Anthropic);
+    assert_eq!(request.base_url, "https://gateway.internal");
 }

@@ -4685,6 +4685,12 @@
   "vertexBackendModal.description": {
     "defaultMessage": "通过你的 Google Cloud 项目路由 Claude Code。选择该后端时会进行 Google Cloud 登录。"
   },
+  "vertexBackendModal.model": {
+    "defaultMessage": "模型"
+  },
+  "vertexBackendModal.modelHelp": {
+    "defaultMessage": "Vertex 的模型 id 写法不同且没有 1M 上下文通道，因此需要单独指定模型。"
+  },
   "vertexBackendModal.project": {
     "defaultMessage": "项目 ID"
   },

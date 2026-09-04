@@ -4685,6 +4685,12 @@
   "vertexBackendModal.description": {
     "defaultMessage": "Định tuyến Claude Code qua dự án Google Cloud của bạn. Việc đăng nhập Google Cloud diễn ra khi bạn chọn backend này."
   },
+  "vertexBackendModal.model": {
+    "defaultMessage": "Mô hình"
+  },
+  "vertexBackendModal.modelHelp": {
+    "defaultMessage": "Vertex viết id mô hình khác và không có làn ngữ cảnh 1M, nên cần mô hình riêng."
+  },
   "vertexBackendModal.project": {
     "defaultMessage": "ID dự án"
   },

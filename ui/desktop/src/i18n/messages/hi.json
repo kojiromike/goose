@@ -4685,6 +4685,12 @@
   "vertexBackendModal.description": {
     "defaultMessage": "अपने Google Cloud प्रोजेक्ट के माध्यम से Claude Code रूट करें। इस बैकएंड को चुनने पर Google Cloud साइन-इन होता है।"
   },
+  "vertexBackendModal.model": {
+    "defaultMessage": "मॉडल"
+  },
+  "vertexBackendModal.modelHelp": {
+    "defaultMessage": "Vertex मॉडल आईडी अलग तरह से लिखता है और उसमें 1M संदर्भ लेन नहीं है, इसलिए उसे अपना मॉडल चाहिए।"
+  },
   "vertexBackendModal.project": {
     "defaultMessage": "प्रोजेक्ट ID"
   },

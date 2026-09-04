@@ -188,7 +188,8 @@ export const zVertexRoutingDto = z.object({
  */
 export const zConfigureLlmBackendRequest_unstable = z.object({
     sessionId: z.string(),
-    vertex: zVertexRoutingDto.nullish()
+    vertex: zVertexRoutingDto.nullish(),
+    vertexModel: z.string().nullish()
 });
 
 /**

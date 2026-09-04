@@ -4685,6 +4685,12 @@
   "vertexBackendModal.description": {
     "defaultMessage": "Google Cloud プロジェクト経由で Claude Code をルーティングします。Google Cloud へのサインインは、このバックエンドを選択したときに行われます。"
   },
+  "vertexBackendModal.model": {
+    "defaultMessage": "モデル"
+  },
+  "vertexBackendModal.modelHelp": {
+    "defaultMessage": "Vertex はモデル ID の表記が異なり 1M コンテキストにも対応していないため、専用のモデルが必要です。"
+  },
   "vertexBackendModal.project": {
     "defaultMessage": "プロジェクト ID"
   },
