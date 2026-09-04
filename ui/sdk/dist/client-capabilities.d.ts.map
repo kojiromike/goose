@@ -1,0 +1,1 @@
+{"version":3,"file":"client-capabilities.d.ts","sourceRoot":"","sources":["../src/client-capabilities.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,wBAAwB,EAAE,MAAM,eAAe,CAAC;AAE9D,MAAM,WAAW,2BAA2B;IAC1C,KAAK,CAAC,EAAE;QACN,mBAAmB,CAAC,EAAE,wBAAwB,CAAC;QAC/C,mBAAmB,CAAC,EAAE,OAAO,CAAC;KAC/B,CAAC;CACH"}

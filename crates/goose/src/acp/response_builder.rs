@@ -544,7 +544,6 @@ mod tests {
             last_updated_at: None,
             last_refresh_attempt_at: None,
             last_refresh_error: None,
-            model_selection_hint: None,
         };
         build_model_state("unused", &inventory)
     }

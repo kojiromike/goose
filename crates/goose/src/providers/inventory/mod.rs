@@ -49,7 +49,6 @@ pub struct ProviderInventoryEntry {
     pub last_updated_at: Option<DateTime<Utc>>,
     pub last_refresh_attempt_at: Option<DateTime<Utc>>,
     pub last_refresh_error: Option<String>,
-    pub model_selection_hint: Option<String>,
 }
 
 /// Families whose latest model should be surfaced in the compact picker.
@@ -276,7 +275,6 @@ struct ProviderDescriptor {
     setup_steps: Vec<String>,
     supports_refresh: bool,
     static_models: Vec<ModelInfo>,
-    model_selection_hint: Option<String>,
 }
 
 impl ProviderInventoryService {
@@ -332,7 +330,6 @@ impl ProviderInventoryService {
                 .as_ref()
                 .and_then(|snapshot| snapshot.last_refresh_attempt_at),
             last_refresh_error: snapshot.and_then(|snapshot| snapshot.last_refresh_error),
-            model_selection_hint: descriptor.model_selection_hint,
         }))
     }
 
@@ -754,7 +751,6 @@ impl ProviderInventoryService {
             setup_steps: metadata.setup_steps.clone(),
             supports_refresh: entry.supports_inventory_refresh(),
             static_models: metadata.known_models,
-            model_selection_hint: metadata.model_selection_hint,
         }))
     }
 
@@ -990,6 +986,19 @@ pub fn declarative_inventory_identity(
             identity
                 .secret_inputs
                 .insert(config.api_key_env.clone(), value);
+        }
+    }
+    if let Some(auth) = &config.auth {
+        identity
+            .secret_inputs
+            .insert("auth_command".to_string(), auth.command.clone());
+        identity
+            .secret_inputs
+            .insert("auth_args".to_string(), serde_json::to_string(&auth.args)?);
+        if let Some(cwd) = &auth.cwd {
+            identity
+                .secret_inputs
+                .insert("auth_cwd".to_string(), cwd.clone());
         }
     }
 

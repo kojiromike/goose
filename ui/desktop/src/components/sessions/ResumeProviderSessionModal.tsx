@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
-import type { ProviderSessionEntry } from '@aaif/goose-sdk';
+import type { ProviderSessionEntry } from '@aaif/goose-acp-client';
 import { acpListProviderSessions } from '../../acp/sessions';
 import { errorMessage } from '../../utils/conversionUtils';
 import { currentLocale, defineMessages, useIntl } from '../../i18n';

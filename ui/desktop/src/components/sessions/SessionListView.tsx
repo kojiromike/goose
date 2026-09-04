@@ -60,9 +60,12 @@ import {
   type ArchivedFilter,
   type SessionListItem,
 } from '../../acp/sessions';
-import type { SessionExportFormat } from '@aaif/goose-sdk';
+import type { SessionExportFormat } from '@aaif/goose-acp-client';
 import { isSessionBusy, useSessionBusy } from '../../hooks/useSessionBusyElsewhere';
 import { dispatchSessionLifecycleEvent } from '../../sessionLifecycleBridge';
+import { acpChatSessionActions } from '../../acp/chatSessionStore';
+import { cancelAcpPermissionRequestsForSession } from '../../acp/permissionRequests';
+import { cancelAcpElicitationRequestsForSession } from '../../acp/elicitationRequests';
 import { getSearchShortcutText } from '../../utils/keyboardShortcuts';
 
 // In the Active view a keyword search still surfaces archived matches so a
@@ -757,7 +760,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
 
   const handleConfirmDelete = useCallback(async () => {
     if (!sessionToDelete) return;
-      if (isSessionBusy(sessionToDelete.id)) return;
+    if (isSessionBusy(sessionToDelete.id)) return;
 
     setShowDeleteConfirmation(false);
     const sessionToDeleteId = sessionToDelete.id;
@@ -767,9 +770,12 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
     try {
       await acpDeleteSession(sessionToDeleteId);
       toast.success(intl.formatMessage(i18n.deleteSuccess));
-        dispatchSessionLifecycleEvent(AppEvents.SESSION_DELETED, {
-          sessionId: sessionToDeleteId,
-        });
+      dispatchSessionLifecycleEvent(AppEvents.SESSION_DELETED, {
+        sessionId: sessionToDeleteId,
+      });
+      cancelAcpPermissionRequestsForSession(sessionToDeleteId);
+      cancelAcpElicitationRequestsForSession(sessionToDeleteId);
+      acpChatSessionActions.deleteSnapshot(sessionToDeleteId);
     } catch (error) {
       console.error('Error deleting session:', error);
       toast.error(
@@ -1221,7 +1227,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
                   onExportClick={handleExportSession}
                   onShareClick={handleShareSessionNostr}
                   onOpenInNewWindow={handleOpenInNewWindow}
-                    onToggleArchive={handleToggleArchive}
+                  onToggleArchive={handleToggleArchive}
                   isSharing={sharingSessionId === session.id}
                 />
               ))}
@@ -1273,6 +1279,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
                           onExportClick={handleExportSession}
                           onShareClick={handleShareSessionNostr}
                           onOpenInNewWindow={handleOpenInNewWindow}
+                          onToggleArchive={handleToggleArchive}
                           isSharing={sharingSessionId === session.id}
                         />
                       ))}

@@ -11,7 +11,7 @@ import type {
   ProviderSessionEntry,
   SessionExportFormat,
   SessionImportSource,
-} from '@aaif/goose-sdk';
+} from '@aaif/goose-acp-client';
 import { getAcpClient } from './acpConnection';
 import type { ExtensionLoadResult } from '../types/extensions';
 import type { Session } from '../types/session';
