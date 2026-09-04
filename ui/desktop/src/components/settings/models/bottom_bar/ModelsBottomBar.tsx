@@ -29,7 +29,7 @@ import type { Message } from '../../../../types/message';
 import type { RecentModel } from '../../../../utils/settings';
 import { addToRecentModels } from '../../../../utils/recentModels';
 import { trackModelChanged } from '../../../../utils/analytics';
-import { toastError } from '../../../../toasts';
+import { toastError, toastSuccess } from '../../../../toasts';
 
 const i18n = defineMessages({
   selectModel: {
@@ -79,6 +79,14 @@ const i18n = defineMessages({
   configureVertex: {
     id: 'modelsBottomBar.configureVertex',
     defaultMessage: 'Vertex AI settings',
+  },
+  backendSaved: {
+    id: 'modelsBottomBar.backendSaved',
+    defaultMessage: 'Saved',
+  },
+  backendNextSession: {
+    id: 'modelsBottomBar.backendNextSession',
+    defaultMessage: 'This backend is applied when the agent starts, so it takes effect in a new chat.',
   },
 });
 
@@ -273,6 +281,16 @@ export default function ModelsBottomBar({
         currentModel,
       });
       setLlmBackend(status);
+
+      // A backend carried by the agent's environment cannot reach the running
+      // session. Saying so is not a failure, so it must not arrive as one.
+      if (status.appliesNextSession) {
+        toastSuccess({
+          title: intl.formatMessage(i18n.backendSaved),
+          msg: intl.formatMessage(i18n.backendNextSession),
+        });
+        return;
+      }
 
       // Backends spell model ids differently, so restore the one this backend
       // was last used with rather than carrying the current one across.

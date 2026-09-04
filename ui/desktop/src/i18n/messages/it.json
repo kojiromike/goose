@@ -2339,6 +2339,12 @@
   "modelsBottomBar.backend": {
     "defaultMessage": "Backend"
   },
+  "modelsBottomBar.backendNextSession": {
+    "defaultMessage": "Questo backend viene applicato all'avvio dell'agente, quindi ha effetto in una nuova chat."
+  },
+  "modelsBottomBar.backendSaved": {
+    "defaultMessage": "Salvato"
+  },
   "modelsBottomBar.backendSignIn": {
     "defaultMessage": "accedi"
   },

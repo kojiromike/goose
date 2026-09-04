@@ -2339,6 +2339,12 @@
   "modelsBottomBar.backend": {
     "defaultMessage": "Backend"
   },
+  "modelsBottomBar.backendNextSession": {
+    "defaultMessage": "Backend này được áp dụng khi agent khởi động, nên sẽ có hiệu lực ở cuộc trò chuyện mới."
+  },
+  "modelsBottomBar.backendSaved": {
+    "defaultMessage": "Đã lưu"
+  },
   "modelsBottomBar.backendSignIn": {
     "defaultMessage": "đăng nhập"
   },

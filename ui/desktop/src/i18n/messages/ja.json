@@ -2339,6 +2339,12 @@
   "modelsBottomBar.backend": {
     "defaultMessage": "バックエンド"
   },
+  "modelsBottomBar.backendNextSession": {
+    "defaultMessage": "このバックエンドはエージェントの起動時に適用されるため、新しいチャットから有効になります。"
+  },
+  "modelsBottomBar.backendSaved": {
+    "defaultMessage": "保存しました"
+  },
   "modelsBottomBar.backendSignIn": {
     "defaultMessage": "サインイン"
   },

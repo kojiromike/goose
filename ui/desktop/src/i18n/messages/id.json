@@ -2339,6 +2339,12 @@
   "modelsBottomBar.backend": {
     "defaultMessage": "Backend"
   },
+  "modelsBottomBar.backendNextSession": {
+    "defaultMessage": "Backend ini diterapkan saat agen dimulai, jadi berlaku pada obrolan baru."
+  },
+  "modelsBottomBar.backendSaved": {
+    "defaultMessage": "Tersimpan"
+  },
   "modelsBottomBar.backendSignIn": {
     "defaultMessage": "masuk"
   },

@@ -2339,6 +2339,12 @@
   "modelsBottomBar.backend": {
     "defaultMessage": "Бэкенд"
   },
+  "modelsBottomBar.backendNextSession": {
+    "defaultMessage": "Этот бэкенд применяется при запуске агента, поэтому вступит в силу в новом чате."
+  },
+  "modelsBottomBar.backendSaved": {
+    "defaultMessage": "Сохранено"
+  },
   "modelsBottomBar.backendSignIn": {
     "defaultMessage": "войти"
   },

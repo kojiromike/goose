@@ -2339,6 +2339,12 @@
   "modelsBottomBar.backend": {
     "defaultMessage": "后端"
   },
+  "modelsBottomBar.backendNextSession": {
+    "defaultMessage": "该后端在 agent 启动时应用，因此将在新对话中生效。"
+  },
+  "modelsBottomBar.backendSaved": {
+    "defaultMessage": "已保存"
+  },
   "modelsBottomBar.backendSignIn": {
     "defaultMessage": "登录"
   },

@@ -341,6 +341,11 @@ export type LlmBackendStatusResponse_unstable = {
     active?: string | null;
     options: Array<LlmBackendOptionDto>;
     /**
+     * The selection was saved but the running session keeps its current
+     * backend: this one is applied when the agent starts.
+     */
+    appliesNextSession?: boolean;
+    /**
      * Stored Vertex routing, for editing.
      */
     vertex?: VertexRoutingDto | null;

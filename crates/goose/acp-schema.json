@@ -675,6 +675,11 @@
             "$ref": "#/$defs/LlmBackendOptionDto"
           }
         },
+        "appliesNextSession": {
+          "type": "boolean",
+          "description": "The selection was saved but the running session keeps its current\nbackend: this one is applied when the agent starts.",
+          "default": false
+        },
         "vertex": {
           "anyOf": [
             {

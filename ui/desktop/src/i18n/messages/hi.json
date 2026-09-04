@@ -2339,6 +2339,12 @@
   "modelsBottomBar.backend": {
     "defaultMessage": "बैकएंड"
   },
+  "modelsBottomBar.backendNextSession": {
+    "defaultMessage": "यह बैकएंड एजेंट के शुरू होने पर लागू होता है, इसलिए यह नई चैट में प्रभावी होगा।"
+  },
+  "modelsBottomBar.backendSaved": {
+    "defaultMessage": "सहेजा गया"
+  },
   "modelsBottomBar.backendSignIn": {
     "defaultMessage": "साइन इन करें"
   },
