@@ -694,6 +694,11 @@ impl Provider for AcpProvider {
             .await
             .map_err(|error| ProviderError::RequestFailed(error.to_string()))?;
         *self.session.lock().unwrap() = loaded;
+        // Resuming lands on a fresh query with no model pinned, so whatever
+        // `apply_model_if_changed` last sent no longer holds. Forget it, or the
+        // redundant-send guard suppresses the re-pin and the agent answers on
+        // its own default model.
+        *self.applied_model.lock().unwrap() = None;
         self.handoff_context_sent.store(true, Ordering::Release);
         let _ = self
             .tx
@@ -2880,6 +2885,56 @@ mod tests {
         let claim = provider.claim_handoff_context(&messages);
         assert!(!claim.first_prompt);
         assert!(!claim.include_context);
+    }
+
+    #[tokio::test]
+    async fn resume_re_pins_the_model_on_the_new_session() {
+        let (tx, mut rx) = mpsc::channel(2);
+        let provider = test_provider_with_model_option(tx, Some("pinned-model".to_string()));
+
+        let handle = tokio::spawn(async move {
+            provider.resume("saved-session").await.unwrap();
+            provider
+        });
+
+        let ClientRequest::LoadSession { response_tx, .. } =
+            rx.recv().await.expect("expected session/load")
+        else {
+            panic!("expected session/load");
+        };
+        response_tx
+            .send(Ok(NewSessionResponse::new("saved-session")))
+            .unwrap();
+
+        let ClientRequest::CloseSession { .. } =
+            rx.recv().await.expect("expected temporary session close")
+        else {
+            panic!("expected temporary session close");
+        };
+
+        let provider = handle.await.unwrap();
+        assert_eq!(*provider.applied_model.lock().unwrap(), None);
+
+        // The model has not changed, but the resumed session has never been
+        // told about it, so it goes over the wire again.
+        let handle =
+            tokio::spawn(async move { provider.apply_model_if_changed("pinned-model").await });
+
+        match rx.recv().await.expect("expected the model to be re-pinned") {
+            ClientRequest::SetConfigOption {
+                config_id,
+                value,
+                response_tx,
+                ..
+            } => {
+                assert_eq!(config_id, "model");
+                assert_eq!(value, "pinned-model");
+                let _ = response_tx.send(Ok(()));
+            }
+            _ => panic!("unexpected request kind"),
+        }
+
+        handle.await.unwrap().unwrap();
     }
 
     #[tokio::test]
