@@ -35,6 +35,7 @@ pub mod custom_provider_config;
 pub mod databricks_def;
 pub mod databricks_v2_def;
 pub mod formats;
+pub mod gcloud_adc;
 mod gcpauth;
 pub mod gcpvertexai;
 pub mod gemini_cli;
