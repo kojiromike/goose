@@ -4689,7 +4689,7 @@
     "defaultMessage": "Model"
   },
   "vertexBackendModal.modelHelp": {
-    "defaultMessage": "Vertex menulis id model secara berbeda dan tidak punya jalur konteks 1M, jadi perlu modelnya sendiri."
+    "defaultMessage": "Proyek Vertex mengaktifkan model satu per satu, jadi perlu id modelnya sendiri. Pertahankan akhiran [1m] untuk jendela konteks 1M."
   },
   "vertexBackendModal.project": {
     "defaultMessage": "ID Proyek"

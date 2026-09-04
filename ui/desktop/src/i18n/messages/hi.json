@@ -4689,7 +4689,7 @@
     "defaultMessage": "मॉडल"
   },
   "vertexBackendModal.modelHelp": {
-    "defaultMessage": "Vertex मॉडल आईडी अलग तरह से लिखता है और उसमें 1M संदर्भ लेन नहीं है, इसलिए उसे अपना मॉडल चाहिए।"
+    "defaultMessage": "Vertex प्रोजेक्ट मॉडल एक-एक करके सक्षम करता है, इसलिए उसे अपनी मॉडल आईडी चाहिए। 1M संदर्भ विंडो के लिए [1m] प्रत्यय रखें।"
   },
   "vertexBackendModal.project": {
     "defaultMessage": "प्रोजेक्ट ID"

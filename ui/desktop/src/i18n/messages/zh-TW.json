@@ -4689,7 +4689,7 @@
     "defaultMessage": "模型"
   },
   "vertexBackendModal.modelHelp": {
-    "defaultMessage": "Vertex 的模型 id 寫法不同且沒有 1M 上下文通道，因此需要單獨指定模型。"
+    "defaultMessage": "Vertex 專案逐個啟用模型，因此需要單獨的模型 id。保留 [1m] 後綴以取得 1M 上下文視窗。"
   },
   "vertexBackendModal.project": {
     "defaultMessage": "專案 ID"

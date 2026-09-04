@@ -4689,7 +4689,7 @@
     "defaultMessage": "Model"
   },
   "vertexBackendModal.modelHelp": {
-    "defaultMessage": "Vertex spells model ids differently and has no 1M context lane, so it needs its own model."
+    "defaultMessage": "A Vertex project enables models one by one, so it needs its own model id. Keep the [1m] suffix for the 1M context window."
   },
   "vertexBackendModal.project": {
     "defaultMessage": "Project ID"

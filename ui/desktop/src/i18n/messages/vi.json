@@ -4689,7 +4689,7 @@
     "defaultMessage": "Mô hình"
   },
   "vertexBackendModal.modelHelp": {
-    "defaultMessage": "Vertex viết id mô hình khác và không có làn ngữ cảnh 1M, nên cần mô hình riêng."
+    "defaultMessage": "Dự án Vertex bật từng mô hình một, nên cần id mô hình riêng. Giữ hậu tố [1m] để có cửa sổ ngữ cảnh 1M."
   },
   "vertexBackendModal.project": {
     "defaultMessage": "ID dự án"

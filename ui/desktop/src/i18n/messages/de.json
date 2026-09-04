@@ -4689,7 +4689,7 @@
     "defaultMessage": "Modell"
   },
   "vertexBackendModal.modelHelp": {
-    "defaultMessage": "Vertex schreibt Modell-IDs anders und hat keine 1M-Kontextspur, daher braucht es ein eigenes Modell."
+    "defaultMessage": "Ein Vertex-Projekt aktiviert Modelle einzeln, daher braucht es eine eigene Modell-ID. Behalten Sie das Suffix [1m] für das 1M-Kontextfenster."
   },
   "vertexBackendModal.project": {
     "defaultMessage": "Projekt-ID"
