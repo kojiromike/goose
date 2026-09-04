@@ -2423,6 +2423,9 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "Удалить чат"
   },
+  "navigationPanel.endSession": {
+    "defaultMessage": "Завершить сессию"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Создано"
   },
@@ -2452,6 +2455,9 @@
   },
   "navigationPanel.statusIdle": {
     "defaultMessage": "Ожидание"
+  },
+  "navigationPanel.statusLive": {
+    "defaultMessage": "Загружена"
   },
   "navigationPanel.statusStreaming": {
     "defaultMessage": "Потоковая передача"
@@ -3883,6 +3889,9 @@
   },
   "sessionIndicators.error": {
     "defaultMessage": "В сеансе возникла ошибка"
+  },
+  "sessionIndicators.live": {
+    "defaultMessage": "Загружена — удерживает агента"
   },
   "sessionIndicators.newActivity": {
     "defaultMessage": "Есть новая активность"

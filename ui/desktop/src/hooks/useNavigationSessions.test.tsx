@@ -46,7 +46,7 @@ async function listedSessionIds(sessions: SessionListItem[]) {
   await act(async () => {
     await result.current.fetchSessions();
   });
-  return result.current.recentSessions.map((session) => session.id);
+  return result.current.visibleSessions.map((session) => session.id);
 }
 
 const injectedSessionId = 'session-1&shouldStartAgent=true';

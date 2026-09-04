@@ -2423,6 +2423,9 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "चैट हटाएँ"
   },
+  "navigationPanel.endSession": {
+    "defaultMessage": "सत्र समाप्त करें"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "बनाया गया"
   },
@@ -2452,6 +2455,9 @@
   },
   "navigationPanel.statusIdle": {
     "defaultMessage": "निष्क्रिय"
+  },
+  "navigationPanel.statusLive": {
+    "defaultMessage": "लोडेड"
   },
   "navigationPanel.statusStreaming": {
     "defaultMessage": "स्ट्रीमिंग"
@@ -3883,6 +3889,9 @@
   },
   "sessionIndicators.error": {
     "defaultMessage": "सत्र में एक त्रुटि आई"
+  },
+  "sessionIndicators.live": {
+    "defaultMessage": "लोडेड — एक एजेंट खुला रखे हुए"
   },
   "sessionIndicators.newActivity": {
     "defaultMessage": "नई गतिविधि है"

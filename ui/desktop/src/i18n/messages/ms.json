@@ -2423,6 +2423,9 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "Padam sembang"
   },
+  "navigationPanel.endSession": {
+    "defaultMessage": "Tamatkan sesi"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Dicipta"
   },
@@ -2452,6 +2455,9 @@
   },
   "navigationPanel.statusIdle": {
     "defaultMessage": "Terbiar"
+  },
+  "navigationPanel.statusLive": {
+    "defaultMessage": "Dimuatkan"
   },
   "navigationPanel.statusStreaming": {
     "defaultMessage": "Penstriman"
@@ -3883,6 +3889,9 @@
   },
   "sessionIndicators.error": {
     "defaultMessage": "Sesi mengalami ralat"
+  },
+  "sessionIndicators.live": {
+    "defaultMessage": "Dimuatkan — mengekalkan ejen terbuka"
   },
   "sessionIndicators.newActivity": {
     "defaultMessage": "Mempunyai aktiviti baharu"

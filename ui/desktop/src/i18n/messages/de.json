@@ -2423,6 +2423,9 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "Chat löschen"
   },
+  "navigationPanel.endSession": {
+    "defaultMessage": "Sitzung beenden"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Erstellt"
   },
@@ -2452,6 +2455,9 @@
   },
   "navigationPanel.statusIdle": {
     "defaultMessage": "Inaktiv"
+  },
+  "navigationPanel.statusLive": {
+    "defaultMessage": "Geladen"
   },
   "navigationPanel.statusStreaming": {
     "defaultMessage": "Streaming"
@@ -3883,6 +3889,9 @@
   },
   "sessionIndicators.error": {
     "defaultMessage": "In der Sitzung ist ein Fehler aufgetreten"
+  },
+  "sessionIndicators.live": {
+    "defaultMessage": "Geladen – hält einen Agenten offen"
   },
   "sessionIndicators.newActivity": {
     "defaultMessage": "Hat neue Aktivität"

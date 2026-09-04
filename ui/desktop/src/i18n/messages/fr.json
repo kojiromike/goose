@@ -2423,6 +2423,9 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "Supprimer la conversation"
   },
+  "navigationPanel.endSession": {
+    "defaultMessage": "Terminer la session"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Créé"
   },
@@ -2452,6 +2455,9 @@
   },
   "navigationPanel.statusIdle": {
     "defaultMessage": "Inactif"
+  },
+  "navigationPanel.statusLive": {
+    "defaultMessage": "Chargée"
   },
   "navigationPanel.statusStreaming": {
     "defaultMessage": "Diffusion en continu"
@@ -3883,6 +3889,9 @@
   },
   "sessionIndicators.error": {
     "defaultMessage": "La session a rencontré une erreur"
+  },
+  "sessionIndicators.live": {
+    "defaultMessage": "Chargée — maintient un agent ouvert"
   },
   "sessionIndicators.newActivity": {
     "defaultMessage": "A une nouvelle activité"

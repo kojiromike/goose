@@ -555,6 +555,51 @@
       "x-side": "agent",
       "x-method": "_goose/unstable/tools/permissions/set"
     },
+    "ListLiveSessionsRequest_unstable": {
+      "type": "object",
+      "description": "List the sessions with an agent in memory. Unlike the session list, which\nreads history from disk, this reports what the server is currently holding\nopen — and for CLI-agent providers, the subprocesses that implies.",
+      "x-side": "agent",
+      "x-method": "_goose/unstable/sessions/live"
+    },
+    "ListLiveSessionsResponse_unstable": {
+      "type": "object",
+      "properties": {
+        "sessions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LiveSessionDto"
+          }
+        }
+      },
+      "required": [
+        "sessions"
+      ],
+      "x-side": "agent",
+      "x-method": "_goose/unstable/sessions/live"
+    },
+    "LiveSessionDto": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "runningTurn": {
+          "type": "boolean",
+          "description": "A prompt is being answered right now."
+        },
+        "providerId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "sessionId",
+        "runningTurn"
+      ],
+      "description": "A session the server is holding open."
+    },
     "GooseToolCallRequest_unstable": {
       "type": "object",
       "properties": {
@@ -7075,6 +7120,15 @@
                 {
                   "allOf": [
                     {
+                      "$ref": "#/$defs/ListLiveSessionsRequest_unstable"
+                    }
+                  ],
+                  "description": "Params for _goose/unstable/sessions/live",
+                  "title": "ListLiveSessionsRequest_unstable"
+                },
+                {
+                  "allOf": [
+                    {
                       "$ref": "#/$defs/GooseToolCallRequest_unstable"
                     }
                   ],
@@ -8070,6 +8124,14 @@
                         }
                       ],
                       "title": "SetToolPermissionsResponse_unstable"
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/ListLiveSessionsResponse_unstable"
+                        }
+                      ],
+                      "title": "ListLiveSessionsResponse_unstable"
                     },
                     {
                       "allOf": [

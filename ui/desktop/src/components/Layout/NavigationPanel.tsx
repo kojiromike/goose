@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
-import { Archive, ChevronDown, ChevronRight, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import {
+  Archive,
+  ChevronDown,
+  ChevronRight,
+  MoreHorizontal,
+  Pencil,
+  Power,
+  Trash2,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import { useNavigationContext } from './NavigationContext';
@@ -23,10 +31,12 @@ import { InlineEditText } from '../common/InlineEditText';
 import { SessionIndicators } from '../SessionIndicators';
 import {
   acpArchiveSession,
+  acpCloseSession,
   acpDeleteSession,
   acpRenameSession,
   type SessionListItem,
 } from '../../acp/sessions';
+import type { LiveSession } from '../../acp/liveSessions';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/Tooltip';
 import { formatMessageTimestamp } from '../../utils/timeUtils';
 import {
@@ -43,6 +53,8 @@ import type { ProjectGroup } from '../../utils/projectSessions';
 import { defineMessages, useIntl } from '../../i18n';
 
 type StreamState = 'idle' | 'loading' | 'streaming' | 'waiting' | 'error';
+
+const LIVE_REFRESH_INTERVAL_MS = 5000;
 
 interface SessionStatus {
   streamState: StreamState;
@@ -146,6 +158,14 @@ const i18n = defineMessages({
     id: 'navigationPanel.deleteFailed',
     defaultMessage: 'Failed to delete session: {error}',
   },
+  statusLive: {
+    id: 'navigationPanel.statusLive',
+    defaultMessage: 'Loaded',
+  },
+  endSession: {
+    id: 'navigationPanel.endSession',
+    defaultMessage: 'End session',
+  },
 });
 
 const navItemClass = (active: boolean) =>
@@ -181,9 +201,13 @@ interface SessionRowProps {
   session: SessionListItem;
   active: boolean;
   status: SessionStatus | undefined;
+  /** Present when the server is holding an agent open for this session. */
+  /** Present when the server is holding an agent open for this session. */
+  live: LiveSession | undefined;
   onClick: () => void;
   onRenamed: () => void;
   onRequestDelete: (session: SessionListItem) => void;
+  onEnded: () => void;
 }
 
 const formatTimestamp = (value?: string): string | null => {
@@ -237,17 +261,20 @@ const SessionRow: React.FC<SessionRowProps> = ({
   session,
   active,
   status,
+  live,
   onClick,
   onRenamed,
   onRequestDelete,
+  onEnded,
 }) => {
   const intl = useIntl();
   const [isEditing, setIsEditing] = useState(false);
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editSignal, setEditSignal] = useState(0);
+  const [isEnding, setIsEnding] = useState(false);
   const renameRequested = useRef(false);
-  const isStreaming = status?.streamState === 'streaming';
+  const isStreaming = live?.runningTurn ?? false;
   // Archive and delete both drop the loaded agent without cancelling an active
   // run: mid-load the server can re-register the agent afterwards, and
   // streaming or waiting-on-user-input prompts would resume into a session that
@@ -260,6 +287,7 @@ const SessionRow: React.FC<SessionRowProps> = ({
     busyElsewhere;
   const hasError = status?.streamState === 'error';
   const hasUnread = status?.hasUnreadActivity ?? false;
+  const isLive = live !== undefined;
 
   const statusLabel = isStreaming
     ? intl.formatMessage(i18n.statusStreaming)
@@ -267,7 +295,19 @@ const SessionRow: React.FC<SessionRowProps> = ({
       ? intl.formatMessage(i18n.statusError)
       : hasUnread
         ? intl.formatMessage(i18n.statusUnread)
-        : intl.formatMessage(i18n.statusIdle);
+        : isLive
+          ? intl.formatMessage(i18n.statusLive)
+          : intl.formatMessage(i18n.statusIdle);
+
+  const handleEnd = async () => {
+    setIsEnding(true);
+    try {
+      await acpCloseSession(session.id);
+      onEnded();
+    } finally {
+      setIsEnding(false);
+    }
+  };
 
   const handleArchive = useCallback(async () => {
     try {
@@ -323,7 +363,12 @@ const SessionRow: React.FC<SessionRowProps> = ({
             onEditStart={() => setIsEditing(true)}
             onEditEnd={() => setIsEditing(false)}
           />
-          <SessionIndicators isStreaming={isStreaming} hasUnread={hasUnread} hasError={hasError} />
+          <SessionIndicators
+            isStreaming={isStreaming}
+            hasUnread={hasUnread}
+            hasError={hasError}
+            isLive={isLive}
+          />
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
               <button
@@ -360,6 +405,15 @@ const SessionRow: React.FC<SessionRowProps> = ({
                 <Pencil className="w-4 h-4" />
                 {intl.formatMessage(i18n.rename)}
               </DropdownMenuItem>
+              {isLive && (
+                <DropdownMenuItem
+                  disabled={isBusy || isEnding}
+                  onSelect={() => void handleEnd()}
+                >
+                  <Power className="w-4 h-4" />
+                  {intl.formatMessage(i18n.endSession)}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem disabled={isBusy} onSelect={() => void handleArchive()}>
                 <Archive className="w-4 h-4" />
                 {intl.formatMessage(i18n.archive)}
@@ -402,16 +456,17 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
   const isActive = useCallback((path: string) => location.pathname === path, [location.pathname]);
 
   const {
-    recentSessions,
-    recentSessionsByProject,
+    visibleSessions,
+    visibleSessionsByProject,
+    liveSessions,
     activeSessionId,
     fetchSessions,
+    refreshLiveSessions,
     handleNavClick,
     handleSessionClick,
   } = useNavigationSessions();
 
   const [sessionStatuses, setSessionStatuses] = useState<Map<string, SessionStatus>>(new Map());
-
   useEffect(() => {
     const handleStatusUpdate = (event: Event) => {
       const { sessionId, streamState } = (event as CustomEvent).detail;
@@ -432,6 +487,23 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
     window.addEventListener(AppEvents.SESSION_STATUS_UPDATE, handleStatusUpdate);
     return () => window.removeEventListener(AppEvents.SESSION_STATUS_UPDATE, handleStatusUpdate);
   }, []);
+
+  // A chat view only reports the sessions this window has open, so poll the
+  // server for the rest. Turn boundaries are re-read immediately so the
+  // spinner does not wait out the interval.
+  useEffect(() => {
+    if (!isNavExpanded) return undefined;
+
+    void refreshLiveSessions();
+    const onStatusUpdate = () => void refreshLiveSessions();
+    window.addEventListener(AppEvents.SESSION_STATUS_UPDATE, onStatusUpdate);
+    const interval = window.setInterval(() => void refreshLiveSessions(), LIVE_REFRESH_INTERVAL_MS);
+
+    return () => {
+      window.removeEventListener(AppEvents.SESSION_STATUS_UPDATE, onStatusUpdate);
+      window.clearInterval(interval);
+    };
+  }, [isNavExpanded, refreshLiveSessions]);
 
   const clearUnread = useCallback((sessionId: string) => {
     setSessionStatuses((prev) => {
@@ -538,12 +610,12 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
         </button>
         {isChatsExpanded && (
           <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 mt-1">
-            {recentSessions.length === 0 ? (
+            {visibleSessions.length === 0 ? (
               <div className="px-3 py-2 text-xs text-text-secondary">
                 {intl.formatMessage(i18n.noChats)}
               </div>
-            ) : recentSessionsByProject.length > 1 ? (
-              recentSessionsByProject.map((group: ProjectGroup) => {
+            ) : visibleSessionsByProject.length > 1 ? (
+              visibleSessionsByProject.map((group: ProjectGroup) => {
                 const isCollapsed = collapsedProjects.has(group.path);
                 return (
                   <React.Fragment key={group.path}>
@@ -567,30 +639,34 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                           session={session}
                           active={session.id === activeSessionId}
                           status={sessionStatuses.get(session.id)}
+                          live={liveSessions.get(session.id)}
                           onClick={() => {
                             clearUnread(session.id);
                             handleSessionClick(session.id);
                           }}
                           onRenamed={fetchSessions}
                           onRequestDelete={handleRequestDelete}
+                          onEnded={refreshLiveSessions}
                         />
                       ))}
                   </React.Fragment>
                 );
               })
             ) : (
-              recentSessions.map((session) => (
+              visibleSessions.map((session) => (
                 <SessionRow
                   key={session.id}
                   session={session}
                   active={session.id === activeSessionId}
                   status={sessionStatuses.get(session.id)}
+                  live={liveSessions.get(session.id)}
                   onClick={() => {
                     clearUnread(session.id);
                     handleSessionClick(session.id);
                   }}
                   onRenamed={fetchSessions}
                   onRequestDelete={handleRequestDelete}
+                  onEnded={refreshLiveSessions}
                 />
               ))
             )}

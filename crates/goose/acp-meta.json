@@ -21,6 +21,11 @@
       "responseType": "SetToolPermissionsResponse_unstable"
     },
     {
+      "method": "_goose/unstable/sessions/live",
+      "requestType": "ListLiveSessionsRequest_unstable",
+      "responseType": "ListLiveSessionsResponse_unstable"
+    },
+    {
       "method": "_goose/unstable/tools/call",
       "requestType": "GooseToolCallRequest_unstable",
       "responseType": "GooseToolCallResponse_unstable"

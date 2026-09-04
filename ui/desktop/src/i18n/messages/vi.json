@@ -2423,6 +2423,9 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "Xóa cuộc trò chuyện"
   },
+  "navigationPanel.endSession": {
+    "defaultMessage": "Kết thúc phiên"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Đã tạo"
   },
@@ -2452,6 +2455,9 @@
   },
   "navigationPanel.statusIdle": {
     "defaultMessage": "Nhàn rỗi"
+  },
+  "navigationPanel.statusLive": {
+    "defaultMessage": "Đã tải"
   },
   "navigationPanel.statusStreaming": {
     "defaultMessage": "Đang truyền"
@@ -3883,6 +3889,9 @@
   },
   "sessionIndicators.error": {
     "defaultMessage": "Phiên gặp lỗi"
+  },
+  "sessionIndicators.live": {
+    "defaultMessage": "Đã tải — đang giữ một agent mở"
   },
   "sessionIndicators.newActivity": {
     "defaultMessage": "Có hoạt động mới"

@@ -83,6 +83,8 @@ import type {
   KillRunningJobResponse_unstable,
   ListAgentMentionsRequest_unstable,
   ListAgentMentionsResponse_unstable,
+  ListLiveSessionsRequest_unstable,
+  ListLiveSessionsResponse_unstable,
   ListPromptsRequest_unstable,
   ListPromptsResponse_unstable,
   ListProvidersRequest_unstable,
@@ -222,6 +224,7 @@ import {
   zInspectRunningJobResponse_unstable,
   zKillRunningJobResponse_unstable,
   zListAgentMentionsResponse_unstable,
+  zListLiveSessionsResponse_unstable,
   zListPromptsResponse_unstable,
   zListProvidersResponse_unstable,
   zListRecipesResponse_unstable,
@@ -300,6 +303,18 @@ export class GooseExtClient {
     return zSetToolPermissionsResponse_unstable.parse(
       raw,
     ) as SetToolPermissionsResponse_unstable;
+  }
+
+  async sessionsLive_unstable(
+    params: ListLiveSessionsRequest_unstable,
+  ): Promise<ListLiveSessionsResponse_unstable> {
+    const raw = await this.conn.request(
+      "_goose/unstable/sessions/live",
+      params,
+    );
+    return zListLiveSessionsResponse_unstable.parse(
+      raw,
+    ) as ListLiveSessionsResponse_unstable;
   }
 
   async toolsCall_unstable(

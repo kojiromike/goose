@@ -2325,6 +2325,31 @@ pub struct SetToolPermissionsRequest {
 #[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcResponse)]
 pub struct SetToolPermissionsResponse {}
 
+/// A session the server is holding open.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveSessionDto {
+    pub session_id: String,
+    /// A prompt is being answered right now.
+    pub running_turn: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<String>,
+}
+
+/// List the sessions with an agent in memory. Unlike the session list, which
+/// reads history from disk, this reports what the server is currently holding
+/// open — and for CLI-agent providers, the subprocesses that implies.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcRequest)]
+#[request(method = "_goose/unstable/sessions/live", response = ListLiveSessionsResponse)]
+#[serde(rename_all = "camelCase")]
+pub struct ListLiveSessionsRequest {}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcResponse)]
+#[serde(rename_all = "camelCase")]
+pub struct ListLiveSessionsResponse {
+    pub sessions: Vec<LiveSessionDto>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

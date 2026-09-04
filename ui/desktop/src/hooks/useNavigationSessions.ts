@@ -9,6 +9,7 @@ import {
   acpListRecentSessions,
   type SessionListItem,
 } from '../acp/sessions';
+import { acpListLiveSessions, type LiveSession } from '../acp/liveSessions';
 import { groupSessionsByProject } from '../utils/projectSessions';
 
 const MAX_RECENT_SESSIONS = 25;
@@ -29,6 +30,30 @@ function sessionActivityAt(session: SessionListItem): number {
 export function isWithinRecentWindow(session: SessionListItem, now: number): boolean {
   const activityAt = sessionActivityAt(session);
   return Number.isNaN(activityAt) || now - activityAt <= RECENT_WINDOW_MS;
+}
+
+/** Recency key, matching the order the server lists sessions in. */
+function sessionOrder(session: SessionListItem): number {
+  const activityAt = sessionActivityAt(session);
+  return Number.isNaN(activityAt) ? 0 : activityAt;
+}
+
+/**
+ * The sessions to show: the recency window plus any session the server is
+ * still holding open. A live session that has aged out of the window keeps its
+ * place in recency order rather than jumping the list — it just stops being
+ * invisible, which is the only way to see or end the agent it is holding.
+ */
+export function mergeVisibleSessions(
+  recent: SessionListItem[],
+  pinned: SessionListItem[],
+  live: Map<string, LiveSession>
+): SessionListItem[] {
+  const recentIds = new Set(recent.map((session) => session.id));
+  const stillLive = pinned.filter(
+    (session) => live.has(session.id) && !recentIds.has(session.id)
+  );
+  return [...recent, ...stillLive].sort((a, b) => sessionOrder(b) - sessionOrder(a));
 }
 
 function pairSessionPath(sessionId: string): string {
@@ -79,6 +104,12 @@ export function useNavigationSessions() {
   const chatContext = useChatContext();
 
   const [recentSessions, setRecentSessions] = useState<SessionListItem[]>([]);
+  const [liveSessions, setLiveSessions] = useState<Map<string, LiveSession>>(new Map());
+  // Sessions the server is holding open that fell outside the recency window.
+  // Their agent — and for a CLI agent, its subprocess — is still running, so
+  // hiding them would hide the only place to see or end them.
+  const [pinnedLiveSessions, setPinnedLiveSessions] = useState<SessionListItem[]>([]);
+
   const lastSessionIdRef = useRef<string | null>(null);
 
   const activeSessionId = searchParams.get('resumeSessionId') ?? undefined;
@@ -86,15 +117,25 @@ export function useNavigationSessions() {
     location.pathname === '/pair' ? searchParams.get('resumeSessionId') : null;
 
   // The chat you have open stays listed however old it is; opening a session and
-  // not finding it in the sidebar reads as the app losing it.
-  const visibleSessions = useMemo(() => {
+  // not finding it in the sidebar reads as the app losing it. A session the
+  // server is still holding open stays for the same reason: it is the only
+  // place to see or end the agent it is holding.
+  const windowedSessions = useMemo(() => {
     const now = Date.now();
     return recentSessions.filter(
-      (session) => session.id === activeSessionId || isWithinRecentWindow(session, now)
+      (session) =>
+        session.id === activeSessionId ||
+        liveSessions.has(session.id) ||
+        isWithinRecentWindow(session, now)
     );
-  }, [recentSessions, activeSessionId]);
+  }, [recentSessions, activeSessionId, liveSessions]);
 
-  const recentSessionsByProject = useMemo(
+  const visibleSessions = useMemo(
+    () => mergeVisibleSessions(windowedSessions, pinnedLiveSessions, liveSessions),
+    [windowedSessions, pinnedLiveSessions, liveSessions]
+  );
+
+  const visibleSessionsByProject = useMemo(
     () => groupSessionsByProject(visibleSessions),
     [visibleSessions]
   );
@@ -104,6 +145,15 @@ export function useNavigationSessions() {
       lastSessionIdRef.current = currentSessionId;
     }
   }, [currentSessionId]);
+
+  const refreshLiveSessions = useCallback(async () => {
+    try {
+      setLiveSessions(await acpListLiveSessions());
+    } catch (error) {
+      console.error('Failed to fetch live sessions:', error);
+      setLiveSessions(new Map());
+    }
+  }, []);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -115,6 +165,36 @@ export function useNavigationSessions() {
       console.error('Failed to fetch sessions:', error);
     }
   }, []);
+
+  useEffect(() => {
+    const missing = [...liveSessions.keys()].filter(
+      (sessionId) =>
+        !recentSessions.some((session) => session.id === sessionId) &&
+        !pinnedLiveSessions.some((session) => session.id === sessionId)
+    );
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    Promise.all(
+      missing.map((sessionId) =>
+        acpGetSessionListItem(sessionId).catch((error) => {
+          console.error('Failed to fetch live session:', error);
+          return null;
+        })
+      )
+    ).then((items) => {
+      const fetched = items.filter((item): item is SessionListItem => item !== null);
+      if (cancelled || fetched.length === 0) return;
+      setPinnedLiveSessions((prev) => [
+        ...prev,
+        ...fetched.filter((item) => !prev.some((session) => session.id === item.id)),
+      ]);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [liveSessions, recentSessions, pinnedLiveSessions]);
 
   useEffect(() => {
     if (!activeSessionId) return;
@@ -280,10 +360,12 @@ export function useNavigationSessions() {
   );
 
   return {
-    recentSessions: visibleSessions,
-    recentSessionsByProject,
+    visibleSessions,
+    visibleSessionsByProject,
+    liveSessions,
     activeSessionId,
     fetchSessions,
+    refreshLiveSessions,
     handleNavClick,
     handleSessionClick,
   };

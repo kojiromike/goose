@@ -2423,6 +2423,9 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "刪除聊天"
   },
+  "navigationPanel.endSession": {
+    "defaultMessage": "結束工作階段"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "建立時間"
   },
@@ -2452,6 +2455,9 @@
   },
   "navigationPanel.statusIdle": {
     "defaultMessage": "閒置"
+  },
+  "navigationPanel.statusLive": {
+    "defaultMessage": "已載入"
   },
   "navigationPanel.statusStreaming": {
     "defaultMessage": "串流"
@@ -3883,6 +3889,9 @@
   },
   "sessionIndicators.error": {
     "defaultMessage": "工作階段發生錯誤"
+  },
+  "sessionIndicators.live": {
+    "defaultMessage": "已載入 — 正保持一個 agent 開啟"
   },
   "sessionIndicators.newActivity": {
     "defaultMessage": "有新活動"

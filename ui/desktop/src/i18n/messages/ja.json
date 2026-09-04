@@ -2423,6 +2423,9 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "チャットを削除"
   },
+  "navigationPanel.endSession": {
+    "defaultMessage": "セッションを終了"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "作成"
   },
@@ -2452,6 +2455,9 @@
   },
   "navigationPanel.statusIdle": {
     "defaultMessage": "アイドル"
+  },
+  "navigationPanel.statusLive": {
+    "defaultMessage": "読み込み中"
   },
   "navigationPanel.statusStreaming": {
     "defaultMessage": "ストリーミング"
@@ -3883,6 +3889,9 @@
   },
   "sessionIndicators.error": {
     "defaultMessage": "セッションでエラーが発生しました"
+  },
+  "sessionIndicators.live": {
+    "defaultMessage": "読み込み済み — エージェントを保持しています"
   },
   "sessionIndicators.newActivity": {
     "defaultMessage": "新しいアクティビティがあります"
