@@ -280,6 +280,40 @@ mod tests {
         assert!(request.meta.is_none());
     }
 
+    /// Setting `ANTHROPIC_VERTEX_BASE_URL` makes Claude Code treat the
+    /// deployment as custom and reject current model ids, and `providers/set`
+    /// always sets it — so a plain Vertex account has to arrive in the agent's
+    /// environment instead.
+    #[test]
+    fn plain_vertex_is_carried_by_the_environment_not_the_wire() {
+        let backend = vertex_settings().resolve().unwrap().expect("vertex");
+
+        assert!(!backend.is_routable());
+        assert_eq!(
+            backend.spawn_env(),
+            vec![
+                ("CLAUDE_CODE_USE_VERTEX".to_string(), "1".to_string()),
+                (
+                    "ANTHROPIC_VERTEX_PROJECT_ID".to_string(),
+                    "my-project".to_string()
+                ),
+                ("CLOUD_ML_REGION".to_string(), "us-east5".to_string()),
+            ]
+        );
+    }
+
+    /// An explicit endpoint is a gateway, which is what `providers/set` is for.
+    #[test]
+    fn a_vertex_gateway_still_goes_over_the_wire() {
+        let mut settings = vertex_settings();
+        settings.vertex.as_mut().unwrap().base_url = Some("https://proxy.internal".to_string());
+
+        let backend = settings.resolve().unwrap().expect("vertex");
+
+        assert!(backend.is_routable());
+        assert!(backend.spawn_env().is_empty());
+    }
+
     #[test]
     fn vertex_cannot_be_selected_until_a_model_is_chosen() {
         let mut settings = vertex_settings();

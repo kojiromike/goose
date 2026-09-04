@@ -87,16 +87,34 @@ impl GooseAcpAgent {
             self.ensure_google_cloud_signin(req.sign_in).await?;
         }
 
-        provider
-            .set_llm_backend(backend.clone())
-            .await
-            .internal_err()?;
+        // A backend the agent must be started with cannot be installed on a
+        // running session, and neither can leaving one.
+        let carried_by_env = backend
+            .as_ref()
+            .is_some_and(|backend| !backend.is_routable());
+        let leaving_env = settings
+            .active
+            .and_then(|kind| settings.backend(kind).ok().flatten())
+            .is_some_and(|previous| !previous.is_routable());
+
+        if !carried_by_env && !leaving_env {
+            provider
+                .set_llm_backend(backend.clone())
+                .await
+                .internal_err()?;
+        }
 
         if let (Some(leaving), Some(model)) = (settings.active, req.current_model.as_deref()) {
             settings.remember_model(leaving, model);
         }
         settings.active = kind;
         save_settings(config, provider.get_name(), &settings).internal_err()?;
+
+        if carried_by_env || leaving_env {
+            return Err(agent_client_protocol::Error::invalid_params().data(
+                "Saved. This backend is applied when the agent starts, so it takes effect in a new session — this conversation stays on its current one",
+            ));
+        }
 
         Ok(status(&settings, google_cloud_status(&settings).await))
     }

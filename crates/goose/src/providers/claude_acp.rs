@@ -85,10 +85,20 @@ fn provider_config(
         vec![("model".to_string(), model)]
     };
 
+    let backend = configured_backend(Config::global(), CLAUDE_ACP_PROVIDER_NAME)?;
+    let env = backend
+        .as_ref()
+        .map(|backend| backend.spawn_env())
+        .unwrap_or_default();
+    // A backend carried by the environment is already in effect once the agent
+    // starts; asking for it again over the wire would install the endpoint
+    // override that made it unusable.
+    let llm_backend = backend.filter(|backend| backend.is_routable());
+
     Ok(AcpProviderConfig {
         command: resolved_command,
         args: vec![],
-        env: vec![],
+        env,
         // Prevent nested-session detection in claude-agent-acp (wraps Claude Code)
         env_remove: vec!["CLAUDECODE".to_string()],
         work_dir: working_dir,
@@ -100,7 +110,7 @@ fn provider_config(
         // query.setModel, so forward the picker's selection.
         model_config_option_id: Some("model".to_string()),
         mode_mapping,
-        llm_backend: configured_backend(Config::global(), CLAUDE_ACP_PROVIDER_NAME)?,
+        llm_backend,
         notification_callback: None,
     })
 }
