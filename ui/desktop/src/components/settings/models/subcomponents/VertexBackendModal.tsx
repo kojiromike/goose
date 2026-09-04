@@ -29,7 +29,7 @@ const i18n = defineMessages({
   modelHelp: {
     id: 'vertexBackendModal.modelHelp',
     defaultMessage:
-      'Vertex spells model ids differently and has no 1M context lane, so it needs its own model.',
+      'A Vertex project enables models one by one, so it needs its own model id. Keep the [1m] suffix for the 1M context window.',
   },
   cancel: {
     id: 'vertexBackendModal.cancel',

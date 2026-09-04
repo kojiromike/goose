@@ -4809,7 +4809,7 @@
     "defaultMessage": "Model"
   },
   "vertexBackendModal.modelHelp": {
-    "defaultMessage": "Vertex model kimliklerini farklı yazar ve 1M bağlam şeridi yoktur, bu yüzden kendi modeline ihtiyaç duyar."
+    "defaultMessage": "Bir Vertex projesi modelleri tek tek etkinleştirir, bu yüzden kendi model kimliğine ihtiyaç duyar. 1M bağlam penceresi için [1m] son ekini koruyun."
   },
   "vertexBackendModal.project": {
     "defaultMessage": "Proje kimliği"

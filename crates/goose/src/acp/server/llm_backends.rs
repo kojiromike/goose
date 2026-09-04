@@ -73,7 +73,7 @@ impl GooseAcpAgent {
             Some(kind) => {
                 if settings.requires_model(kind) {
                     return Err(agent_client_protocol::Error::invalid_params().data(
-                        "Choose a model for Vertex AI in its settings first: Vertex drops a model id it does not offer, which would silently shrink this session's context window",
+                        "Choose a model for Vertex AI in its settings first: a Vertex project enables models one by one, so this session's model may not exist there",
                     ));
                 }
                 settings.backend(kind).map_err(|error| {

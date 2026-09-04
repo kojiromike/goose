@@ -4809,7 +4809,7 @@
     "defaultMessage": "モデル"
   },
   "vertexBackendModal.modelHelp": {
-    "defaultMessage": "Vertex はモデル ID の表記が異なり 1M コンテキストにも対応していないため、専用のモデルが必要です。"
+    "defaultMessage": "Vertex プロジェクトはモデルを個別に有効化するため、専用のモデル ID が必要です。1M コンテキストには [1m] サフィックスを残してください。"
   },
   "vertexBackendModal.project": {
     "defaultMessage": "プロジェクト ID"

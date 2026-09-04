@@ -109,9 +109,9 @@ pub struct LlmBackendSettings {
     pub anthropic_base_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vertex: Option<VertexRouting>,
-    /// Model to re-pin after a switch, per backend: Vertex spells model ids
-    /// differently from the first-party API, so carrying one model across a
-    /// switch would strand the session on an id the new backend rejects.
+    /// Model to re-pin after a switch, per backend: a Vertex project enables
+    /// models one by one, so carrying one model across a switch can strand the
+    /// session on an id the new backend does not have.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub models: HashMap<String, String>,
 }
@@ -149,9 +149,11 @@ impl LlmBackendSettings {
     }
 
     /// Whether a model has to be chosen before this backend can be used.
-    /// Vertex silently drops a model id it does not offer — including the
-    /// `[1m]` context spellings — so carrying the current model over collapses
-    /// the context window instead of failing visibly.
+    /// A Vertex project enables models one by one, so a model that works on
+    /// the first-party API may simply not exist there — carrying the current
+    /// one over fails the next turn with `model_not_found`.
+    ///
+    /// The `[1m]` context spellings do work on Vertex and should be kept.
     pub fn requires_model(&self, kind: LlmBackendKind) -> bool {
         matches!(kind, LlmBackendKind::Vertex) && self.model_for(kind).is_none()
     }

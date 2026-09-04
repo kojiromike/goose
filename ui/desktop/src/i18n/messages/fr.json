@@ -4809,7 +4809,7 @@
     "defaultMessage": "Modèle"
   },
   "vertexBackendModal.modelHelp": {
-    "defaultMessage": "Vertex nomme les ids de modèle différemment et n'a pas de couloir de contexte 1M : il lui faut son propre modèle."
+    "defaultMessage": "Un projet Vertex active les modèles un par un : il lui faut son propre id de modèle. Conservez le suffixe [1m] pour la fenêtre de contexte de 1M."
   },
   "vertexBackendModal.project": {
     "defaultMessage": "ID du projet"

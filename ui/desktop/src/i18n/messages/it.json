@@ -4809,7 +4809,7 @@
     "defaultMessage": "Modello"
   },
   "vertexBackendModal.modelHelp": {
-    "defaultMessage": "Vertex scrive gli id dei modelli in modo diverso e non ha la corsia di contesto da 1M, quindi serve un modello dedicato."
+    "defaultMessage": "Un progetto Vertex abilita i modelli uno alla volta, quindi serve un id modello dedicato. Mantieni il suffisso [1m] per la finestra di contesto da 1M."
   },
   "vertexBackendModal.project": {
     "defaultMessage": "ID progetto"

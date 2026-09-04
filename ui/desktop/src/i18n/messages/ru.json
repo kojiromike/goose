@@ -4809,7 +4809,7 @@
     "defaultMessage": "Модель"
   },
   "vertexBackendModal.modelHelp": {
-    "defaultMessage": "Vertex записывает идентификаторы моделей иначе и не имеет полосы контекста 1M, поэтому нужна отдельная модель."
+    "defaultMessage": "Проект Vertex включает модели по одной, поэтому нужен собственный идентификатор модели. Сохраняйте суффикс [1m] для окна контекста 1M."
   },
   "vertexBackendModal.project": {
     "defaultMessage": "ID проекта"

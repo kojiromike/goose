@@ -4809,7 +4809,7 @@
     "defaultMessage": "모델"
   },
   "vertexBackendModal.modelHelp": {
-    "defaultMessage": "Vertex는 모델 id 표기가 다르고 1M 컨텍스트 레인이 없으므로 전용 모델이 필요합니다."
+    "defaultMessage": "Vertex 프로젝트는 모델을 개별적으로 활성화하므로 전용 모델 id가 필요합니다. 1M 컨텍스트 창을 쓰려면 [1m] 접미사를 유지하세요."
   },
   "vertexBackendModal.project": {
     "defaultMessage": "프로젝트 ID"
