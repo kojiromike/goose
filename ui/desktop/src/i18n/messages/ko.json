@@ -2336,8 +2336,20 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
+  "modelsBottomBar.backend": {
+    "defaultMessage": "백엔드"
+  },
+  "modelsBottomBar.backendSignIn": {
+    "defaultMessage": "로그인"
+  },
+  "modelsBottomBar.backendSwitchFailed": {
+    "defaultMessage": "백엔드를 전환할 수 없습니다: {reason}"
+  },
   "modelsBottomBar.changeModel": {
     "defaultMessage": "모델 변경"
+  },
+  "modelsBottomBar.configureVertex": {
+    "defaultMessage": "Vertex AI 설정"
   },
   "modelsBottomBar.currentModel": {
     "defaultMessage": "현재 모델"
@@ -4786,5 +4798,23 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "메시지에서 이미지 제거"
+  },
+  "vertexBackendModal.cancel": {
+    "defaultMessage": "취소"
+  },
+  "vertexBackendModal.description": {
+    "defaultMessage": "Google Cloud 프로젝트를 통해 Claude Code를 라우팅합니다. 이 백엔드를 선택하면 Google Cloud 로그인이 진행됩니다."
+  },
+  "vertexBackendModal.project": {
+    "defaultMessage": "프로젝트 ID"
+  },
+  "vertexBackendModal.region": {
+    "defaultMessage": "리전"
+  },
+  "vertexBackendModal.save": {
+    "defaultMessage": "저장"
+  },
+  "vertexBackendModal.title": {
+    "defaultMessage": "Vertex AI"
   }
 }

@@ -600,6 +600,211 @@
       ],
       "description": "A session the server is holding open."
     },
+    "ConfigureLlmBackendRequest_unstable": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "vertex": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VertexRoutingDto"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`null` clears the stored Vertex routing."
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "description": "Save the routing a backend needs before it can be selected.",
+      "x-side": "agent",
+      "x-method": "_goose/unstable/session/llm-backend/configure"
+    },
+    "VertexRoutingDto": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "baseUrl": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Overrides the endpoint derived from the region."
+        }
+      },
+      "required": [
+        "projectId",
+        "region"
+      ],
+      "description": "Google Cloud routing for the Vertex AI backend."
+    },
+    "LlmBackendStatusResponse_unstable": {
+      "type": "object",
+      "properties": {
+        "supported": {
+          "type": "boolean",
+          "description": "False when this provider's backend is not the client's to choose; the\nrest of the response is then empty."
+        },
+        "active": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "`null` means the agent is using its own routing."
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LlmBackendOptionDto"
+          }
+        },
+        "vertex": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VertexRoutingDto"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Stored Vertex routing, for editing."
+        },
+        "googleCloud": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GoogleCloudAuthDto"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "supported",
+        "options"
+      ],
+      "description": "Which LLM backend a session's provider is routed to, and what else it offers.",
+      "x-side": "agent"
+    },
+    "LlmBackendOptionDto": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "`anthropic` or `vertex`."
+        },
+        "label": {
+          "type": "string"
+        },
+        "configured": {
+          "type": "boolean",
+          "description": "False when the backend still needs settings, e.g. a Vertex project."
+        },
+        "detail": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Why it is unusable, or what it routes to."
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Model to re-pin when this backend becomes active, if one is remembered."
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "configured"
+      ],
+      "description": "One backend a session's provider can route its traffic to."
+    },
+    "GoogleCloudAuthDto": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "description": "`ready`, `not_configured` or `invalid`."
+        },
+        "account": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "detail": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "description": "Application Default Credentials state, for backends that authenticate to\nGoogle Cloud."
+    },
+    "ReadLlmBackendRequest_unstable": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "description": "Read the LLM backends a session's provider can route to.",
+      "x-side": "agent",
+      "x-method": "_goose/unstable/session/llm-backend/read"
+    },
+    "SetLlmBackendRequest_unstable": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "backend": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "`null` hands routing back to the agent."
+        },
+        "currentModel": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Model the session is on now, remembered against the backend being left\nso returning to it restores a model that backend accepts."
+        },
+        "signIn": {
+          "type": "boolean",
+          "description": "Run the Google Cloud sign-in when the chosen backend needs it. Only an\nexplicit user action should set this: it opens a browser.",
+          "default": false
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "description": "Route a session's provider to a different LLM backend.",
+      "x-side": "agent",
+      "x-method": "_goose/unstable/session/llm-backend/set"
+    },
     "GooseToolCallRequest_unstable": {
       "type": "object",
       "properties": {
@@ -7129,6 +7334,33 @@
                 {
                   "allOf": [
                     {
+                      "$ref": "#/$defs/ConfigureLlmBackendRequest_unstable"
+                    }
+                  ],
+                  "description": "Params for _goose/unstable/session/llm-backend/configure",
+                  "title": "ConfigureLlmBackendRequest_unstable"
+                },
+                {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/ReadLlmBackendRequest_unstable"
+                    }
+                  ],
+                  "description": "Params for _goose/unstable/session/llm-backend/read",
+                  "title": "ReadLlmBackendRequest_unstable"
+                },
+                {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/SetLlmBackendRequest_unstable"
+                    }
+                  ],
+                  "description": "Params for _goose/unstable/session/llm-backend/set",
+                  "title": "SetLlmBackendRequest_unstable"
+                },
+                {
+                  "allOf": [
+                    {
                       "$ref": "#/$defs/GooseToolCallRequest_unstable"
                     }
                   ],
@@ -8132,6 +8364,14 @@
                         }
                       ],
                       "title": "ListLiveSessionsResponse_unstable"
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/LlmBackendStatusResponse_unstable"
+                        }
+                      ],
+                      "title": "LlmBackendStatusResponse_unstable"
                     },
                     {
                       "allOf": [

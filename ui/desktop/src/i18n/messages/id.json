@@ -2336,8 +2336,20 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
+  "modelsBottomBar.backend": {
+    "defaultMessage": "Backend"
+  },
+  "modelsBottomBar.backendSignIn": {
+    "defaultMessage": "masuk"
+  },
+  "modelsBottomBar.backendSwitchFailed": {
+    "defaultMessage": "Tidak dapat mengganti backend: {reason}"
+  },
   "modelsBottomBar.changeModel": {
     "defaultMessage": "Ubah Model"
+  },
+  "modelsBottomBar.configureVertex": {
+    "defaultMessage": "Pengaturan Vertex AI"
   },
   "modelsBottomBar.currentModel": {
     "defaultMessage": "Model saat ini"
@@ -4786,5 +4798,23 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Hapus gambar dari pesan"
+  },
+  "vertexBackendModal.cancel": {
+    "defaultMessage": "Batal"
+  },
+  "vertexBackendModal.description": {
+    "defaultMessage": "Arahkan Claude Code melalui proyek Google Cloud Anda. Masuk ke Google Cloud terjadi saat Anda memilih backend ini."
+  },
+  "vertexBackendModal.project": {
+    "defaultMessage": "ID Proyek"
+  },
+  "vertexBackendModal.region": {
+    "defaultMessage": "Wilayah"
+  },
+  "vertexBackendModal.save": {
+    "defaultMessage": "Simpan"
+  },
+  "vertexBackendModal.title": {
+    "defaultMessage": "Vertex AI"
   }
 }

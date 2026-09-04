@@ -69,6 +69,30 @@ impl GooseAcpAgent {
         self.on_list_live_sessions(req).await
     }
 
+    #[custom_method(ConfigureLlmBackendRequest)]
+    async fn dispatch_configure_llm_backend(
+        &self,
+        req: ConfigureLlmBackendRequest,
+    ) -> Result<LlmBackendStatusResponse, agent_client_protocol::Error> {
+        self.on_configure_llm_backend(req).await
+    }
+
+    #[custom_method(ReadLlmBackendRequest)]
+    async fn dispatch_read_llm_backend(
+        &self,
+        req: ReadLlmBackendRequest,
+    ) -> Result<LlmBackendStatusResponse, agent_client_protocol::Error> {
+        self.on_read_llm_backend(req).await
+    }
+
+    #[custom_method(SetLlmBackendRequest)]
+    async fn dispatch_set_llm_backend(
+        &self,
+        req: SetLlmBackendRequest,
+    ) -> Result<LlmBackendStatusResponse, agent_client_protocol::Error> {
+        self.on_set_llm_backend(req).await
+    }
+
     #[custom_method(GooseToolCallRequest)]
     async fn dispatch_call_tool(
         &self,

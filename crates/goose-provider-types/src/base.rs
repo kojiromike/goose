@@ -15,6 +15,7 @@ use crate::{
     },
     errors::ProviderError,
     goose_mode::GooseMode,
+    llm_backend::{LlmBackend, LlmBackendState},
     model::ModelConfig,
     permission::PermissionConfirmation,
     retry::RetryConfig,
@@ -696,6 +697,21 @@ pub trait Provider: Send + Sync {
     /// Providers without an asynchronous capability source return `None`.
     fn subscribe_thinking_effort_support(&self) -> Option<watch::Receiver<ThinkingEffortSupport>> {
         None
+    }
+
+    /// The provider's current LLM backend routing, or `None` when the backend
+    /// is not the client's to choose.
+    fn llm_backend_state(&self) -> Option<LlmBackendState> {
+        None
+    }
+
+    /// Route this provider's traffic to `backend`, or back to the harness's own
+    /// routing with `None`.
+    async fn set_llm_backend(&self, _backend: Option<LlmBackend>) -> Result<(), ProviderError> {
+        Err(ProviderError::ExecutionError(format!(
+            "{} does not support choosing an LLM backend",
+            self.get_name()
+        )))
     }
 
     /// Forward a thinking-effort selection to the provider. Returns `Ok(true)`

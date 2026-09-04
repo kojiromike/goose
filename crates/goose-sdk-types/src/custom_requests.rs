@@ -2350,6 +2350,103 @@ pub struct ListLiveSessionsResponse {
     pub sessions: Vec<LiveSessionDto>,
 }
 
+/// One backend a session's provider can route its traffic to.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LlmBackendOptionDto {
+    /// `anthropic` or `vertex`.
+    pub id: String,
+    pub label: String,
+    /// False when the backend still needs settings, e.g. a Vertex project.
+    pub configured: bool,
+    /// Why it is unusable, or what it routes to.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    /// Model to re-pin when this backend becomes active, if one is remembered.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+}
+
+/// Application Default Credentials state, for backends that authenticate to
+/// Google Cloud.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GoogleCloudAuthDto {
+    /// `ready`, `not_configured` or `invalid`.
+    pub state: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+/// Which LLM backend a session's provider is routed to, and what else it offers.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcResponse)]
+#[serde(rename_all = "camelCase")]
+pub struct LlmBackendStatusResponse {
+    /// False when this provider's backend is not the client's to choose; the
+    /// rest of the response is then empty.
+    pub supported: bool,
+    /// `null` means the agent is using its own routing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active: Option<String>,
+    pub options: Vec<LlmBackendOptionDto>,
+    /// Stored Vertex routing, for editing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vertex: Option<VertexRoutingDto>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub google_cloud: Option<GoogleCloudAuthDto>,
+}
+
+/// Google Cloud routing for the Vertex AI backend.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct VertexRoutingDto {
+    pub project_id: String,
+    pub region: String,
+    /// Overrides the endpoint derived from the region.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+}
+
+/// Save the routing a backend needs before it can be selected.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcRequest)]
+#[request(method = "_goose/unstable/session/llm-backend/configure", response = LlmBackendStatusResponse)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigureLlmBackendRequest {
+    pub session_id: String,
+    /// `null` clears the stored Vertex routing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vertex: Option<VertexRoutingDto>,
+}
+
+/// Read the LLM backends a session's provider can route to.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcRequest)]
+#[request(method = "_goose/unstable/session/llm-backend/read", response = LlmBackendStatusResponse)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadLlmBackendRequest {
+    pub session_id: String,
+}
+
+/// Route a session's provider to a different LLM backend.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcRequest)]
+#[request(method = "_goose/unstable/session/llm-backend/set", response = LlmBackendStatusResponse)]
+#[serde(rename_all = "camelCase")]
+pub struct SetLlmBackendRequest {
+    pub session_id: String,
+    /// `null` hands routing back to the agent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend: Option<String>,
+    /// Model the session is on now, remembered against the backend being left
+    /// so returning to it restores a model that backend accepts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_model: Option<String>,
+    /// Run the Google Cloud sign-in when the chosen backend needs it. Only an
+    /// explicit user action should set this: it opens a browser.
+    #[serde(default)]
+    pub sign_in: bool,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

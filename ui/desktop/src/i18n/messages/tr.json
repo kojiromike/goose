@@ -2336,8 +2336,20 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Üst P"
   },
+  "modelsBottomBar.backend": {
+    "defaultMessage": "Arka uç"
+  },
+  "modelsBottomBar.backendSignIn": {
+    "defaultMessage": "oturum aç"
+  },
+  "modelsBottomBar.backendSwitchFailed": {
+    "defaultMessage": "Arka uç değiştirilemedi: {reason}"
+  },
   "modelsBottomBar.changeModel": {
     "defaultMessage": "Modeli Değiştir"
+  },
+  "modelsBottomBar.configureVertex": {
+    "defaultMessage": "Vertex AI ayarları"
   },
   "modelsBottomBar.currentModel": {
     "defaultMessage": "Mevcut model"
@@ -4786,5 +4798,23 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Görseli mesajdan kaldır"
+  },
+  "vertexBackendModal.cancel": {
+    "defaultMessage": "İptal"
+  },
+  "vertexBackendModal.description": {
+    "defaultMessage": "Claude Code'u Google Cloud projeniz üzerinden yönlendirin. Google Cloud oturum açma, bu arka ucu seçtiğinizde gerçekleşir."
+  },
+  "vertexBackendModal.project": {
+    "defaultMessage": "Proje kimliği"
+  },
+  "vertexBackendModal.region": {
+    "defaultMessage": "Bölge"
+  },
+  "vertexBackendModal.save": {
+    "defaultMessage": "Kaydet"
+  },
+  "vertexBackendModal.title": {
+    "defaultMessage": "Vertex AI"
   }
 }

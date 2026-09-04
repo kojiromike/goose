@@ -195,6 +195,72 @@ export const zListLiveSessionsResponse_unstable = z.object({
 });
 
 /**
+ * Google Cloud routing for the Vertex AI backend.
+ */
+export const zVertexRoutingDto = z.object({
+    projectId: z.string(),
+    region: z.string(),
+    baseUrl: z.string().nullish()
+});
+
+/**
+ * Save the routing a backend needs before it can be selected.
+ */
+export const zConfigureLlmBackendRequest_unstable = z.object({
+    sessionId: z.string(),
+    vertex: zVertexRoutingDto.nullish()
+});
+
+/**
+ * One backend a session's provider can route its traffic to.
+ */
+export const zLlmBackendOptionDto = z.object({
+    id: z.string(),
+    label: z.string(),
+    configured: z.boolean(),
+    detail: z.string().nullish(),
+    model: z.string().nullish()
+});
+
+/**
+ * Application Default Credentials state, for backends that authenticate to
+ * Google Cloud.
+ */
+export const zGoogleCloudAuthDto = z.object({
+    state: z.string(),
+    account: z.string().nullish(),
+    detail: z.string().nullish()
+});
+
+/**
+ * Which LLM backend a session's provider is routed to, and what else it offers.
+ */
+export const zLlmBackendStatusResponse_unstable = z.object({
+    supported: z.boolean(),
+    active: z.string().nullish(),
+    options: z.array(zLlmBackendOptionDto),
+    vertex: zVertexRoutingDto.nullish(),
+    googleCloud: zGoogleCloudAuthDto.nullish()
+});
+
+/**
+ * Read the LLM backends a session's provider can route to.
+ */
+export const zReadLlmBackendRequest_unstable = z.object({
+    sessionId: z.string()
+});
+
+/**
+ * Route a session's provider to a different LLM backend.
+ */
+export const zSetLlmBackendRequest_unstable = z.object({
+    sessionId: z.string(),
+    backend: z.string().nullish(),
+    currentModel: z.string().nullish(),
+    signIn: z.boolean().optional().default(false)
+});
+
+/**
  * Call a tool from an extension.
  */
 export const zGooseToolCallRequest_unstable = z.object({
@@ -2336,6 +2402,9 @@ export const zExtRequest = z.object({
             zGetToolsRequest_unstable,
             zSetToolPermissionsRequest_unstable,
             zListLiveSessionsRequest_unstable,
+            zConfigureLlmBackendRequest_unstable,
+            zReadLlmBackendRequest_unstable,
+            zSetLlmBackendRequest_unstable,
             zGooseToolCallRequest_unstable,
             zReadResourceRequest_unstable,
             zAppsListRequest_unstable,
@@ -2455,6 +2524,7 @@ export const zExtResponse = z.union([
                 zGetToolsResponse_unstable,
                 zSetToolPermissionsResponse_unstable,
                 zListLiveSessionsResponse_unstable,
+                zLlmBackendStatusResponse_unstable,
                 zGooseToolCallResponse_unstable,
                 zReadResourceResponse_unstable,
                 zAppsListResponse_unstable,

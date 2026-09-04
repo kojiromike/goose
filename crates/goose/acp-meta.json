@@ -26,6 +26,21 @@
       "responseType": "ListLiveSessionsResponse_unstable"
     },
     {
+      "method": "_goose/unstable/session/llm-backend/configure",
+      "requestType": "ConfigureLlmBackendRequest_unstable",
+      "responseType": "LlmBackendStatusResponse_unstable"
+    },
+    {
+      "method": "_goose/unstable/session/llm-backend/read",
+      "requestType": "ReadLlmBackendRequest_unstable",
+      "responseType": "LlmBackendStatusResponse_unstable"
+    },
+    {
+      "method": "_goose/unstable/session/llm-backend/set",
+      "requestType": "SetLlmBackendRequest_unstable",
+      "responseType": "LlmBackendStatusResponse_unstable"
+    },
+    {
       "method": "_goose/unstable/tools/call",
       "requestType": "GooseToolCallRequest_unstable",
       "responseType": "GooseToolCallResponse_unstable"

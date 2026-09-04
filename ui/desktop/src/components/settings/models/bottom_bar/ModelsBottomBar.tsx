@@ -1,7 +1,8 @@
-import { Sliders, Bot, LoaderCircle, Settings, History } from 'lucide-react';
+import { Sliders, Bot, LoaderCircle, Settings, History, Check, Cloud } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useModelAndProvider } from '../../../ModelAndProviderContext';
 import { SwitchModelModal } from '../subcomponents/SwitchModelModal';
+import { VertexBackendModal } from '../subcomponents/VertexBackendModal';
 import { View } from '../../../../utils/navigationUtils';
 import {
   DropdownMenu,
@@ -13,6 +14,13 @@ import {
 import { getProviderMetadata, fetchModelReasoning } from '../modelInterface';
 import { getModelDisplayName } from '../predefinedModelsUtils';
 import { acpReadThinkingEffort } from '../../../../acp/providers';
+import {
+  acpReadLlmBackend,
+  acpSetLlmBackend,
+  needsGoogleCloudSignIn,
+  UNSUPPORTED_LLM_BACKEND,
+  type LlmBackendStatus,
+} from '../../../../acp/llmBackend';
 
 import { ModelSettingsPanel } from '../../localInference/ModelSettingsPanel';
 import { ScrollArea } from '../../../ui/scroll-area';
@@ -21,6 +29,7 @@ import type { Message } from '../../../../types/message';
 import type { RecentModel } from '../../../../utils/settings';
 import { addToRecentModels } from '../../../../utils/recentModels';
 import { trackModelChanged } from '../../../../utils/analytics';
+import { toastError } from '../../../../toasts';
 
 const i18n = defineMessages({
   selectModel: {
@@ -55,6 +64,22 @@ const i18n = defineMessages({
     id: 'modelsBottomBar.recentModels',
     defaultMessage: 'Recent',
   },
+  backend: {
+    id: 'modelsBottomBar.backend',
+    defaultMessage: 'Backend',
+  },
+  backendSignIn: {
+    id: 'modelsBottomBar.backendSignIn',
+    defaultMessage: 'sign in',
+  },
+  backendSwitchFailed: {
+    id: 'modelsBottomBar.backendSwitchFailed',
+    defaultMessage: 'Could not switch backend: {reason}',
+  },
+  configureVertex: {
+    id: 'modelsBottomBar.configureVertex',
+    defaultMessage: 'Vertex AI settings',
+  },
 });
 
 interface ModelsBottomBarProps {
@@ -68,7 +93,7 @@ interface ModelsBottomBarProps {
   sessionLoaded?: boolean;
 }
 
-type ModelMenuModal = 'switch-model' | 'local-model-settings';
+type ModelMenuModal = 'switch-model' | 'local-model-settings' | 'vertex-backend';
 
 export default function ModelsBottomBar({
   sessionId,
@@ -101,6 +126,9 @@ export default function ModelsBottomBar({
   const [isLocalModelSettingsOpen, setIsLocalModelSettingsOpen] = useState(false);
   const [providerDefaultModel, setProviderDefaultModel] = useState<string | null>(null);
   const [recentModels, setRecentModels] = useState<RecentModel[]>([]);
+  const [llmBackend, setLlmBackend] = useState<LlmBackendStatus>(UNSUPPORTED_LLM_BACKEND);
+  const [switchingBackend, setSwitchingBackend] = useState<string | null>(null);
+  const [isVertexBackendOpen, setIsVertexBackendOpen] = useState(false);
 
   const loadRecentModels = useCallback(async () => {
     const stored = (await window.electron.getSetting('recentModels')) ?? [];
@@ -183,6 +211,9 @@ export default function ModelsBottomBar({
     if (pendingModal === 'switch-model') {
       event.preventDefault();
       setIsAddModelModalOpen(true);
+    } else if (pendingModal === 'vertex-backend') {
+      event.preventDefault();
+      setIsVertexBackendOpen(true);
     } else {
       setIsLocalModelSettingsOpen(true);
     }
@@ -213,6 +244,58 @@ export default function ModelsBottomBar({
       }
       onModelChanged({ model: recent.model, provider: recent.provider });
     }
+  };
+
+  // Only read while the menu is open: the Vertex branch checks Google Cloud
+  // credentials, which is a network round trip.
+  useEffect(() => {
+    if (!isModelMenuOpen || !sessionId) return;
+    let cancelled = false;
+    acpReadLlmBackend(sessionId)
+      .then((status) => {
+        if (!cancelled) setLlmBackend(status);
+      })
+      .catch(() => {
+        if (!cancelled) setLlmBackend(UNSUPPORTED_LLM_BACKEND);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isModelMenuOpen, sessionId]);
+
+  const handleBackendSelected = async (backendId: string) => {
+    if (!sessionId || backendId === llmBackend.active) return;
+
+    setSwitchingBackend(backendId);
+    try {
+      const status = await acpSetLlmBackend(sessionId, backendId, {
+        signIn: needsGoogleCloudSignIn(llmBackend, backendId),
+        currentModel,
+      });
+      setLlmBackend(status);
+
+      // Backends spell model ids differently, so restore the one this backend
+      // was last used with rather than carrying the current one across.
+      const model = status.options.find((option) => option.id === status.active)?.model;
+      if (model && model !== currentModel && currentProvider) {
+        const success = await changeModel(sessionId, { name: model, provider: currentProvider });
+        if (success) onModelChanged({ model, provider: currentProvider });
+      }
+    } catch (error) {
+      toastError({
+        title: intl.formatMessage(i18n.backend),
+        msg: intl.formatMessage(i18n.backendSwitchFailed, {
+          reason: error instanceof Error ? error.message : String(error),
+        }),
+      });
+    } finally {
+      setSwitchingBackend(null);
+    }
+  };
+
+  const vertexRouting = {
+    projectId: llmBackend.vertex?.projectId ?? '',
+    region: llmBackend.vertex?.region ?? '',
   };
 
   const filteredRecentModels = recentModels.filter(
@@ -280,6 +363,48 @@ export default function ModelsBottomBar({
               <DropdownMenuSeparator />
             </>
           )}
+          {llmBackend.supported && (
+            <>
+              <h6 className="text-xs text-text-primary mt-2 ml-2">
+                {intl.formatMessage(i18n.backend)}
+              </h6>
+              {llmBackend.options.map((option) => (
+                <DropdownMenuItem
+                  key={option.id}
+                  disabled={!option.configured || switchingBackend !== null}
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    void handleBackendSelected(option.id);
+                  }}
+                >
+                  {switchingBackend === option.id ? (
+                    <LoaderCircle className="mr-2 h-3.5 w-3.5 flex-shrink-0 animate-spin" />
+                  ) : (
+                    <Cloud className="mr-2 h-3.5 w-3.5 flex-shrink-0 text-text-secondary" />
+                  )}
+                  <span className="truncate">
+                    {option.label}
+                    {needsGoogleCloudSignIn(llmBackend, option.id) && option.configured
+                      ? ` — ${intl.formatMessage(i18n.backendSignIn)}`
+                      : ''}
+                  </span>
+                  {option.id === llmBackend.active && <Check className="ml-auto h-3.5 w-3.5" />}
+                </DropdownMenuItem>
+              ))}
+              {llmBackend.options
+                .filter((option) => !option.configured && option.detail)
+                .map((option) => (
+                  <p key={`${option.id}-detail`} className="text-xs text-text-muted mx-2 mb-1">
+                    {option.detail}
+                  </p>
+                ))}
+              <DropdownMenuItem onSelect={() => openModalAfterMenuCloses('vertex-backend')}>
+                <span className="text-xs">{intl.formatMessage(i18n.configureVertex)}</span>
+                <Settings className="ml-auto h-3.5 w-3.5" />
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem onSelect={() => openModalAfterMenuCloses('switch-model')}>
             <span>{intl.formatMessage(i18n.changeModel)}</span>
             <Sliders className="ml-auto h-4 w-4 rotate-90" />
@@ -303,6 +428,16 @@ export default function ModelsBottomBar({
           onModelSelected={(model, provider) => handleModelSelected(model, provider)}
         />
       ) : null}
+
+      {isVertexBackendOpen && sessionId && (
+        <VertexBackendModal
+          sessionId={sessionId}
+          projectId={vertexRouting.projectId}
+          region={vertexRouting.region}
+          onSaved={setLlmBackend}
+          onClose={() => setIsVertexBackendOpen(false)}
+        />
+      )}
 
       {isLocalModelSettingsOpen && currentModel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">

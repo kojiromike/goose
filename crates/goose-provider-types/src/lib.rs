@@ -9,6 +9,7 @@ pub mod formats;
 pub mod goose_mode;
 pub mod images;
 pub mod json;
+pub mod llm_backend;
 pub(crate) mod mcp_utils;
 pub mod model;
 pub mod permission;

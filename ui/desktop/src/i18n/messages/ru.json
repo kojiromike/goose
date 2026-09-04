@@ -2336,8 +2336,20 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
+  "modelsBottomBar.backend": {
+    "defaultMessage": "Бэкенд"
+  },
+  "modelsBottomBar.backendSignIn": {
+    "defaultMessage": "войти"
+  },
+  "modelsBottomBar.backendSwitchFailed": {
+    "defaultMessage": "Не удалось переключить бэкенд: {reason}"
+  },
   "modelsBottomBar.changeModel": {
     "defaultMessage": "Изменить модель"
+  },
+  "modelsBottomBar.configureVertex": {
+    "defaultMessage": "Настройки Vertex AI"
   },
   "modelsBottomBar.currentModel": {
     "defaultMessage": "Текущая модель"
@@ -4786,5 +4798,23 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Удалить изображение из сообщения"
+  },
+  "vertexBackendModal.cancel": {
+    "defaultMessage": "Отмена"
+  },
+  "vertexBackendModal.description": {
+    "defaultMessage": "Направляйте Claude Code через ваш проект Google Cloud. Вход в Google Cloud выполняется при выборе этого бэкенда."
+  },
+  "vertexBackendModal.project": {
+    "defaultMessage": "ID проекта"
+  },
+  "vertexBackendModal.region": {
+    "defaultMessage": "Регион"
+  },
+  "vertexBackendModal.save": {
+    "defaultMessage": "Сохранить"
+  },
+  "vertexBackendModal.title": {
+    "defaultMessage": "Vertex AI"
   }
 }

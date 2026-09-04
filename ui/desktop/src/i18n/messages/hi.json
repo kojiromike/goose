@@ -2336,8 +2336,20 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "शीर्ष पी"
   },
+  "modelsBottomBar.backend": {
+    "defaultMessage": "बैकएंड"
+  },
+  "modelsBottomBar.backendSignIn": {
+    "defaultMessage": "साइन इन करें"
+  },
+  "modelsBottomBar.backendSwitchFailed": {
+    "defaultMessage": "बैकएंड स्विच नहीं किया जा सका: {reason}"
+  },
   "modelsBottomBar.changeModel": {
     "defaultMessage": "मॉडल बदलें"
+  },
+  "modelsBottomBar.configureVertex": {
+    "defaultMessage": "Vertex AI सेटिंग्स"
   },
   "modelsBottomBar.currentModel": {
     "defaultMessage": "वर्तमान मॉडल"
@@ -4786,5 +4798,23 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "संदेश से छवि हटाएँ"
+  },
+  "vertexBackendModal.cancel": {
+    "defaultMessage": "रद्द करें"
+  },
+  "vertexBackendModal.description": {
+    "defaultMessage": "अपने Google Cloud प्रोजेक्ट के माध्यम से Claude Code रूट करें। इस बैकएंड को चुनने पर Google Cloud साइन-इन होता है।"
+  },
+  "vertexBackendModal.project": {
+    "defaultMessage": "प्रोजेक्ट ID"
+  },
+  "vertexBackendModal.region": {
+    "defaultMessage": "क्षेत्र"
+  },
+  "vertexBackendModal.save": {
+    "defaultMessage": "सहेजें"
+  },
+  "vertexBackendModal.title": {
+    "defaultMessage": "Vertex AI"
   }
 }

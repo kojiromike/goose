@@ -1,0 +1,43 @@
+import type {
+  LlmBackendOptionDto,
+  LlmBackendStatusResponse_unstable,
+} from '@aaif/goose-acp-client';
+import { getAcpClient } from './acpConnection';
+
+export type LlmBackendStatus = LlmBackendStatusResponse_unstable;
+export type LlmBackendOption = LlmBackendOptionDto;
+
+export const UNSUPPORTED_LLM_BACKEND: LlmBackendStatus = { supported: false, options: [] };
+
+export async function acpReadLlmBackend(sessionId: string): Promise<LlmBackendStatus> {
+  const client = await getAcpClient();
+  return client.goose.sessionLlmBackendRead_unstable({ sessionId });
+}
+
+export async function acpSetLlmBackend(
+  sessionId: string,
+  backend: string | null,
+  options: { signIn?: boolean; currentModel?: string | null } = {}
+): Promise<LlmBackendStatus> {
+  const client = await getAcpClient();
+  return client.goose.sessionLlmBackendSet_unstable({
+    sessionId,
+    backend,
+    signIn: options.signIn ?? false,
+    currentModel: options.currentModel ?? null,
+  });
+}
+
+export async function acpConfigureLlmBackend(
+  sessionId: string,
+  vertex: { projectId: string; region: string } | null
+): Promise<LlmBackendStatus> {
+  const client = await getAcpClient();
+  return client.goose.sessionLlmBackendConfigure_unstable({ sessionId, vertex });
+}
+
+// Signing in opens a browser, so the caller asks for it up front only when the
+// credentials are already known to be unusable.
+export function needsGoogleCloudSignIn(status: LlmBackendStatus, backendId: string): boolean {
+  return backendId === 'vertex' && (status.googleCloud?.state ?? 'not_configured') !== 'ready';
+}

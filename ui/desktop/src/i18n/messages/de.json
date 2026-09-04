@@ -2336,8 +2336,20 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
+  "modelsBottomBar.backend": {
+    "defaultMessage": "Backend"
+  },
+  "modelsBottomBar.backendSignIn": {
+    "defaultMessage": "anmelden"
+  },
+  "modelsBottomBar.backendSwitchFailed": {
+    "defaultMessage": "Backend konnte nicht gewechselt werden: {reason}"
+  },
   "modelsBottomBar.changeModel": {
     "defaultMessage": "Modell ändern"
+  },
+  "modelsBottomBar.configureVertex": {
+    "defaultMessage": "Vertex-AI-Einstellungen"
   },
   "modelsBottomBar.currentModel": {
     "defaultMessage": "Aktuelles Modell"
@@ -4786,5 +4798,23 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Bild aus Nachricht entfernen"
+  },
+  "vertexBackendModal.cancel": {
+    "defaultMessage": "Abbrechen"
+  },
+  "vertexBackendModal.description": {
+    "defaultMessage": "Claude Code über Ihr Google-Cloud-Projekt leiten. Die Anmeldung bei Google Cloud erfolgt, wenn Sie dieses Backend auswählen."
+  },
+  "vertexBackendModal.project": {
+    "defaultMessage": "Projekt-ID"
+  },
+  "vertexBackendModal.region": {
+    "defaultMessage": "Region"
+  },
+  "vertexBackendModal.save": {
+    "defaultMessage": "Speichern"
+  },
+  "vertexBackendModal.title": {
+    "defaultMessage": "Vertex AI"
   }
 }

@@ -21,6 +21,7 @@ import type {
   ConfigReadResponse_unstable,
   ConfigRemoveRequest_unstable,
   ConfigUpsertRequest_unstable,
+  ConfigureLlmBackendRequest_unstable,
   CreateScheduleRequest_unstable,
   CreateScheduleResponse_unstable,
   CreateSourceRequest_unstable,
@@ -99,6 +100,7 @@ import type {
   ListSlashCommandsResponse_unstable,
   ListSourcesRequest_unstable,
   ListSourcesResponse_unstable,
+  LlmBackendStatusResponse_unstable,
   LocalInferenceBuiltinChatTemplatesListRequest_unstable,
   LocalInferenceBuiltinChatTemplatesListResponse_unstable,
   LocalInferenceHuggingFaceRepoVariantsRequest_unstable,
@@ -152,6 +154,7 @@ import type {
   ProviderSetupCatalogListResponse_unstable,
   ProviderSupportedModelsListRequest_unstable,
   ProviderSupportedModelsListResponse_unstable,
+  ReadLlmBackendRequest_unstable,
   ReadResourceRequest_unstable,
   ReadResourceResponse_unstable,
   RecipeToYamlRequest_unstable,
@@ -171,6 +174,7 @@ import type {
   ScanRecipeResponse_unstable,
   ScheduleRecipeRequest_unstable,
   SetConfigExtensionEnabledRequest_unstable,
+  SetLlmBackendRequest_unstable,
   SetRecipeSlashCommandRequest_unstable,
   SetSessionSystemPromptRequest_unstable,
   SetToolPermissionsRequest_unstable,
@@ -232,6 +236,7 @@ import {
   zListSchedulesResponse_unstable,
   zListSlashCommandsResponse_unstable,
   zListSourcesResponse_unstable,
+  zLlmBackendStatusResponse_unstable,
   zLocalInferenceBuiltinChatTemplatesListResponse_unstable,
   zLocalInferenceHuggingFaceRepoVariantsResponse_unstable,
   zLocalInferenceHuggingFaceSearchResponse_unstable,
@@ -315,6 +320,42 @@ export class GooseExtClient {
     return zListLiveSessionsResponse_unstable.parse(
       raw,
     ) as ListLiveSessionsResponse_unstable;
+  }
+
+  async sessionLlmBackendConfigure_unstable(
+    params: ConfigureLlmBackendRequest_unstable,
+  ): Promise<LlmBackendStatusResponse_unstable> {
+    const raw = await this.conn.request(
+      "_goose/unstable/session/llm-backend/configure",
+      params,
+    );
+    return zLlmBackendStatusResponse_unstable.parse(
+      raw,
+    ) as LlmBackendStatusResponse_unstable;
+  }
+
+  async sessionLlmBackendRead_unstable(
+    params: ReadLlmBackendRequest_unstable,
+  ): Promise<LlmBackendStatusResponse_unstable> {
+    const raw = await this.conn.request(
+      "_goose/unstable/session/llm-backend/read",
+      params,
+    );
+    return zLlmBackendStatusResponse_unstable.parse(
+      raw,
+    ) as LlmBackendStatusResponse_unstable;
+  }
+
+  async sessionLlmBackendSet_unstable(
+    params: SetLlmBackendRequest_unstable,
+  ): Promise<LlmBackendStatusResponse_unstable> {
+    const raw = await this.conn.request(
+      "_goose/unstable/session/llm-backend/set",
+      params,
+    );
+    return zLlmBackendStatusResponse_unstable.parse(
+      raw,
+    ) as LlmBackendStatusResponse_unstable;
   }
 
   async toolsCall_unstable(

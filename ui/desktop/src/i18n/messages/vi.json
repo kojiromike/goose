@@ -2336,8 +2336,20 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
+  "modelsBottomBar.backend": {
+    "defaultMessage": "Backend"
+  },
+  "modelsBottomBar.backendSignIn": {
+    "defaultMessage": "đăng nhập"
+  },
+  "modelsBottomBar.backendSwitchFailed": {
+    "defaultMessage": "Không thể chuyển backend: {reason}"
+  },
   "modelsBottomBar.changeModel": {
     "defaultMessage": "Thay đổi mô hình"
+  },
+  "modelsBottomBar.configureVertex": {
+    "defaultMessage": "Cài đặt Vertex AI"
   },
   "modelsBottomBar.currentModel": {
     "defaultMessage": "Mô hình hiện tại"
@@ -4786,5 +4798,23 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Xóa hình ảnh khỏi tin nhắn"
+  },
+  "vertexBackendModal.cancel": {
+    "defaultMessage": "Hủy"
+  },
+  "vertexBackendModal.description": {
+    "defaultMessage": "Định tuyến Claude Code qua dự án Google Cloud của bạn. Việc đăng nhập Google Cloud diễn ra khi bạn chọn backend này."
+  },
+  "vertexBackendModal.project": {
+    "defaultMessage": "ID dự án"
+  },
+  "vertexBackendModal.region": {
+    "defaultMessage": "Khu vực"
+  },
+  "vertexBackendModal.save": {
+    "defaultMessage": "Lưu"
+  },
+  "vertexBackendModal.title": {
+    "defaultMessage": "Vertex AI"
   }
 }
