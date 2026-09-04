@@ -4805,6 +4805,12 @@
   "vertexBackendModal.description": {
     "defaultMessage": "Claude Code'u Google Cloud projeniz üzerinden yönlendirin. Google Cloud oturum açma, bu arka ucu seçtiğinizde gerçekleşir."
   },
+  "vertexBackendModal.model": {
+    "defaultMessage": "Model"
+  },
+  "vertexBackendModal.modelHelp": {
+    "defaultMessage": "Vertex model kimliklerini farklı yazar ve 1M bağlam şeridi yoktur, bu yüzden kendi modeline ihtiyaç duyar."
+  },
   "vertexBackendModal.project": {
     "defaultMessage": "Proje kimliği"
   },

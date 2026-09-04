@@ -4805,6 +4805,12 @@
   "vertexBackendModal.description": {
     "defaultMessage": "Google Cloud 프로젝트를 통해 Claude Code를 라우팅합니다. 이 백엔드를 선택하면 Google Cloud 로그인이 진행됩니다."
   },
+  "vertexBackendModal.model": {
+    "defaultMessage": "모델"
+  },
+  "vertexBackendModal.modelHelp": {
+    "defaultMessage": "Vertex는 모델 id 표기가 다르고 1M 컨텍스트 레인이 없으므로 전용 모델이 필요합니다."
+  },
   "vertexBackendModal.project": {
     "defaultMessage": "프로젝트 ID"
   },

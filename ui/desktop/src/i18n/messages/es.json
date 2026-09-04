@@ -4805,6 +4805,12 @@
   "vertexBackendModal.description": {
     "defaultMessage": "Enruta Claude Code a través de tu proyecto de Google Cloud. El inicio de sesión en Google Cloud ocurre cuando seleccionas este backend."
   },
+  "vertexBackendModal.model": {
+    "defaultMessage": "Modelo"
+  },
+  "vertexBackendModal.modelHelp": {
+    "defaultMessage": "Vertex escribe los ids de modelo de otra forma y no tiene canal de contexto de 1M, así que necesita su propio modelo."
+  },
   "vertexBackendModal.project": {
     "defaultMessage": "ID del proyecto"
   },

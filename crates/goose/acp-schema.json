@@ -616,6 +616,13 @@
             }
           ],
           "description": "`null` clears the stored Vertex routing."
+        },
+        "vertexModel": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Model to use on Vertex. Required before Vertex can be selected: it\nspells model ids differently and silently drops ones it does not offer."
         }
       },
       "required": [

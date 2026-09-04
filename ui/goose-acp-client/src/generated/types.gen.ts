@@ -307,6 +307,11 @@ export type ConfigureLlmBackendRequest_unstable = {
      * `null` clears the stored Vertex routing.
      */
     vertex?: VertexRoutingDto | null;
+    /**
+     * Model to use on Vertex. Required before Vertex can be selected: it
+     * spells model ids differently and silently drops ones it does not offer.
+     */
+    vertexModel?: string | null;
 };
 
 /**

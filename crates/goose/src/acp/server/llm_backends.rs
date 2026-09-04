@@ -13,16 +13,12 @@ impl GooseAcpAgent {
         req: ReadLlmBackendRequest,
     ) -> Result<LlmBackendStatusResponse, agent_client_protocol::Error> {
         let provider = self.session_provider(&req.session_id).await?;
-        let Some(state) = provider.llm_backend_state() else {
+        if provider.llm_backend_state().is_none() {
             return Ok(LlmBackendStatusResponse::default());
-        };
+        }
 
         let settings = load_settings(Config::global(), provider.get_name());
-        Ok(status(
-            &settings,
-            state.active.as_ref(),
-            google_cloud_status(&settings).await,
-        ))
+        Ok(status(&settings, google_cloud_status(&settings).await))
     }
 
     pub(super) async fn on_configure_llm_backend(
@@ -30,9 +26,9 @@ impl GooseAcpAgent {
         req: ConfigureLlmBackendRequest,
     ) -> Result<LlmBackendStatusResponse, agent_client_protocol::Error> {
         let provider = self.session_provider(&req.session_id).await?;
-        let Some(state) = provider.llm_backend_state() else {
+        if provider.llm_backend_state().is_none() {
             return Ok(LlmBackendStatusResponse::default());
-        };
+        }
 
         let config = Config::global();
         let mut settings = load_settings(config, provider.get_name());
@@ -41,13 +37,12 @@ impl GooseAcpAgent {
             region: vertex.region,
             base_url: vertex.base_url,
         });
+        if let Some(model) = req.vertex_model.filter(|model| !model.trim().is_empty()) {
+            settings.remember_model(LlmBackendKind::Vertex, model.trim());
+        }
         save_settings(config, provider.get_name(), &settings).internal_err()?;
 
-        Ok(status(
-            &settings,
-            state.active.as_ref(),
-            google_cloud_status(&settings).await,
-        ))
+        Ok(status(&settings, google_cloud_status(&settings).await))
     }
 
     pub(super) async fn on_set_llm_backend(
@@ -75,9 +70,16 @@ impl GooseAcpAgent {
         let config = Config::global();
         let mut settings = load_settings(config, provider.get_name());
         let backend = match kind {
-            Some(kind) => Some(settings.backend(kind).map_err(|error| {
-                agent_client_protocol::Error::invalid_params().data(error.to_string())
-            })?),
+            Some(kind) => {
+                if settings.requires_model(kind) {
+                    return Err(agent_client_protocol::Error::invalid_params().data(
+                        "Choose a model for Vertex AI in its settings first: Vertex drops a model id it does not offer, which would silently shrink this session's context window",
+                    ));
+                }
+                settings.backend(kind).map_err(|error| {
+                    agent_client_protocol::Error::invalid_params().data(error.to_string())
+                })?
+            }
             None => None,
         };
 
@@ -96,11 +98,7 @@ impl GooseAcpAgent {
         settings.active = kind;
         save_settings(config, provider.get_name(), &settings).internal_err()?;
 
-        Ok(status(
-            &settings,
-            backend.as_ref(),
-            google_cloud_status(&settings).await,
-        ))
+        Ok(status(&settings, google_cloud_status(&settings).await))
     }
 
     /// Signing in opens a browser, so it only happens when the user asked for
@@ -150,19 +148,27 @@ async fn google_cloud_status(settings: &LlmBackendSettings) -> Option<AdcStatus>
 
 fn status(
     settings: &LlmBackendSettings,
-    active: Option<&LlmBackend>,
     google_cloud: Option<AdcStatus>,
 ) -> LlmBackendStatusResponse {
-    let vertex_configured = settings.backend(LlmBackendKind::Vertex).is_ok();
+    let vertex_configured = settings.backend(LlmBackendKind::Vertex).is_ok()
+        && !settings.requires_model(LlmBackendKind::Vertex);
     LlmBackendStatusResponse {
         supported: true,
-        active: active.map(|backend| backend.label().to_string()),
+        active: settings.active.map(|kind| match kind {
+            LlmBackendKind::Anthropic => ANTHROPIC_ID.to_string(),
+            LlmBackendKind::Vertex => VERTEX_ID.to_string(),
+        }),
         options: vec![
             LlmBackendOptionDto {
                 id: ANTHROPIC_ID.to_string(),
                 label: "Anthropic API".to_string(),
                 configured: true,
-                detail: settings.anthropic_base_url.clone(),
+                detail: Some(
+                    settings
+                        .anthropic_base_url
+                        .clone()
+                        .unwrap_or_else(|| "Your Claude Code login".to_string()),
+                ),
                 model: settings
                     .model_for(LlmBackendKind::Anthropic)
                     .map(str::to_string),
@@ -188,12 +194,12 @@ fn status(
 
 fn vertex_detail(settings: &LlmBackendSettings, configured: bool) -> Option<String> {
     if !configured {
-        return Some("Set a Google Cloud project and region to use Vertex AI".to_string());
+        return Some("Set a Google Cloud project, region and model to use Vertex AI".to_string());
     }
-    settings
-        .vertex
-        .as_ref()
-        .map(|vertex| format!("{} · {}", vertex.project_id, vertex.region))
+    settings.vertex.as_ref().map(|vertex| {
+        let model = settings.model_for(LlmBackendKind::Vertex).unwrap_or("");
+        format!("{} · {} · {}", vertex.project_id, vertex.region, model)
+    })
 }
 
 fn google_cloud_dto(status: AdcStatus) -> GoogleCloudAuthDto {
@@ -233,9 +239,31 @@ mod tests {
         }
     }
 
+    /// A project and region are not enough: without a model, selecting Vertex
+    /// would carry over one it does not offer.
+    #[test]
+    fn vertex_is_not_configured_until_it_has_a_model() {
+        let response = status(&vertex_settings(), None);
+
+        let vertex = &response.options[1];
+        assert!(!vertex.configured);
+        assert!(vertex.detail.as_deref().unwrap().contains("model"));
+    }
+
+    /// Selecting Anthropic hands routing back to the agent's own login rather
+    /// than pointing it at the first-party API, which would 401.
+    #[test]
+    fn the_anthropic_option_describes_the_agents_own_login() {
+        let response = status(&LlmBackendSettings::default(), None);
+
+        let anthropic = &response.options[0];
+        assert!(anthropic.configured);
+        assert_eq!(anthropic.detail.as_deref(), Some("Your Claude Code login"));
+    }
+
     #[test]
     fn an_unconfigured_vertex_option_says_what_is_missing() {
-        let response = status(&LlmBackendSettings::default(), None, None);
+        let response = status(&LlmBackendSettings::default(), None);
 
         let vertex = &response.options[1];
         assert!(!vertex.configured);
@@ -245,13 +273,12 @@ mod tests {
     }
 
     #[test]
-    fn a_configured_vertex_option_shows_its_project_and_region() {
-        let settings = vertex_settings();
-        let active = settings.resolve().unwrap();
+    fn a_configured_vertex_option_shows_its_project_region_and_model() {
+        let mut settings = vertex_settings();
+        settings.remember_model(LlmBackendKind::Vertex, "claude-opus-5@20260514");
 
         let response = status(
             &settings,
-            active.as_ref(),
             Some(AdcStatus::Ready {
                 account: Some("dev@example.com".to_string()),
             }),
@@ -259,7 +286,11 @@ mod tests {
 
         let vertex = &response.options[1];
         assert!(vertex.configured);
-        assert_eq!(vertex.detail.as_deref(), Some("my-project · us-east5"));
+        assert_eq!(
+            vertex.detail.as_deref(),
+            Some("my-project · us-east5 · claude-opus-5@20260514")
+        );
+        assert_eq!(vertex.model.as_deref(), Some("claude-opus-5@20260514"));
         assert_eq!(response.active.as_deref(), Some("vertex"));
         assert_eq!(
             response.google_cloud.unwrap().account.as_deref(),

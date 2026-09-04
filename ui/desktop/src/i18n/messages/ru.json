@@ -4805,6 +4805,12 @@
   "vertexBackendModal.description": {
     "defaultMessage": "Направляйте Claude Code через ваш проект Google Cloud. Вход в Google Cloud выполняется при выборе этого бэкенда."
   },
+  "vertexBackendModal.model": {
+    "defaultMessage": "Модель"
+  },
+  "vertexBackendModal.modelHelp": {
+    "defaultMessage": "Vertex записывает идентификаторы моделей иначе и не имеет полосы контекста 1M, поэтому нужна отдельная модель."
+  },
   "vertexBackendModal.project": {
     "defaultMessage": "ID проекта"
   },

@@ -4805,6 +4805,12 @@
   "vertexBackendModal.description": {
     "defaultMessage": "Route Claude Code through your Google Cloud project. Signing in to Google Cloud happens when you select this backend."
   },
+  "vertexBackendModal.model": {
+    "defaultMessage": "Model"
+  },
+  "vertexBackendModal.modelHelp": {
+    "defaultMessage": "Vertex spells model ids differently and has no 1M context lane, so it needs its own model."
+  },
   "vertexBackendModal.project": {
     "defaultMessage": "Project ID"
   },

@@ -30,10 +30,15 @@ export async function acpSetLlmBackend(
 
 export async function acpConfigureLlmBackend(
   sessionId: string,
-  vertex: { projectId: string; region: string } | null
+  vertex: { projectId: string; region: string } | null,
+  vertexModel?: string
 ): Promise<LlmBackendStatus> {
   const client = await getAcpClient();
-  return client.goose.sessionLlmBackendConfigure_unstable({ sessionId, vertex });
+  return client.goose.sessionLlmBackendConfigure_unstable({
+    sessionId,
+    vertex,
+    vertexModel: vertexModel ?? null,
+  });
 }
 
 // Signing in opens a browser, so the caller asks for it up front only when the

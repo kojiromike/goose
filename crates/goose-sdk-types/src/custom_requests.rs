@@ -2418,6 +2418,10 @@ pub struct ConfigureLlmBackendRequest {
     /// `null` clears the stored Vertex routing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vertex: Option<VertexRoutingDto>,
+    /// Model to use on Vertex. Required before Vertex can be selected: it
+    /// spells model ids differently and silently drops ones it does not offer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vertex_model: Option<String>,
 }
 
 /// Read the LLM backends a session's provider can route to.

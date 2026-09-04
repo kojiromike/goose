@@ -4805,6 +4805,12 @@
   "vertexBackendModal.description": {
     "defaultMessage": "Arahkan Claude Code melalui proyek Google Cloud Anda. Masuk ke Google Cloud terjadi saat Anda memilih backend ini."
   },
+  "vertexBackendModal.model": {
+    "defaultMessage": "Model"
+  },
+  "vertexBackendModal.modelHelp": {
+    "defaultMessage": "Vertex menulis id model secara berbeda dan tidak punya jalur konteks 1M, jadi perlu modelnya sendiri."
+  },
   "vertexBackendModal.project": {
     "defaultMessage": "ID Proyek"
   },
