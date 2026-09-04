@@ -2297,6 +2297,12 @@
   "modelsBottomBar.backend": {
     "defaultMessage": "Arka uç"
   },
+  "modelsBottomBar.backendNextSession": {
+    "defaultMessage": "Bu arka uç, aracı başlatılırken uygulanır; bu yüzden yeni bir sohbette geçerli olur."
+  },
+  "modelsBottomBar.backendSaved": {
+    "defaultMessage": "Kaydedildi"
+  },
   "modelsBottomBar.backendSignIn": {
     "defaultMessage": "oturum aç"
   },

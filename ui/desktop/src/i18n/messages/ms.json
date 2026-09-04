@@ -2297,6 +2297,12 @@
   "modelsBottomBar.backend": {
     "defaultMessage": "Backend"
   },
+  "modelsBottomBar.backendNextSession": {
+    "defaultMessage": "Backend ini digunakan semasa ejen bermula, jadi ia berkuat kuasa dalam sembang baharu."
+  },
+  "modelsBottomBar.backendSaved": {
+    "defaultMessage": "Disimpan"
+  },
   "modelsBottomBar.backendSignIn": {
     "defaultMessage": "log masuk"
   },

@@ -2318,6 +2318,12 @@
   "modelsBottomBar.backend": {
     "defaultMessage": "Backend"
   },
+  "modelsBottomBar.backendNextSession": {
+    "defaultMessage": "This backend is applied when the agent starts, so it takes effect in a new chat."
+  },
+  "modelsBottomBar.backendSaved": {
+    "defaultMessage": "Saved"
+  },
   "modelsBottomBar.backendSignIn": {
     "defaultMessage": "sign in"
   },

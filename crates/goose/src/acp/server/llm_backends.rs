@@ -18,7 +18,11 @@ impl GooseAcpAgent {
         }
 
         let settings = load_settings(Config::global(), provider.get_name());
-        Ok(status(&settings, google_cloud_status(&settings).await))
+        Ok(status(
+            &settings,
+            google_cloud_status(&settings).await,
+            false,
+        ))
     }
 
     pub(super) async fn on_configure_llm_backend(
@@ -42,7 +46,11 @@ impl GooseAcpAgent {
         }
         save_settings(config, provider.get_name(), &settings).internal_err()?;
 
-        Ok(status(&settings, google_cloud_status(&settings).await))
+        Ok(status(
+            &settings,
+            google_cloud_status(&settings).await,
+            false,
+        ))
     }
 
     pub(super) async fn on_set_llm_backend(
@@ -110,13 +118,11 @@ impl GooseAcpAgent {
         settings.active = kind;
         save_settings(config, provider.get_name(), &settings).internal_err()?;
 
-        if carried_by_env || leaving_env {
-            return Err(agent_client_protocol::Error::invalid_params().data(
-                "Saved. This backend is applied when the agent starts, so it takes effect in a new session — this conversation stays on its current one",
-            ));
-        }
-
-        Ok(status(&settings, google_cloud_status(&settings).await))
+        Ok(status(
+            &settings,
+            google_cloud_status(&settings).await,
+            carried_by_env || leaving_env,
+        ))
     }
 
     /// Signing in opens a browser, so it only happens when the user asked for
@@ -167,11 +173,13 @@ async fn google_cloud_status(settings: &LlmBackendSettings) -> Option<AdcStatus>
 fn status(
     settings: &LlmBackendSettings,
     google_cloud: Option<AdcStatus>,
+    applies_next_session: bool,
 ) -> LlmBackendStatusResponse {
     let vertex_configured = settings.backend(LlmBackendKind::Vertex).is_ok()
         && !settings.requires_model(LlmBackendKind::Vertex);
     LlmBackendStatusResponse {
         supported: true,
+        applies_next_session,
         active: settings.active.map(|kind| match kind {
             LlmBackendKind::Anthropic => ANTHROPIC_ID.to_string(),
             LlmBackendKind::Vertex => VERTEX_ID.to_string(),
@@ -261,7 +269,7 @@ mod tests {
     /// would carry over one it does not offer.
     #[test]
     fn vertex_is_not_configured_until_it_has_a_model() {
-        let response = status(&vertex_settings(), None);
+        let response = status(&vertex_settings(), None, false);
 
         let vertex = &response.options[1];
         assert!(!vertex.configured);
@@ -270,9 +278,20 @@ mod tests {
 
     /// Selecting Anthropic hands routing back to the agent's own login rather
     /// than pointing it at the first-party API, which would 401.
+    /// Saving a backend the agent must be started with is a success with a
+    /// caveat, not a failure — reporting it as an error made every switch look
+    /// broken.
+    #[test]
+    fn a_backend_applied_at_startup_is_reported_not_raised() {
+        let response = status(&vertex_settings(), None, true);
+
+        assert!(response.applies_next_session);
+        assert_eq!(response.active.as_deref(), Some("vertex"));
+    }
+
     #[test]
     fn the_anthropic_option_describes_the_agents_own_login() {
-        let response = status(&LlmBackendSettings::default(), None);
+        let response = status(&LlmBackendSettings::default(), None, false);
 
         let anthropic = &response.options[0];
         assert!(anthropic.configured);
@@ -281,7 +300,7 @@ mod tests {
 
     #[test]
     fn an_unconfigured_vertex_option_says_what_is_missing() {
-        let response = status(&LlmBackendSettings::default(), None);
+        let response = status(&LlmBackendSettings::default(), None, false);
 
         let vertex = &response.options[1];
         assert!(!vertex.configured);
@@ -300,6 +319,7 @@ mod tests {
             Some(AdcStatus::Ready {
                 account: Some("dev@example.com".to_string()),
             }),
+            false,
         );
 
         let vertex = &response.options[1];

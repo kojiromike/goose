@@ -2297,6 +2297,12 @@
   "modelsBottomBar.backend": {
     "defaultMessage": "백엔드"
   },
+  "modelsBottomBar.backendNextSession": {
+    "defaultMessage": "이 백엔드는 에이전트가 시작될 때 적용되므로 새 채팅부터 반영됩니다."
+  },
+  "modelsBottomBar.backendSaved": {
+    "defaultMessage": "저장됨"
+  },
   "modelsBottomBar.backendSignIn": {
     "defaultMessage": "로그인"
   },
