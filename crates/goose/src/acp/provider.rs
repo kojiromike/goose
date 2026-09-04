@@ -513,6 +513,14 @@ impl AcpProvider {
             .await
             .context("ACP backend switch cancelled")??;
         *self.llm_backend.lock().unwrap() = backend;
+
+        // The agent recreates each open session's query against the new
+        // backend, and the fresh query has no model pinned — it falls back to
+        // whatever the harness itself defaults to. Forget what was applied so
+        // the next prompt re-sends it, even though the model has not changed.
+        if let Ok(mut applied) = self.applied_model.lock() {
+            *applied = None;
+        }
         Ok(())
     }
 
@@ -2622,6 +2630,30 @@ mod tests {
 
     fn test_provider() -> (AcpProvider, ModelConfig) {
         test_provider_with_tx(None)
+    }
+
+    /// Switching backend makes the agent recreate its query, which drops the
+    /// pinned model — the harness then answers on its own default model
+    /// instead. Only re-sending the model prevents that, and the guard against
+    /// redundant sends has to be cleared for the re-send to happen.
+    #[tokio::test]
+    async fn switching_backend_forgets_the_applied_model() {
+        let (tx, mut rx) = mpsc::channel(1);
+        let (mut provider, _) = test_provider_with_tx(Some(tx));
+        provider.supports_llm_backends = true;
+        *provider.applied_model.lock().unwrap() = Some("claude-opus-5[1m]".to_string());
+
+        let agent = tokio::spawn(async move {
+            let Some(ClientRequest::SetLlmBackend { response_tx, .. }) = rx.recv().await else {
+                panic!("expected a backend switch");
+            };
+            response_tx.send(Ok(())).unwrap();
+        });
+
+        provider.switch_llm_backend(None).await.unwrap();
+        agent.await.unwrap();
+
+        assert_eq!(*provider.applied_model.lock().unwrap(), None);
     }
 
     fn test_provider_with_tx(
