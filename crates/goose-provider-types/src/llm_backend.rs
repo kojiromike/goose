@@ -50,6 +50,36 @@ pub struct LlmBackendState {
 }
 
 impl LlmBackend {
+    /// Environment the harness must be started with, for backends that cannot
+    /// be installed over the wire.
+    ///
+    /// Claude Code treats a Vertex deployment as *custom* the moment
+    /// `ANTHROPIC_VERTEX_BASE_URL` is set, and then resolves models against a
+    /// conservative catalogue that rejects current ids. The protocol's
+    /// `providers/set` always sets that variable, so a plain Vertex account is
+    /// only reachable by starting the agent with the same environment a user
+    /// would put in settings.json — and no base URL at all.
+    pub fn spawn_env(&self) -> Vec<(String, String)> {
+        match self {
+            Self::AnthropicGateway { .. } => vec![],
+            Self::Vertex(vertex) if vertex.base_url.is_some() => vec![],
+            Self::Vertex(vertex) => vec![
+                ("CLAUDE_CODE_USE_VERTEX".to_string(), "1".to_string()),
+                (
+                    "ANTHROPIC_VERTEX_PROJECT_ID".to_string(),
+                    vertex.project_id.clone(),
+                ),
+                ("CLOUD_ML_REGION".to_string(), vertex.region.clone()),
+            ],
+        }
+    }
+
+    /// Whether this backend is installed with `providers/set` rather than with
+    /// the environment the agent starts in.
+    pub fn is_routable(&self) -> bool {
+        self.spawn_env().is_empty()
+    }
+
     pub fn kind(&self) -> LlmBackendKind {
         match self {
             Self::AnthropicGateway { .. } => LlmBackendKind::Anthropic,
