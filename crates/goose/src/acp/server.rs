@@ -108,6 +108,7 @@ mod elicitation;
 mod extensions;
 mod fork_session;
 mod list_sessions;
+mod llm_backends;
 mod load_session;
 mod local_inference;
 mod manage_sessions;

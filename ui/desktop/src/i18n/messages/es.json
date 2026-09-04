@@ -2294,8 +2294,20 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
+  "modelsBottomBar.backend": {
+    "defaultMessage": "Backend"
+  },
+  "modelsBottomBar.backendSignIn": {
+    "defaultMessage": "iniciar sesión"
+  },
+  "modelsBottomBar.backendSwitchFailed": {
+    "defaultMessage": "No se pudo cambiar el backend: {reason}"
+  },
   "modelsBottomBar.changeModel": {
     "defaultMessage": "Cambiar modelo"
+  },
+  "modelsBottomBar.configureVertex": {
+    "defaultMessage": "Configuración de Vertex AI"
   },
   "modelsBottomBar.currentModel": {
     "defaultMessage": "Modelo actual"
@@ -4666,5 +4678,23 @@
   },
   "providerConfigurationModal.deviceCodeVisit": {
     "defaultMessage": "Visita"
+  },
+  "vertexBackendModal.cancel": {
+    "defaultMessage": "Cancelar"
+  },
+  "vertexBackendModal.description": {
+    "defaultMessage": "Enruta Claude Code a través de tu proyecto de Google Cloud. El inicio de sesión en Google Cloud ocurre cuando seleccionas este backend."
+  },
+  "vertexBackendModal.project": {
+    "defaultMessage": "ID del proyecto"
+  },
+  "vertexBackendModal.region": {
+    "defaultMessage": "Región"
+  },
+  "vertexBackendModal.save": {
+    "defaultMessage": "Guardar"
+  },
+  "vertexBackendModal.title": {
+    "defaultMessage": "Vertex AI"
   }
 }

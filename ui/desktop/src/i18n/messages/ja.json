@@ -2294,8 +2294,20 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
+  "modelsBottomBar.backend": {
+    "defaultMessage": "バックエンド"
+  },
+  "modelsBottomBar.backendSignIn": {
+    "defaultMessage": "サインイン"
+  },
+  "modelsBottomBar.backendSwitchFailed": {
+    "defaultMessage": "バックエンドを切り替えられませんでした: {reason}"
+  },
   "modelsBottomBar.changeModel": {
     "defaultMessage": "モデルを変更"
+  },
+  "modelsBottomBar.configureVertex": {
+    "defaultMessage": "Vertex AI 設定"
   },
   "modelsBottomBar.currentModel": {
     "defaultMessage": "現在のモデル"
@@ -4666,5 +4678,23 @@
   },
   "providerConfigurationModal.deviceCodeVisit": {
     "defaultMessage": "次のURLにアクセスし、"
+  },
+  "vertexBackendModal.cancel": {
+    "defaultMessage": "キャンセル"
+  },
+  "vertexBackendModal.description": {
+    "defaultMessage": "Google Cloud プロジェクト経由で Claude Code をルーティングします。Google Cloud へのサインインは、このバックエンドを選択したときに行われます。"
+  },
+  "vertexBackendModal.project": {
+    "defaultMessage": "プロジェクト ID"
+  },
+  "vertexBackendModal.region": {
+    "defaultMessage": "リージョン"
+  },
+  "vertexBackendModal.save": {
+    "defaultMessage": "保存"
+  },
+  "vertexBackendModal.title": {
+    "defaultMessage": "Vertex AI"
   }
 }

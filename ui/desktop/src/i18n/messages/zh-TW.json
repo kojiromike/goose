@@ -2294,8 +2294,20 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
+  "modelsBottomBar.backend": {
+    "defaultMessage": "後端"
+  },
+  "modelsBottomBar.backendSignIn": {
+    "defaultMessage": "登入"
+  },
+  "modelsBottomBar.backendSwitchFailed": {
+    "defaultMessage": "無法切換後端：{reason}"
+  },
   "modelsBottomBar.changeModel": {
     "defaultMessage": "變更模型"
+  },
+  "modelsBottomBar.configureVertex": {
+    "defaultMessage": "Vertex AI 設定"
   },
   "modelsBottomBar.currentModel": {
     "defaultMessage": "目前模型"
@@ -4666,5 +4678,23 @@
   },
   "providerConfigurationModal.deviceCodeVisit": {
     "defaultMessage": "前往"
+  },
+  "vertexBackendModal.cancel": {
+    "defaultMessage": "取消"
+  },
+  "vertexBackendModal.description": {
+    "defaultMessage": "透過你的 Google Cloud 專案路由 Claude Code。選擇該後端時會進行 Google Cloud 登入。"
+  },
+  "vertexBackendModal.project": {
+    "defaultMessage": "專案 ID"
+  },
+  "vertexBackendModal.region": {
+    "defaultMessage": "區域"
+  },
+  "vertexBackendModal.save": {
+    "defaultMessage": "儲存"
+  },
+  "vertexBackendModal.title": {
+    "defaultMessage": "Vertex AI"
   }
 }
