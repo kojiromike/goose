@@ -135,6 +135,17 @@ jobs:
         env:
           RUST_MIN_STACK: 8388608
 
+  kotlin-gdk-smoke-test:
+    name: Test Kotlin GDK package
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || github.event_name != 'pull_request'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/maven-sdk.yml
+    with:
+      publish: false
+      smoke-test: true
+
   rust-build-and-test-tls:
     name: Build and Test TLS Backend (${{ matrix.tls-feature }})
     runs-on: ubuntu-latest
@@ -318,6 +329,16 @@ jobs:
           source ./bin/activate-hermit
           cd ui/goose-acp-client
           pnpm run lint
+
+  gdk-release-config-check:
+    name: Check GDK Release Configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Check GDK crate membership and publication order
+        run: python3 crates/goose-sdk/scripts/gdk-release.py check-config
 
   gdk-api-docs-check:
     name: Check GDK API Reference is Up-to-Date
