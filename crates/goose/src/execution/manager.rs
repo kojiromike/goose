@@ -348,6 +348,20 @@ impl AgentManager {
         self.sessions.read().await.len()
     }
 
+    /// Sessions with an agent in memory. Each one holds that session's provider
+    /// open — for a CLI-agent provider, a running subprocess — so this is what
+    /// "still costing something" means, as opposed to merely being on disk.
+    /// Iterating does not count as a use, so reading the list cannot change
+    /// which session the LRU evicts next.
+    pub async fn live_sessions(&self) -> Vec<(String, Arc<Agent>)> {
+        self.sessions
+            .read()
+            .await
+            .iter()
+            .map(|(session_id, agent)| (session_id.clone(), Arc::clone(agent)))
+            .collect()
+    }
+
     /// Atomically check if busy and register a cancel token. Returns Err if already busy.
     pub async fn try_register_cancel_token(
         &self,
@@ -706,6 +720,47 @@ mod tests {
             !manager.has_session(&session_id).await,
             "failed creation must not insert into the LRU cache"
         );
+    }
+
+    #[tokio::test]
+    async fn live_sessions_lists_loaded_agents_without_disturbing_eviction_order() {
+        let temp_dir = TempDir::new().unwrap();
+        let session_manager = Arc::new(SessionManager::new(temp_dir.path().to_path_buf()));
+        let agent_config = AgentConfig::new(
+            session_manager,
+            PermissionManager::instance(),
+            None,
+            GooseMode::default(),
+            false,
+            GoosePlatform::GooseDesktop,
+        );
+        let manager = AgentManager::new(agent_config, Some(2)).await.unwrap();
+
+        manager.get_or_create_agent("a".into()).await.unwrap();
+        manager.get_or_create_agent("b".into()).await.unwrap();
+
+        let mut listed: Vec<String> = manager
+            .live_sessions()
+            .await
+            .into_iter()
+            .map(|(session_id, _)| session_id)
+            .collect();
+        listed.sort();
+        assert_eq!(listed, vec!["a".to_string(), "b".to_string()]);
+
+        // Reading the list must not count as a use, or the UI polling it would
+        // decide which session the LRU evicts next.
+        manager.get_or_create_agent("c".into()).await.unwrap();
+        assert!(!manager.has_session("a").await);
+
+        manager.remove_session_if_loaded("b").await.unwrap();
+        let remaining: Vec<String> = manager
+            .live_sessions()
+            .await
+            .into_iter()
+            .map(|(session_id, _)| session_id)
+            .collect();
+        assert_eq!(remaining, vec!["c".to_string()]);
     }
 
     #[tokio::test]

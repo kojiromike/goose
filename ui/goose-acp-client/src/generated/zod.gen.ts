@@ -175,6 +175,26 @@ export const zSetToolPermissionsRequest_unstable = z.object({
 export const zSetToolPermissionsResponse_unstable = z.record(z.string(), z.unknown());
 
 /**
+ * List the sessions with an agent in memory. Unlike the session list, which
+ * reads history from disk, this reports what the server is currently holding
+ * open — and for CLI-agent providers, the subprocesses that implies.
+ */
+export const zListLiveSessionsRequest_unstable = z.record(z.string(), z.unknown());
+
+/**
+ * A session the server is holding open.
+ */
+export const zLiveSessionDto = z.object({
+    sessionId: z.string(),
+    runningTurn: z.boolean(),
+    providerId: z.string().nullish()
+});
+
+export const zListLiveSessionsResponse_unstable = z.object({
+    sessions: z.array(zLiveSessionDto)
+});
+
+/**
  * Call a tool from an extension.
  */
 export const zGooseToolCallRequest_unstable = z.object({
@@ -2290,6 +2310,7 @@ export const zExtRequest = z.object({
             zRemoveSessionExtensionRequest_unstable,
             zGetToolsRequest_unstable,
             zSetToolPermissionsRequest_unstable,
+            zListLiveSessionsRequest_unstable,
             zGooseToolCallRequest_unstable,
             zReadResourceRequest_unstable,
             zAppsListRequest_unstable,
@@ -2407,6 +2428,7 @@ export const zExtResponse = z.union([
                 zEmptyResponse,
                 zGetToolsResponse_unstable,
                 zSetToolPermissionsResponse_unstable,
+                zListLiveSessionsResponse_unstable,
                 zGooseToolCallResponse_unstable,
                 zReadResourceResponse_unstable,
                 zAppsListResponse_unstable,
