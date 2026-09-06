@@ -342,6 +342,12 @@ pub struct GooseAcpAgentOptions {
 pub struct GooseAcpAgent {
     sessions: Arc<Mutex<HashMap<String, GooseAcpSession>>>,
     active_prompt_runs: Arc<Mutex<HashMap<String, ActivePromptRun>>>,
+    /// Sessions closed while a prompt run was still draining. The cancelled run
+    /// keeps calling back into the server as it unwinds, and those callbacks
+    /// would otherwise reload the agent we just dropped, so they are rejected
+    /// until the run clears. Closing is not deletion: an id leaves this set as
+    /// soon as its run drains, or the moment the client loads the session
+    /// again, because a closed session is meant to be resumable.
     closed_session_ids: Arc<Mutex<HashSet<String>>>,
     agent_manager: Arc<AgentManager>,
     provider_factory: AcpProviderFactory,
@@ -1316,6 +1322,15 @@ impl GooseAcpAgent {
         self.register_acp_session(session.id.clone(), agent.clone())
             .await;
 
+        // A session can come back without going through session/load — the
+        // client may still hold it and just prompt. The provider is new either
+        // way, so it has to be pointed back at the conversation it was keeping
+        // upstream, or the model answers with none of this session's history.
+        // A session with no provider yet has nothing to resume.
+        if let Ok(provider) = agent.provider().await {
+            resume_saved_provider_session(&provider, session.conversation.as_ref()).await;
+        }
+
         Ok((agent, extension_results))
     }
 
@@ -1884,9 +1899,11 @@ impl GooseAcpAgent {
             agent_client_protocol::Error::resource_not_found(Some(session_id.to_string()))
                 .data(format!("Session not found: {}", session_id))
         })?;
+        // With messages, so activation can find the provider session id the
+        // conversation was last answered on.
         let session = self
             .session_manager
-            .get_session(session_id, false)
+            .get_session(session_id, true)
             .await
             .map_err(|_| {
                 agent_client_protocol::Error::resource_not_found(Some(session_id.to_string()))
@@ -1951,7 +1968,9 @@ impl GooseAcpAgent {
             agent.discard_pending_steers(session_id).await;
         }
 
-        if self.closed_session_ids.lock().await.contains(session_id) {
+        // The run this session was closed during has now drained, so nothing is
+        // left to resurrect the agent and the id can be reached again.
+        if self.closed_session_ids.lock().await.remove(session_id) {
             self.sessions.lock().await.remove(session_id);
             if let Err(error) = self
                 .agent_manager
@@ -2611,6 +2630,8 @@ impl GooseAcpAgent {
         &self,
         session_id: &str,
     ) -> Result<CloseSessionResponse, agent_client_protocol::Error> {
+        // Block the id first so a prompt racing this close cannot register a
+        // run against the agent we are about to drop.
         self.closed_session_ids
             .lock()
             .await
@@ -2623,7 +2644,7 @@ impl GooseAcpAgent {
                 .map(|active_run| active_run.cancel_token.clone())
         };
 
-        if let Some(token) = active_run_token {
+        if let Some(token) = &active_run_token {
             token.cancel();
         }
 
@@ -2635,6 +2656,13 @@ impl GooseAcpAgent {
             .remove_session_if_loaded(session_id)
             .await
             .internal_err_ctx("Failed to remove in-memory agent")?;
+
+        // Only a cancelled run still unwinding can reload the agent, and
+        // clear_active_run unblocks the id once it does. With no run in flight
+        // there is nothing to wait for, so the session is resumable right away.
+        if active_run_token.is_none() {
+            self.closed_session_ids.lock().await.remove(session_id);
+        }
 
         info!(session_id = %session_id, "ACP session closed");
         Ok(CloseSessionResponse::new())
