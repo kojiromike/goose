@@ -386,6 +386,11 @@ impl GooseAcpAgent {
         debug!(?args, "load session request");
 
         let session_id_str = args.session_id.0.to_string();
+        // Loading is the client saying it wants this session live, so it
+        // outranks a close that is still draining. Clearing here rather than on
+        // the way out also keeps a load that fails partway from leaving the id
+        // permanently unreachable.
+        self.closed_session_ids.lock().await.remove(&session_id_str);
 
         let mut session = self
             .session_manager
@@ -480,7 +485,6 @@ impl GooseAcpAgent {
             )?;
         }
 
-        self.closed_session_ids.lock().await.remove(&session_id_str);
         Ok(response)
     }
 }

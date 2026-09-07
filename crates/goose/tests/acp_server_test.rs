@@ -797,6 +797,27 @@ fn test_close_session() {
 }
 
 #[test]
+fn test_closed_session_is_still_reachable() {
+    run_test(async {
+        let openai = OpenAiFixture::new(
+            vec![],
+            <AcpServerConnection as Connection>::expected_session_id(),
+        )
+        .await;
+        let mut conn =
+            <AcpServerConnection as Connection>::new(TestConnectionConfig::default(), openai).await;
+        let data = conn.new_session().await.unwrap();
+        let session_id = data.session.session_id().0.to_string();
+
+        conn.close_session(&session_id).await.unwrap();
+
+        conn.set_mode(&session_id, "auto")
+            .await
+            .expect("closing a session releases its agent, it does not retire the session id");
+    });
+}
+
+#[test]
 fn test_config_option_model_set() {
     run_test(async { run_config_option_model_set::<AcpServerConnection>().await });
 }
