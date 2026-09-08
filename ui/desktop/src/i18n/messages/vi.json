@@ -131,6 +131,9 @@
   "baseChat.goHome": {
     "defaultMessage": "Về trang chủ"
   },
+  "baseChat.jumpToLatest": {
+    "defaultMessage": "Đến tin mới nhất"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Mất kết nối. Đang kết nối lại…"
   },

@@ -131,6 +131,9 @@
   "baseChat.goHome": {
     "defaultMessage": "Ir para o início"
   },
+  "baseChat.jumpToLatest": {
+    "defaultMessage": "Ir para a mais recente"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Conexão perdida. Reconectando…"
   },

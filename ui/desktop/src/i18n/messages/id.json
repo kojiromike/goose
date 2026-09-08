@@ -131,6 +131,9 @@
   "baseChat.goHome": {
     "defaultMessage": "Ke beranda"
   },
+  "baseChat.jumpToLatest": {
+    "defaultMessage": "Lompat ke terbaru"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Koneksi terputus. Menghubungkan kembali…"
   },

@@ -131,6 +131,9 @@
   "baseChat.goHome": {
     "defaultMessage": "Ana sayfaya git"
   },
+  "baseChat.jumpToLatest": {
+    "defaultMessage": "En sona git"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Bağlantı kesildi. Yeniden bağlanılıyor…"
   },

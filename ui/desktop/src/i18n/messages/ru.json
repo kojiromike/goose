@@ -131,6 +131,9 @@
   "baseChat.goHome": {
     "defaultMessage": "На главную"
   },
+  "baseChat.jumpToLatest": {
+    "defaultMessage": "К последнему сообщению"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Соединение потеряно. Повторное подключение…"
   },

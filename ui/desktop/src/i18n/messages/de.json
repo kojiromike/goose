@@ -131,6 +131,9 @@
   "baseChat.goHome": {
     "defaultMessage": "Zur Startseite"
   },
+  "baseChat.jumpToLatest": {
+    "defaultMessage": "Zum Neuesten springen"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Verbindung unterbrochen. Verbindung wird wiederhergestellt…"
   },

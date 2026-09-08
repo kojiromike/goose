@@ -44,6 +44,10 @@ function getResolvedModel(message: Message): string | null {
   return message.metadata.inference?.resolvedModel ?? null;
 }
 
+function messageIdentifier(message: Message, index: number): string {
+  return message.id ?? `msg-${index}-${message.created}`;
+}
+
 function getSystemNotification(message: Message): SystemNotificationContent | undefined {
   return getCreditsExhaustedNotification(message) ?? getInlineSystemNotification(message);
 }
@@ -187,26 +191,46 @@ export default function ProgressiveMessageList({
   submitElicitationResponse,
 }: ProgressiveMessageListProps) {
   const intl = useIntl();
-  const [renderedCount, setRenderedCount] = useState(() =>
-    messages.length <= showLoadingThreshold ? messages.length : Math.min(batchSize, messages.length)
-  );
+  // Anchor the render window on the identity of its oldest message rather than
+  // on a count, so messages appended while a long backlog is still filling in
+  // don't slide the window forward and evict rows off the top of the screen.
+  const [anchorId, setAnchorId] = useState<string | null>(null);
   const completedMessageKeyRef = useRef<string | null>(null);
-  const isLoading = renderedCount < messages.length;
+
+  const anchorIndex =
+    anchorId === null
+      ? -1
+      : messages.findIndex((message, index) => messageIdentifier(message, index) === anchorId);
+  // A long conversation renders newest-first: the tail is what the user opened
+  // the session to read, so it paints immediately and older batches fill in
+  // above it, leaving the viewport pinned to the latest reply throughout.
+  const startIndex =
+    anchorIndex >= 0
+      ? anchorIndex
+      : messages.length <= showLoadingThreshold
+        ? 0
+        : Math.max(0, messages.length - batchSize);
+  const isLoading = startIndex > 0;
 
   useEffect(() => {
-    if (messages.length <= showLoadingThreshold) {
-      setRenderedCount(messages.length);
-      return;
-    }
-
     if (!isLoading) return;
 
     const timeout = window.setTimeout(() => {
-      setRenderedCount((current) => Math.min(current + batchSize, messages.length));
+      const nextStart =
+        messages.length <= showLoadingThreshold ? 0 : Math.max(0, startIndex - batchSize);
+      setAnchorId(messageIdentifier(messages[nextStart], nextStart));
     }, batchDelay);
 
     return () => window.clearTimeout(timeout);
-  }, [batchDelay, batchSize, isLoading, messages.length, renderedCount, showLoadingThreshold]);
+  }, [batchDelay, batchSize, isLoading, messages, showLoadingThreshold, startIndex]);
+
+  // Once the whole conversation is on screen, anchor to its first message so
+  // the window can never contract again: an open session that grows past
+  // showLoadingThreshold must not hide what the user is already reading.
+  useEffect(() => {
+    if (isLoading || messages.length === 0 || anchorIndex === 0) return;
+    setAnchorId(messageIdentifier(messages[0], 0));
+  }, [anchorIndex, isLoading, messages]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -229,27 +253,28 @@ export default function ProgressiveMessageList({
       const isMac = window.electron.platform === 'darwin';
       const isSearchShortcut = (isMac ? event.metaKey : event.ctrlKey) && event.key === 'f';
 
-      if (isSearchShortcut) {
-        setRenderedCount(messages.length);
+      if (isSearchShortcut && messages.length > 0) {
+        setAnchorId(messageIdentifier(messages[0], 0));
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLoading, messages.length]);
+  }, [isLoading, messages]);
 
   const rowContexts = useMemo(() => deriveMessageRowContexts(messages), [messages]);
-  const messagesToRender = messages.slice(0, renderedCount);
+  const messagesToRender = messages.slice(startIndex);
   const messageRows = messagesToRender
-    .map((message, index) => {
+    .map((message, offset) => {
+      const index = startIndex + offset;
       if (!message.metadata.userVisible) return null;
       if (renderMessage) return renderMessage(message, index);
 
       const isUser = isUserMessage(message);
-      const messageIdentifier = message.id ?? `msg-${index}-${message.created}`;
+      const identifier = messageIdentifier(message, index);
       const messageKey = getSystemNotification(message)
-        ? `notification-${messageIdentifier}`
-        : messageIdentifier;
+        ? `notification-${identifier}`
+        : identifier;
       const rowContext = rowContexts[index];
       const currentResolvedModel = getResolvedModel(message);
       const modelChangeMessage =
@@ -273,7 +298,7 @@ export default function ProgressiveMessageList({
           isStreaming={
             isStreamingMessage &&
             !isUser &&
-            index === messagesToRender.length - 1 &&
+            index === messages.length - 1 &&
             message.role === 'assistant'
           }
           isUser={isUser}
@@ -291,13 +316,11 @@ export default function ProgressiveMessageList({
 
   return (
     <>
-      {messageRows}
-
       {isLoading && (
         <div className="flex flex-col items-center justify-center py-8">
           <LoadingGoose
             message={intl.formatMessage(i18n.loadingMessages, {
-              renderedCount,
+              renderedCount: messages.length - startIndex,
               totalCount: messages.length,
             })}
           />
@@ -306,6 +329,8 @@ export default function ProgressiveMessageList({
           </div>
         </div>
       )}
+
+      {messageRows}
     </>
   );
 }

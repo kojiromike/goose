@@ -32,7 +32,7 @@ import {
 } from '../types/message';
 import { substituteParameters } from '../utils/parameterSubstitution';
 import { useAutoSubmit } from '../hooks/useAutoSubmit';
-import { Goose } from './icons';
+import { ArrowDown, Goose } from './icons';
 import EnvironmentBadge from './GooseSidebar/EnvironmentBadge';
 import SessionActionsHeader from './SessionActionsHeader';
 import { isAcpRecovering, subscribeToAcpRecovery } from '../acp/acpConnection';
@@ -45,6 +45,10 @@ const i18n = defineMessages({
   goHome: {
     id: 'baseChat.goHome',
     defaultMessage: 'Go home',
+  },
+  jumpToLatest: {
+    id: 'baseChat.jumpToLatest',
+    defaultMessage: 'Jump to latest',
   },
   retry: {
     id: 'baseChat.retry',
@@ -93,6 +97,7 @@ export default function BaseChat({
   const [hasNotAcceptedRecipe, setHasNotAcceptedRecipe] = useState<boolean>();
   const [hasRecipeSecurityWarnings, setHasRecipeSecurityWarnings] = useState(false);
   const [acpRecovering, setAcpRecovering] = useState(isAcpRecovering);
+  const [isAwayFromLatest, setIsAwayFromLatest] = useState(false);
   const isMobile = useIsMobile();
   const navContext = useNavigationContextSafe();
   const setView = useNavigation();
@@ -286,6 +291,15 @@ export default function BaseChat({
     }
   }, [messages.length]);
 
+  const handleScrollChange = React.useCallback((isAtBottom: boolean) => {
+    setIsAwayFromLatest(!isAtBottom);
+  }, []);
+
+  const jumpToLatest = React.useCallback(() => {
+    scrollRef.current?.scrollToBottom();
+    setIsAwayFromLatest(false);
+  }, []);
+
   // Listen for global scroll-to-bottom requests (e.g., from MCP App message actions)
   useEffect(() => {
     const handleGlobalScrollRequest = () => {
@@ -446,6 +460,7 @@ export default function BaseChat({
             ref={scrollRef}
             className={`flex-1 min-h-0 relative ${contentClassName}`}
             autoScroll
+            onScrollChange={handleScrollChange}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             data-drop-zone="true"
@@ -489,6 +504,19 @@ export default function BaseChat({
               </>
             ) : null}
           </ScrollArea>
+
+          {isAwayFromLatest && messages.length > 0 && (
+            <Button
+              onClick={jumpToLatest}
+              variant="secondary"
+              size="sm"
+              shape="pill"
+              className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 rounded-full border border-border-subtle shadow-md"
+            >
+              <ArrowDown className="size-4" />
+              {intl.formatMessage(i18n.jumpToLatest)}
+            </Button>
+          )}
 
           {chatState !== ChatState.Idle && (
             <div className="absolute bottom-1 left-4 z-20 pointer-events-none">
