@@ -164,6 +164,9 @@
   "baseChat.goHome": {
     "defaultMessage": "На главную"
   },
+  "baseChat.jumpToLatest": {
+    "defaultMessage": "К последнему сообщению"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Соединение потеряно. Повторное подключение…"
   },
@@ -649,6 +652,9 @@
   },
   "customProviderForm.add": {
     "defaultMessage": "Добавить"
+  },
+  "customProviderForm.alwaysUseToolshim": {
+    "defaultMessage": "Всегда использовать Toolshim для этого провайдера"
   },
   "customProviderForm.anthropicCompatible": {
     "defaultMessage": "Совместимо с Anthropic"

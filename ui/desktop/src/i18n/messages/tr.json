@@ -164,6 +164,9 @@
   "baseChat.goHome": {
     "defaultMessage": "Ana sayfaya git"
   },
+  "baseChat.jumpToLatest": {
+    "defaultMessage": "En sona git"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Bağlantı kesildi. Yeniden bağlanılıyor…"
   },
@@ -649,6 +652,9 @@
   },
   "customProviderForm.add": {
     "defaultMessage": "Ekle"
+  },
+  "customProviderForm.alwaysUseToolshim": {
+    "defaultMessage": "Bu sağlayıcı için her zaman Toolshim kullan"
   },
   "customProviderForm.anthropicCompatible": {
     "defaultMessage": "Anthropic Uyumlu"

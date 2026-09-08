@@ -164,6 +164,9 @@
   "baseChat.goHome": {
     "defaultMessage": "Vai alla home"
   },
+  "baseChat.jumpToLatest": {
+    "defaultMessage": "Vai al più recente"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Connessione persa. Riconnessione…"
   },
@@ -649,6 +652,9 @@
   },
   "customProviderForm.add": {
     "defaultMessage": "Aggiungi"
+  },
+  "customProviderForm.alwaysUseToolshim": {
+    "defaultMessage": "Usa sempre Toolshim per questo provider"
   },
   "customProviderForm.anthropicCompatible": {
     "defaultMessage": "Compatibile con Anthropic"

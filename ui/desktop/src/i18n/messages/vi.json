@@ -164,6 +164,9 @@
   "baseChat.goHome": {
     "defaultMessage": "Về trang chủ"
   },
+  "baseChat.jumpToLatest": {
+    "defaultMessage": "Đến tin mới nhất"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Mất kết nối. Đang kết nối lại…"
   },
@@ -649,6 +652,9 @@
   },
   "customProviderForm.add": {
     "defaultMessage": "Thêm"
+  },
+  "customProviderForm.alwaysUseToolshim": {
+    "defaultMessage": "Luôn sử dụng Toolshim cho nhà cung cấp này"
   },
   "customProviderForm.anthropicCompatible": {
     "defaultMessage": "Tương thích Anthropic"

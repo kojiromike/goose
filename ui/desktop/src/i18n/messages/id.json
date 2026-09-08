@@ -164,6 +164,9 @@
   "baseChat.goHome": {
     "defaultMessage": "Ke beranda"
   },
+  "baseChat.jumpToLatest": {
+    "defaultMessage": "Lompat ke terbaru"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Koneksi terputus. Menghubungkan kembali…"
   },
@@ -649,6 +652,9 @@
   },
   "customProviderForm.add": {
     "defaultMessage": "Tambah"
+  },
+  "customProviderForm.alwaysUseToolshim": {
+    "defaultMessage": "Selalu gunakan Toolshim untuk penyedia ini"
   },
   "customProviderForm.anthropicCompatible": {
     "defaultMessage": "Kompatibel dengan Anthropic"

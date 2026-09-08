@@ -164,6 +164,9 @@
   "baseChat.goHome": {
     "defaultMessage": "홈으로 이동"
   },
+  "baseChat.jumpToLatest": {
+    "defaultMessage": "최신으로 이동"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "연결이 끊어졌습니다. 다시 연결하는 중…"
   },
@@ -649,6 +652,9 @@
   },
   "customProviderForm.add": {
     "defaultMessage": "추가"
+  },
+  "customProviderForm.alwaysUseToolshim": {
+    "defaultMessage": "이 제공업체에 항상 Toolshim 사용"
   },
   "customProviderForm.anthropicCompatible": {
     "defaultMessage": "Anthropic 호환"

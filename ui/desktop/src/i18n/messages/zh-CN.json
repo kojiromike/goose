@@ -164,6 +164,9 @@
   "baseChat.goHome": {
     "defaultMessage": "回到首页"
   },
+  "baseChat.jumpToLatest": {
+    "defaultMessage": "跳到最新"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "连接已断开。正在重新连接…"
   },
@@ -649,6 +652,9 @@
   },
   "customProviderForm.add": {
     "defaultMessage": "添加"
+  },
+  "customProviderForm.alwaysUseToolshim": {
+    "defaultMessage": "始终为此提供商使用 Toolshim"
   },
   "customProviderForm.anthropicCompatible": {
     "defaultMessage": "Anthropic 兼容"

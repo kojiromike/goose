@@ -164,6 +164,9 @@
   "baseChat.goHome": {
     "defaultMessage": "ホームへ"
   },
+  "baseChat.jumpToLatest": {
+    "defaultMessage": "最新へ移動"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "接続が失われました。再接続しています…"
   },
@@ -649,6 +652,9 @@
   },
   "customProviderForm.add": {
     "defaultMessage": "追加"
+  },
+  "customProviderForm.alwaysUseToolshim": {
+    "defaultMessage": "このプロバイダーでは常にToolshimを使用する"
   },
   "customProviderForm.anthropicCompatible": {
     "defaultMessage": "Anthropic互換"

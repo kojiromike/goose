@@ -164,6 +164,9 @@
   "baseChat.goHome": {
     "defaultMessage": "Zur Startseite"
   },
+  "baseChat.jumpToLatest": {
+    "defaultMessage": "Zum Neuesten springen"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Verbindung unterbrochen. Verbindung wird wiederhergestellt…"
   },
@@ -649,6 +652,9 @@
   },
   "customProviderForm.add": {
     "defaultMessage": "Hinzufügen"
+  },
+  "customProviderForm.alwaysUseToolshim": {
+    "defaultMessage": "Toolshim für diesen Anbieter immer verwenden"
   },
   "customProviderForm.anthropicCompatible": {
     "defaultMessage": "Anthropic-kompatibel"

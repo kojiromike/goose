@@ -206,12 +206,12 @@ describe('ProgressiveMessageList batching', () => {
     vi.useRealTimers();
   });
 
-  function renderBatchedList(onRenderingComplete = vi.fn()) {
-    render(
+  function renderBatchedList(onRenderingComplete = vi.fn(), list: Message[] = messages) {
+    const view = render(
       <StrictMode>
         <IntlTestWrapper>
           <ProgressiveMessageList
-            messages={messages}
+            messages={list}
             sessionId="test-session"
             append={append}
             isUserMessage={isUserMessage}
@@ -223,31 +223,70 @@ describe('ProgressiveMessageList batching', () => {
         </IntlTestWrapper>
       </StrictMode>
     );
-    return onRenderingComplete;
+    return { onRenderingComplete, rerender: view.rerender };
   }
 
-  it('renders exactly one batch per delay in StrictMode', () => {
+  function batchedList(list: Message[]) {
+    return (
+      <StrictMode>
+        <IntlTestWrapper>
+          <ProgressiveMessageList
+            messages={list}
+            sessionId="test-session"
+            append={append}
+            isUserMessage={isUserMessage}
+            batchSize={2}
+            batchDelay={20}
+            showLoadingThreshold={0}
+            onRenderingComplete={vi.fn()}
+          />
+        </IntlTestWrapper>
+      </StrictMode>
+    );
+  }
+
+  it('renders the newest batch first, then one older batch per delay', () => {
     renderBatchedList();
 
-    expect(screen.queryByText('assistant-1')).not.toBeNull();
-    expect(screen.queryByText('assistant-2')).toBeNull();
+    expect(screen.queryByText('assistant-9')).not.toBeNull();
+    expect(screen.queryByText('assistant-8')).not.toBeNull();
+    expect(screen.queryByText('assistant-7')).toBeNull();
 
     act(() => vi.advanceTimersByTime(20));
-    expect(screen.queryByText('assistant-3')).not.toBeNull();
-    expect(screen.queryByText('assistant-4')).toBeNull();
+    expect(screen.queryByText('assistant-6')).not.toBeNull();
+    expect(screen.queryByText('assistant-5')).toBeNull();
 
     act(() => vi.advanceTimersByTime(20));
-    expect(screen.queryByText('assistant-5')).not.toBeNull();
-    expect(screen.queryByText('assistant-6')).toBeNull();
+    expect(screen.queryByText('assistant-4')).not.toBeNull();
+    expect(screen.queryByText('assistant-3')).toBeNull();
+  });
+
+  it('keeps the rendered window anchored when a message arrives mid-load', () => {
+    const { rerender } = renderBatchedList();
+
+    act(() => vi.advanceTimersByTime(20));
+    expect(screen.queryByText('assistant-6')).not.toBeNull();
+
+    const withReply = [
+      ...messages,
+      message('assistant-10', 'assistant', [{ type: 'text', text: 'Message 10' }]),
+    ];
+    rerender(batchedList(withReply));
+
+    // The new reply renders, and the window does not slide forward off the
+    // message the reader is looking at.
+    expect(screen.queryByText('assistant-10')).not.toBeNull();
+    expect(screen.queryByText('assistant-6')).not.toBeNull();
+    expect(screen.queryByText('assistant-5')).toBeNull();
   });
 
   it('reports completion once after the final batch', () => {
-    const onRenderingComplete = renderBatchedList();
+    const { onRenderingComplete } = renderBatchedList();
 
     for (let batch = 0; batch < 4; batch++) {
       act(() => vi.advanceTimersByTime(20));
     }
-    expect(screen.queryByText('assistant-9')).not.toBeNull();
+    expect(screen.queryByText('assistant-0')).not.toBeNull();
     expect(onRenderingComplete).not.toHaveBeenCalled();
 
     act(() => vi.advanceTimersByTime(50));

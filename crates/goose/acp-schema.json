@@ -2567,13 +2567,17 @@
             "boolean",
             "null"
           ]
+        },
+        "toolshim": {
+          "type": "boolean"
         }
       },
       "required": [
         "engine",
         "displayName",
         "apiUrl",
-        "requiresAuth"
+        "requiresAuth",
+        "toolshim"
       ],
       "description": "Create a custom provider backed by goose's declarative provider store.",
       "x-side": "agent",
@@ -2750,6 +2754,9 @@
             "null"
           ]
         },
+        "toolshim": {
+          "type": "boolean"
+        },
         "apiKeyEnv": {
           "type": [
             "string",
@@ -2769,6 +2776,7 @@
         "displayName",
         "apiUrl",
         "requiresAuth",
+        "toolshim",
         "apiKeySet",
         "preservesThinking"
       ]
@@ -2834,6 +2842,9 @@
             "boolean",
             "null"
           ]
+        },
+        "toolshim": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -2841,7 +2852,8 @@
         "engine",
         "displayName",
         "apiUrl",
-        "requiresAuth"
+        "requiresAuth",
+        "toolshim"
       ],
       "description": "Update a custom provider backed by goose's declarative provider store.",
       "x-side": "agent",

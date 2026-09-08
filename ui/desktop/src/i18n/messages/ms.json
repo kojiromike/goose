@@ -164,6 +164,9 @@
   "baseChat.goHome": {
     "defaultMessage": "Pergi ke laman utama"
   },
+  "baseChat.jumpToLatest": {
+    "defaultMessage": "Lompat ke terkini"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Sambungan terputus. Menyambung semula…"
   },
@@ -649,6 +652,9 @@
   },
   "customProviderForm.add": {
     "defaultMessage": "Tambah"
+  },
+  "customProviderForm.alwaysUseToolshim": {
+    "defaultMessage": "Sentiasa gunakan Toolshim untuk pembekal ini"
   },
   "customProviderForm.anthropicCompatible": {
     "defaultMessage": "Serasi Anthropic"
