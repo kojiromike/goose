@@ -604,6 +604,27 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
       };
     }, [loadSessions]);
 
+  // Keep the list in sync with renames made elsewhere (chat header, navigation
+  // panel, backend session_info_update notifications). Patching by id is
+  // idempotent, so receiving both the local dispatch and the backend
+  // notification for the same rename is harmless.
+  useEffect(() => {
+    const handleSessionRenamed = (event: Event) => {
+      const { sessionId, newName, userInitiated } = (
+        event as CustomEvent<{ sessionId: string; newName: string; userInitiated?: boolean }>
+      ).detail;
+      setSessions((prevSessions) =>
+        prevSessions.map((s) =>
+          s.id === sessionId
+            ? { ...s, name: newName, ...(userInitiated && { userSetName: true }) }
+            : s
+        )
+      );
+    };
+    window.addEventListener(AppEvents.SESSION_RENAMED, handleSessionRenamed);
+    return () => window.removeEventListener(AppEvents.SESSION_RENAMED, handleSessionRenamed);
+  }, []);
+
   // Hide Nostr sharing when explicitly disabled via env var (restricted/enterprise bundles)
   useEffect(() => {
     const config = window.electron.getConfig();
@@ -677,12 +698,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(({ onSelectSe
   }, []);
 
   const handleModalSave = useCallback(async (sessionId: string, newDescription: string) => {
-    // Update state immediately for optimistic UI
-    setSessions((prevSessions) =>
-      prevSessions.map((s) =>
-          s.id === sessionId ? { ...s, name: newDescription, userSetName: true } : s
-      )
-    );
+    // The SESSION_RENAMED listener above patches local state optimistically.
     window.dispatchEvent(
       new CustomEvent(AppEvents.SESSION_RENAMED, {
         detail: { sessionId, newName: newDescription, userInitiated: true },
