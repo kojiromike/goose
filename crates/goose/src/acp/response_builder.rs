@@ -45,6 +45,10 @@ struct SessionMeta<'a> {
     model_id: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     last_message_snippet: Option<&'a str>,
+    /// True while this server process has an active prompt run for the
+    /// session, so clients can restore "working" indicators after a reload.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    active_run: bool,
 }
 
 impl<'a> From<&'a Session> for SessionMeta<'a> {
@@ -64,15 +68,20 @@ impl<'a> From<&'a Session> for SessionMeta<'a> {
                 .as_ref()
                 .map(|mc| mc.model_name.as_str()),
             last_message_snippet: session.last_message_snippet.as_deref(),
+            active_run: false,
         }
     }
 }
 
-pub(super) fn session_meta(session: &Session) -> serde_json::Map<String, serde_json::Value> {
-    match serde_json::to_value(SessionMeta::from(session)) {
+fn session_meta_map(meta: SessionMeta<'_>) -> serde_json::Map<String, serde_json::Value> {
+    match serde_json::to_value(meta) {
         Ok(serde_json::Value::Object(meta)) => meta,
         _ => serde_json::Map::new(),
     }
+}
+
+pub(super) fn session_meta(session: &Session) -> serde_json::Map<String, serde_json::Value> {
+    session_meta_map(SessionMeta::from(session))
 }
 
 pub(super) fn session_response_meta(
@@ -100,8 +109,10 @@ pub(super) fn session_response_meta(
     meta
 }
 
-pub(super) fn build_session_info(session: Session) -> SessionInfo {
-    let meta = session_meta(&session);
+pub(super) fn build_session_info(session: Session, active_run: bool) -> SessionInfo {
+    let mut session_meta = SessionMeta::from(&session);
+    session_meta.active_run = active_run;
+    let meta = session_meta_map(session_meta);
     let mut info = SessionInfo::new(SessionId::new(session.id), session.working_dir)
         .updated_at(session.updated_at.to_rfc3339())
         .meta(meta);
@@ -585,6 +596,28 @@ mod tests {
         current_mode: GooseMode,
     ) -> Result<SessionModeState, agent_client_protocol::Error> {
         build_mode_state(current_mode)
+    }
+
+    #[test]
+    fn test_build_session_info_marks_active_run_in_meta() {
+        let session = Session {
+            id: "session-busy".to_string(),
+            ..Session::default()
+        };
+        let info = build_session_info(session, true);
+        let meta = info.meta.expect("session _meta");
+        assert_eq!(meta.get("activeRun"), Some(&serde_json::json!(true)));
+
+        let idle = Session {
+            id: "session-idle".to_string(),
+            ..Session::default()
+        };
+        let info = build_session_info(idle, false);
+        let meta = info.meta.expect("session _meta");
+        assert!(
+            meta.get("activeRun").is_none(),
+            "idle sessions must omit activeRun for backward compatibility"
+        );
     }
 
     #[test]

@@ -24,6 +24,7 @@ interface GooseSessionInfoMeta {
   userSetName?: boolean;
   hasRecipe?: boolean;
   lastMessageSnippet?: string;
+  activeRun?: boolean;
 }
 
 export interface SessionListItem {
@@ -41,6 +42,8 @@ export interface SessionListItem {
   userSetName?: boolean;
   hasRecipe?: boolean;
   sessionType?: Session['session_type'];
+  /** True while the backend has an active prompt run for this session. */
+  activeRun?: boolean;
 }
 
 export interface SessionListPage {
@@ -130,6 +133,7 @@ function sessionInfoToListItem(s: SessionInfo): SessionListItem {
     userSetName: meta.userSetName,
     hasRecipe: meta.hasRecipe,
     sessionType: meta.sessionType,
+    activeRun: meta.activeRun,
   };
 }
 

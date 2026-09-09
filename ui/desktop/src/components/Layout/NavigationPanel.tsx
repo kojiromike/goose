@@ -266,6 +266,21 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
     return () => window.removeEventListener(AppEvents.SESSION_STATUS_UPDATE, handleStatusUpdate);
   }, []);
 
+  // Live in-window status events win; until one arrives for a session (e.g.
+  // right after a renderer reload), fall back to the backend's activeRun flag
+  // from the fetched session list.
+  const statusFor = useCallback(
+    (session: SessionListItem): SessionStatus | undefined => {
+      const liveStatus = sessionStatuses.get(session.id);
+      if (liveStatus) return liveStatus;
+      if (session.activeRun) {
+        return { streamState: 'streaming', hasUnreadActivity: false };
+      }
+      return undefined;
+    },
+    [sessionStatuses]
+  );
+
   const clearUnread = useCallback((sessionId: string) => {
     setSessionStatuses((prev) => {
       const status = prev.get(sessionId);
@@ -369,7 +384,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                           key={session.id}
                           session={session}
                           active={session.id === activeSessionId}
-                          status={sessionStatuses.get(session.id)}
+                          status={statusFor(session)}
                           onClick={() => {
                             clearUnread(session.id);
                             handleSessionClick(session.id);
@@ -386,7 +401,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                   key={session.id}
                   session={session}
                   active={session.id === activeSessionId}
-                  status={sessionStatuses.get(session.id)}
+                  status={statusFor(session)}
                   onClick={() => {
                     clearUnread(session.id);
                     handleSessionClick(session.id);

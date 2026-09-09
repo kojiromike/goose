@@ -181,6 +181,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_fresh_connection_sees_active_runs_started_elsewhere() {
+        let root = tempfile::tempdir().unwrap();
+        let server = server(root.path().to_path_buf(), false);
+
+        let running = server.create_agent().await.unwrap();
+        let owner = Arc::new(crate::agents::Agent::new());
+        running
+            .test_start_active_run("session-1", "run-1".to_string(), owner)
+            .await
+            .unwrap();
+
+        let fresh = server.create_agent().await.unwrap();
+        assert!(
+            fresh.has_active_run("session-1").await,
+            "a connection created after the run started (e.g. a renderer \
+             reload) must still see the session as busy"
+        );
+        assert!(fresh.active_run_session_ids().await.contains("session-1"));
+        assert!(!fresh.has_active_run("session-2").await);
+    }
+
+    #[tokio::test]
     async fn steer_routes_to_the_agent_that_owns_the_run() {
         let root = tempfile::tempdir().unwrap();
         let server = server(root.path().to_path_buf(), false);
