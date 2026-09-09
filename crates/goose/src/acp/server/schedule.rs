@@ -151,13 +151,17 @@ impl GooseAcpAgent {
         &self,
         req: ListScheduleSessionsRequest,
     ) -> Result<ListScheduleSessionsResponse, agent_client_protocol::Error> {
+        let active_run_ids = self.active_run_session_ids().await;
         let sessions = self
             .require_scheduler()?
             .sessions(&req.schedule_id, req.limit)
             .await
             .internal_err_ctx("Failed to fetch schedule sessions")?
             .into_iter()
-            .map(|(_, session)| build_session_info(session))
+            .map(|(_, session)| {
+                let active_run = active_run_ids.contains(&session.id);
+                build_session_info(session, active_run)
+            })
             .collect();
 
         Ok(ListScheduleSessionsResponse { sessions })

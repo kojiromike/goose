@@ -256,8 +256,15 @@ impl GooseAcpAgent {
             .await
             .internal_err()?;
 
-        let session_infos: Vec<SessionInfo> =
-            page.sessions.into_iter().map(build_session_info).collect();
+        let active_run_ids = self.active_run_session_ids().await;
+        let session_infos: Vec<SessionInfo> = page
+            .sessions
+            .into_iter()
+            .map(|session| {
+                let active_run = active_run_ids.contains(&session.id);
+                build_session_info(session, active_run)
+            })
+            .collect();
         let next_cursor = page
             .next_cursor
             .as_ref()

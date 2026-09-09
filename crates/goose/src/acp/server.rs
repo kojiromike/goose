@@ -836,6 +836,26 @@ pub(super) fn validate_absolute_cwd(cwd: &Path) -> Result<(), agent_client_proto
 }
 
 impl GooseAcpAgent {
+    /// Session ids that currently have an active prompt run in this server
+    /// process. The registry is shared across all connections of one
+    /// `AcpServer`, so a fresh connection (e.g. after a renderer reload) still
+    /// sees runs started from other connections.
+    pub(super) async fn active_run_session_ids(&self) -> HashSet<String> {
+        self.active_prompt_runs
+            .lock()
+            .await
+            .keys()
+            .cloned()
+            .collect()
+    }
+
+    pub(super) async fn has_active_run(&self, session_id: &str) -> bool {
+        self.active_prompt_runs
+            .lock()
+            .await
+            .contains_key(session_id)
+    }
+
     #[cfg(test)]
     pub(crate) fn active_run_registry(&self) -> &ActiveRunRegistry {
         &self.active_prompt_runs

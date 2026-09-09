@@ -552,7 +552,14 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
 
   const getSessionStatus = useCallback(
     (session: SessionListItem): SessionStatus | undefined => {
-      const live = sessionStatuses.get(session.id);
+      // Live in-window status events win; until one arrives for a session
+      // (e.g. right after a renderer reload), fall back to the backend's
+      // activeRun flag from the fetched session list.
+      const live =
+        sessionStatuses.get(session.id) ??
+        (session.activeRun
+          ? { streamState: 'streaming' as StreamState, hasUnreadActivity: false }
+          : undefined);
       if (session.id === activeSessionId) {
         if (!live?.hasUnreadActivity) return live;
         return { ...live, hasUnreadActivity: false };
