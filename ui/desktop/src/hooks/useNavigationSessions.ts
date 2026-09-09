@@ -360,6 +360,7 @@ export function useNavigationSessions() {
   );
 
   return {
+    recentSessions,
     visibleSessions,
     visibleSessionsByProject,
     liveSessions,
