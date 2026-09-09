@@ -27,6 +27,7 @@ use std::sync::{
     Arc, Mutex,
 };
 use std::thread::JoinHandle;
+use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, oneshot, watch, Mutex as TokioMutex};
@@ -54,6 +55,16 @@ pub const ACP_CURRENT_MODEL: &str = "current";
 /// Config option id used by agents that advertise a thinking-effort selector
 /// without categorizing it as `thought_level`.
 const EFFORT_CONFIG_OPTION_ID: &str = "effort";
+
+/// How long to wait for an ACP agent to answer a control-plane request before
+/// giving up. These requests are served from the agent's own state, so a
+/// healthy one answers in well under a second.
+const CHILD_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// `session/load` replays the whole conversation into the agent, which is slow
+/// for a long session, so it gets a far more generous bound than the other
+/// control-plane requests.
+const CHILD_LOAD_SESSION_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// Session request param holding the selected thinking effort.
 pub(super) const THINKING_EFFORT_PARAM: &str = "thinking_effort";
@@ -177,6 +188,31 @@ fn retry_without_memo_could_help(error: &agent_client_protocol::Error) -> bool {
         .and_then(|data| data.get("reason"))
         .and_then(serde_json::Value::as_str)
         != Some(crate::acp::CREDITS_EXHAUSTED_REASON)
+}
+
+/// Wait for an ACP agent to answer a control-plane request, giving up after
+/// `timeout`.
+///
+/// The prompt stream is deliberately not bounded this way — a turn legitimately
+/// runs for as long as the model needs — but these requests are answered from
+/// the agent's own state and returning nothing means the agent is wedged.
+/// Waiting forever on one strands the caller with no error to report: `stream`
+/// issues several before the first token, so an agent that stops answering
+/// leaves the desktop showing a run that never ends and never fails.
+async fn await_child_response<T>(
+    response_rx: oneshot::Receiver<T>,
+    method: &str,
+    timeout: Duration,
+) -> Result<T> {
+    tokio::time::timeout(timeout, response_rx)
+        .await
+        .with_context(|| {
+            format!(
+                "ACP agent did not answer {method} within {}s",
+                timeout.as_secs()
+            )
+        })?
+        .with_context(|| format!("ACP agent dropped the {method} request"))
 }
 
 fn provider_error_from_acp(error: agent_client_protocol::Error) -> ProviderError {
@@ -470,7 +506,8 @@ impl AcpProvider {
             })
             .await
             .context("ACP client is unavailable")?;
-        let response = response_rx.await.context("ACP session load cancelled")??;
+        let response =
+            await_child_response(response_rx, "session/load", CHILD_LOAD_SESSION_TIMEOUT).await??;
         Ok(AcpSession {
             id: response.session_id.clone(),
             response,
@@ -490,7 +527,7 @@ impl AcpProvider {
             })
             .await
             .context("ACP client is unavailable")?;
-        response_rx.await.context("ACP request cancelled")?
+        await_child_response(response_rx, "session/set_mode", CHILD_REQUEST_TIMEOUT).await?
     }
 
     pub(crate) async fn send_set_config_option(
@@ -512,7 +549,12 @@ impl AcpProvider {
             })
             .await
             .context("ACP client is unavailable")?;
-        response_rx.await.context("ACP request cancelled")?
+        await_child_response(
+            response_rx,
+            "session/set_config_option",
+            CHILD_REQUEST_TIMEOUT,
+        )
+        .await?
     }
 
     /// Re-apply the model selection config option when the active session model
@@ -3358,6 +3400,36 @@ mod tests {
         }
 
         handle.await.unwrap().unwrap();
+    }
+
+    /// An agent that accepts the request and then never answers used to strand
+    /// the caller forever. `stream` applies the model before the first token, so
+    /// hanging here is a run that neither produces output nor reports a failure.
+    #[tokio::test(start_paused = true)]
+    async fn apply_model_if_changed_gives_up_on_an_agent_that_never_answers() {
+        let (tx, mut rx) = mpsc::channel(1);
+        let provider = test_provider_with_model_option(tx, Some("old-model".to_string()));
+
+        let handle =
+            tokio::spawn(async move { provider.apply_model_if_changed("new-model").await });
+
+        // Hold the responder without ever answering: dropping it would close the
+        // channel and resolve the wait as a cancellation instead of a timeout.
+        let _responder = match rx.recv().await.expect("expected a SetConfigOption request") {
+            ClientRequest::SetConfigOption { response_tx, .. } => response_tx,
+            _ => panic!("unexpected request kind"),
+        };
+
+        let error = handle
+            .await
+            .expect("the model application task should not panic")
+            .expect_err("a silent agent must not resolve as success");
+        assert!(
+            error
+                .to_string()
+                .contains("did not answer session/set_config_option"),
+            "unexpected error: {error}"
+        );
     }
 
     #[tokio::test]
