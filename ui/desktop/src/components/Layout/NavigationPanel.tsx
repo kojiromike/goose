@@ -17,6 +17,13 @@ import { SessionIndicators } from '../SessionIndicators';
 import { acpRenameSession, type SessionListItem } from '../../acp/sessions';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/Tooltip';
 import { formatMessageTimestamp } from '../../utils/timeUtils';
+import {
+  isSessionUnread,
+  loadLastViewedMap,
+  markSessionViewed,
+  syncLastViewedMap,
+  type LastViewedMap,
+} from '../../utils/sessionUnread';
 import { cn } from '../../utils';
 import type { ProjectGroup } from '../../utils/projectSessions';
 import { defineMessages, useIntl } from '../../i18n';
@@ -246,13 +253,25 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
   } = useNavigationSessions();
 
   const [sessionStatuses, setSessionStatuses] = useState<Map<string, SessionStatus>>(new Map());
+  const [lastViewed, setLastViewed] = useState<LastViewedMap>(loadLastViewedMap);
+
+  const activeSessionIdRef = useRef<string | undefined>(activeSessionId);
+  activeSessionIdRef.current = activeSessionId;
 
   useEffect(() => {
     const handleStatusUpdate = (event: Event) => {
       const { sessionId, streamState } = (event as CustomEvent).detail;
+      // The active session's chat is mounted and visible, so its activity
+      // counts as read continuously.
+      if (sessionId === activeSessionIdRef.current) {
+        setLastViewed(markSessionViewed(sessionId));
+      }
       setSessionStatuses((prev) => {
         const existing = prev.get(sessionId);
-        const shouldMarkUnread = existing?.streamState === 'streaming' && streamState === 'idle';
+        const shouldMarkUnread =
+          existing?.streamState === 'streaming' &&
+          streamState === 'idle' &&
+          sessionId !== activeSessionIdRef.current;
         const next = new Map(prev);
         next.set(sessionId, {
           streamState,
@@ -266,7 +285,21 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
     return () => window.removeEventListener(AppEvents.SESSION_STATUS_UPDATE, handleStatusUpdate);
   }, []);
 
+  // Seed first-seen sessions as read and prune entries for sessions that
+  // left the list, so the stored map stays bounded.
+  useEffect(() => {
+    if (recentSessions.length === 0) return;
+    setLastViewed(syncLastViewedMap(recentSessions.map((s) => s.id)));
+  }, [recentSessions]);
+
+  // Opening a session marks it viewed, however the user navigated to it.
+  useEffect(() => {
+    if (!activeSessionId) return;
+    setLastViewed(markSessionViewed(activeSessionId));
+  }, [activeSessionId]);
+
   const clearUnread = useCallback((sessionId: string) => {
+    setLastViewed(markSessionViewed(sessionId));
     setSessionStatuses((prev) => {
       const status = prev.get(sessionId);
       if (status?.hasUnreadActivity) {
@@ -277,6 +310,23 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
       return prev;
     });
   }, []);
+
+  const getSessionStatus = useCallback(
+    (session: SessionListItem): SessionStatus | undefined => {
+      const live = sessionStatuses.get(session.id);
+      if (session.id === activeSessionId) {
+        if (!live?.hasUnreadActivity) return live;
+        return { ...live, hasUnreadActivity: false };
+      }
+      const persistedUnread = isSessionUnread(session.lastMessageAt, lastViewed[session.id]);
+      if (!persistedUnread) return live;
+      return {
+        streamState: live?.streamState ?? 'idle',
+        hasUnreadActivity: true,
+      };
+    },
+    [sessionStatuses, lastViewed, activeSessionId]
+  );
 
   const navFocusRef = useRef<HTMLDivElement>(null);
 
@@ -369,7 +419,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                           key={session.id}
                           session={session}
                           active={session.id === activeSessionId}
-                          status={sessionStatuses.get(session.id)}
+                          status={getSessionStatus(session)}
                           onClick={() => {
                             clearUnread(session.id);
                             handleSessionClick(session.id);
@@ -386,7 +436,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                   key={session.id}
                   session={session}
                   active={session.id === activeSessionId}
-                  status={sessionStatuses.get(session.id)}
+                  status={getSessionStatus(session)}
                   onClick={() => {
                     clearUnread(session.id);
                     handleSessionClick(session.id);
