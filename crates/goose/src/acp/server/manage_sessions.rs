@@ -259,7 +259,52 @@ impl GooseAcpAgent {
             .apply()
             .await
             .map_err(|e| agent_client_protocol::Error::internal_error().data(e.to_string()))?;
+        self.notify_session_renamed(&req.session_id).await;
         Ok(EmptyResponse {})
+    }
+
+    /// Mirror the generated-name notifier (`spawn_session_name_update_notifier`)
+    /// so clients refresh session lists after a user-initiated rename.
+    async fn notify_session_renamed(&self, session_id: &str) {
+        let Some(cx) = self.client_cx.get() else {
+            return;
+        };
+        let session = match self.session_manager.get_session(session_id, false).await {
+            Ok(session) => session,
+            Err(error) => {
+                warn!(
+                    session_id = %session_id,
+                    error = %error,
+                    "Failed to reload session after rename"
+                );
+                return;
+            }
+        };
+        let mut meta = serde_json::Map::new();
+        meta.insert(
+            "messageCount".to_string(),
+            serde_json::Value::Number(session.message_count.into()),
+        );
+        meta.insert(
+            "userSetName".to_string(),
+            serde_json::Value::Bool(session.user_set_name),
+        );
+        let notification = SessionNotification::new(
+            SessionId::new(session_id.to_string()),
+            SessionUpdate::SessionInfoUpdate(
+                SessionInfoUpdate::new()
+                    .title(session.name)
+                    .updated_at(session.updated_at.to_rfc3339())
+                    .meta(meta),
+            ),
+        );
+        if let Err(error) = cx.send_notification(notification) {
+            warn!(
+                session_id = %session_id,
+                error = %error,
+                "Failed to send session rename notification"
+            );
+        }
     }
 
     pub(super) async fn on_archive_session(

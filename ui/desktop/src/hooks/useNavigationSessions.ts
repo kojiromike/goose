@@ -172,7 +172,7 @@ export function useNavigationSessions() {
       setRecentSessions((prev) =>
         prev.map((session) =>
           session.id === sessionId
-            ? { ...session, name: newName, ...(userInitiated && { user_set_name: true }) }
+            ? { ...session, name: newName, ...(userInitiated && { userSetName: true }) }
             : session
         )
       );
