@@ -393,8 +393,13 @@ impl OutOfBandMessagePublisher {
         *self.run.lock().unwrap() = OutOfBandRun::default();
     }
 
-    /// Only assistant content has an out-of-band representation. A tool call or
-    /// permission request still needs a live turn to dispatch and answer it.
+    /// Assistant content and the agent's own tool calls have an out-of-band
+    /// representation; a permission request does not, because it needs a live
+    /// turn to carry the user's answer back.
+    ///
+    /// Tool calls are safe to publish precisely because the agent ran them
+    /// itself: [`acp_tool_request_message`] marks them external_dispatch, so
+    /// they are a record of work already done rather than work to dispatch.
     fn publish(&self, update: AcpUpdate) {
         let Some(callback) = self.callback.lock().unwrap().clone() else {
             return;
@@ -422,6 +427,26 @@ impl OutOfBandMessagePublisher {
                     .with_thinking(text, "")
                     .with_visibility(true, false)
                     .with_id(id)
+            }
+            // A tool call interrupts any text run, exactly as it does in a
+            // live turn, so following text starts its own message.
+            AcpUpdate::ToolCallStart {
+                id,
+                name,
+                kind,
+                raw_input,
+            } => {
+                self.end_run();
+                acp_tool_request_message(id, name, kind, raw_input)
+            }
+            AcpUpdate::ToolCallComplete {
+                id,
+                raw_output,
+                content,
+                is_error,
+            } => {
+                self.end_run();
+                acp_tool_response_message(id, raw_output, content, is_error)
             }
             _ => return,
         };
@@ -1454,25 +1479,7 @@ impl Provider for AcpProvider {
                             suppress_text = true;
                             rejected_tool_calls.insert(id);
                         } else {
-                            let mut params = CallToolRequestParams::new(name);
-                            if let Some(serde_json::Value::Object(map)) = raw_input {
-                                params = params.with_arguments(map);
-                            }
-                            // external_dispatch tells the agent loop not to redispatch this
-                            // call. goose.acp.kind preserves ACP's stable categorization for
-                            // downstream consumers (metrics, observability, icon selection)
-                            // independent of the display title we put in `name`.
-                            let tool_meta = Some(serde_json::json!({
-                                TOOL_META_EXTERNAL_DISPATCH_KEY: true,
-                                "goose.acp.kind": kind,
-                            }));
-                            let message = Message::assistant().with_tool_request_with_metadata(
-                                id,
-                                Ok(params),
-                                None,
-                                tool_meta,
-                            );
-                            yield (Some(message), None);
+                            yield (Some(acp_tool_request_message(id, name, kind, raw_input)), None);
                         }
                     }
                     AcpUpdate::ToolCallComplete {
@@ -1502,14 +1509,8 @@ impl Provider for AcpProvider {
                                 yield (Some(message), None);
                             }
                         } else {
-                            let result_content =
-                                acp_tool_call_content_to_rmcp(content, raw_output);
-                            let result = if is_error {
-                                CallToolResult::error(result_content)
-                            } else {
-                                CallToolResult::success(result_content)
-                            };
-                            let message = Message::user().with_tool_response(id, Ok(result));
+                            let message =
+                                acp_tool_response_message(id, raw_output, content, is_error);
                             yield (Some(message), None);
                         }
                     }
@@ -1852,11 +1853,12 @@ impl AcpClientLoop {
                     let session_state = session_state.clone();
                     let active_session = active_session.clone();
                     async move |notification: SessionNotification, _cx| {
-                        let is_current = session_state.active_id.lock().is_ok_and(|active| {
-                            active
-                                .as_ref()
-                                .is_none_or(|id| id == &notification.session_id)
-                        }) && is_active_session(&active_session, &notification.session_id);
+                        let is_current =
+                            session_state.active_id.lock().is_ok_and(|active| {
+                                active
+                                    .as_ref()
+                                    .is_none_or(|id| id == &notification.session_id)
+                            }) && is_active_session(&active_session, &notification.session_id);
                         if !is_current {
                             tracing::debug!(
                                 session_id = %notification.session_id,
@@ -1904,9 +1906,11 @@ impl AcpClientLoop {
                         }
                         // Clone the sender out of the lock: deliver_or_publish
                         // awaits, so a full channel back-pressures the dispatch
-                        // loop rather than silently dropping the chunk, and a
+                        // loop rather than silently dropping the update, and a
                         // guard held across that await could deadlock against
-                        // the request loop.
+                        // the request loop. Tool-call accumulation runs whether
+                        // or not a turn is live, so a call that starts in one
+                        // turn and finishes out of band still pairs up.
                         let tx = prompt_response_tx.lock().ok().and_then(|g| g.clone());
                         let update = match notification.update {
                             SessionUpdate::AgentMessageChunk(ContentChunk {
@@ -1935,51 +1939,58 @@ impl AcpClientLoop {
                             }
                             update => update,
                         };
-                        if let Some(tx) = tx {
-                            match update {
-                                SessionUpdate::ToolCall(tool_call) => {
-                                    let id = tool_call.tool_call_id.0.to_string();
-                                    let initial_status = tool_call.status;
-                                    let synchronous_terminal = matches!(
-                                        initial_status,
-                                        ToolCallStatus::Completed | ToolCallStatus::Failed
-                                    );
-                                    // Seed the buffer; drain immediately if the call is
-                                    // already terminal (synchronous tool, no follow-up).
-                                    let synchronous_accumulated =
-                                        if let Ok(mut buffer) = pending_tool_updates.lock() {
-                                            let entry = buffer.entry(id.clone()).or_default();
-                                            if let Some(raw_output) = tool_call.raw_output.clone() {
-                                                entry.raw_output = Some(raw_output);
-                                            }
-                                            entry.content.extend(tool_call.content.clone());
-                                            if synchronous_terminal {
-                                                buffer.remove(&id)
-                                            } else {
-                                                None
-                                            }
+                        match update {
+                            SessionUpdate::ToolCall(tool_call) => {
+                                let id = tool_call.tool_call_id.0.to_string();
+                                let initial_status = tool_call.status;
+                                let synchronous_terminal = matches!(
+                                    initial_status,
+                                    ToolCallStatus::Completed | ToolCallStatus::Failed
+                                );
+                                // Seed the buffer; drain immediately if the call is
+                                // already terminal (synchronous tool, no follow-up).
+                                let synchronous_accumulated =
+                                    if let Ok(mut buffer) = pending_tool_updates.lock() {
+                                        let entry = buffer.entry(id.clone()).or_default();
+                                        if let Some(raw_output) = tool_call.raw_output.clone() {
+                                            entry.raw_output = Some(raw_output);
+                                        }
+                                        entry.content.extend(tool_call.content.clone());
+                                        if synchronous_terminal {
+                                            buffer.remove(&id)
                                         } else {
                                             None
-                                        };
-                                    // ACP carries no canonical tool name to clients — only
-                                    // `title` (display) and `kind` (category). We pass `title`
-                                    // for renderer affordance, surface `kind` separately via
-                                    // tool_meta for stable categorization, and the
-                                    // goose.external_dispatch marker keeps `name` off the
-                                    // agent loop's routing/auth paths.
-                                    let _ = tx.try_send(AcpUpdate::ToolCallStart {
+                                        }
+                                    } else {
+                                        None
+                                    };
+                                // ACP carries no canonical tool name to clients — only
+                                // `title` (display) and `kind` (category). We pass `title`
+                                // for renderer affordance, surface `kind` separately via
+                                // tool_meta for stable categorization, and the
+                                // goose.external_dispatch marker keeps `name` off the
+                                // agent loop's routing/auth paths.
+                                deliver_or_publish(
+                                    tx.as_ref(),
+                                    &out_of_band_publisher,
+                                    AcpUpdate::ToolCallStart {
                                         id: id.clone(),
                                         name: tool_call.title.clone(),
                                         kind: tool_call.kind,
                                         raw_input: tool_call.raw_input.clone(),
-                                    });
-                                    if let Some(accumulated) = synchronous_accumulated {
-                                        let content = if accumulated.content.is_empty() {
-                                            None
-                                        } else {
-                                            Some(accumulated.content)
-                                        };
-                                        let _ = tx.try_send(AcpUpdate::ToolCallComplete {
+                                    },
+                                )
+                                .await;
+                                if let Some(accumulated) = synchronous_accumulated {
+                                    let content = if accumulated.content.is_empty() {
+                                        None
+                                    } else {
+                                        Some(accumulated.content)
+                                    };
+                                    deliver_or_publish(
+                                        tx.as_ref(),
+                                        &out_of_band_publisher,
+                                        AcpUpdate::ToolCallComplete {
                                             id,
                                             raw_output: accumulated.raw_output,
                                             content,
@@ -1987,21 +1998,19 @@ impl AcpClientLoop {
                                                 initial_status,
                                                 ToolCallStatus::Failed
                                             ),
-                                        });
-                                    }
+                                        },
+                                    )
+                                    .await;
                                 }
-                                SessionUpdate::ToolCallUpdate(update) => {
-                                    let id = update.tool_call_id.0.to_string();
-                                    // Merge patch-like fields; only emit on terminal status.
-                                    let terminal_status = update.fields.status.filter(|s| {
-                                        matches!(
-                                            s,
-                                            ToolCallStatus::Completed | ToolCallStatus::Failed
-                                        )
-                                    });
-                                    let accumulated = if let Ok(mut buffer) =
-                                        pending_tool_updates.lock()
-                                    {
+                            }
+                            SessionUpdate::ToolCallUpdate(update) => {
+                                let id = update.tool_call_id.0.to_string();
+                                // Merge patch-like fields; only emit on terminal status.
+                                let terminal_status = update.fields.status.filter(|s| {
+                                    matches!(s, ToolCallStatus::Completed | ToolCallStatus::Failed)
+                                });
+                                let accumulated =
+                                    if let Ok(mut buffer) = pending_tool_updates.lock() {
                                         let entry = buffer.entry(id.clone()).or_default();
                                         if let Some(raw_output) = update.fields.raw_output.clone() {
                                             entry.raw_output = Some(raw_output);
@@ -2017,24 +2026,28 @@ impl AcpClientLoop {
                                     } else {
                                         None
                                     };
-                                    if let (Some(accumulated), Some(status)) =
-                                        (accumulated, terminal_status)
-                                    {
-                                        let content = if accumulated.content.is_empty() {
-                                            None
-                                        } else {
-                                            Some(accumulated.content)
-                                        };
-                                        let _ = tx.try_send(AcpUpdate::ToolCallComplete {
+                                if let (Some(accumulated), Some(status)) =
+                                    (accumulated, terminal_status)
+                                {
+                                    let content = if accumulated.content.is_empty() {
+                                        None
+                                    } else {
+                                        Some(accumulated.content)
+                                    };
+                                    deliver_or_publish(
+                                        tx.as_ref(),
+                                        &out_of_band_publisher,
+                                        AcpUpdate::ToolCallComplete {
                                             id,
                                             raw_output: accumulated.raw_output,
                                             content,
                                             is_error: matches!(status, ToolCallStatus::Failed),
-                                        });
-                                    }
+                                        },
+                                    )
+                                    .await;
                                 }
-                                _ => {}
                             }
+                            _ => {}
                         }
                         Ok(())
                     }
@@ -2853,6 +2866,45 @@ fn acp_content_annotations(content: &ContentBlock) -> Option<&AcpAnnotations> {
         ContentBlock::Resource(content) => content.annotations.as_ref(),
         _ => None,
     }
+}
+
+/// Build the tool-request message for a call the ACP agent is running itself.
+///
+/// external_dispatch tells the agent loop not to redispatch this call.
+/// goose.acp.kind preserves ACP's stable categorization for downstream
+/// consumers (metrics, observability, icon selection) independent of the
+/// display title we put in `name`.
+fn acp_tool_request_message(
+    id: String,
+    name: String,
+    kind: ToolKind,
+    raw_input: Option<serde_json::Value>,
+) -> Message {
+    let mut params = CallToolRequestParams::new(name);
+    if let Some(serde_json::Value::Object(map)) = raw_input {
+        params = params.with_arguments(map);
+    }
+    let tool_meta = Some(serde_json::json!({
+        TOOL_META_EXTERNAL_DISPATCH_KEY: true,
+        "goose.acp.kind": kind,
+    }));
+    Message::assistant().with_tool_request_with_metadata(id, Ok(params), None, tool_meta)
+}
+
+/// Build the tool-response message pairing with [`acp_tool_request_message`].
+fn acp_tool_response_message(
+    id: String,
+    raw_output: Option<serde_json::Value>,
+    content: Option<Vec<ToolCallContent>>,
+    is_error: bool,
+) -> Message {
+    let result_content = acp_tool_call_content_to_rmcp(content, raw_output);
+    let result = if is_error {
+        CallToolResult::error(result_content)
+    } else {
+        CallToolResult::success(result_content)
+    };
+    Message::user().with_tool_response(id, Ok(result))
 }
 
 fn acp_text_update_message(text: TextContent, id: String, created: i64) -> Message {
@@ -3681,6 +3733,70 @@ mod tests {
         let published = published.lock().unwrap();
         assert_eq!(published.len(), 1);
         assert!(!published[0].is_agent_visible());
+    }
+
+    #[test]
+    fn out_of_band_publisher_emits_the_agents_own_tool_calls() {
+        let publisher = OutOfBandMessagePublisher::default();
+        let published = collect_published(&publisher);
+
+        publisher.publish(AcpUpdate::ToolCallStart {
+            id: "call-1".to_string(),
+            name: "Bash".to_string(),
+            kind: ToolKind::Execute,
+            raw_input: Some(serde_json::json!({ "command": "just test" })),
+        });
+        publisher.publish(AcpUpdate::ToolCallComplete {
+            id: "call-1".to_string(),
+            raw_output: Some(serde_json::json!("all tests passed")),
+            content: None,
+            is_error: false,
+        });
+
+        let published = published.lock().unwrap();
+        assert_eq!(published.len(), 2);
+
+        let MessageContent::ToolRequest(request) = &published[0].content[0] else {
+            panic!("expected a tool request");
+        };
+        assert_eq!(request.id, "call-1");
+        let tool_meta = request
+            .tool_meta
+            .as_ref()
+            .expect("a published tool call must carry the external_dispatch marker");
+        assert_eq!(
+            tool_meta[TOOL_META_EXTERNAL_DISPATCH_KEY],
+            serde_json::Value::Bool(true),
+            "the agent already ran this call; goose must not redispatch it"
+        );
+
+        let MessageContent::ToolResponse(response) = &published[1].content[0] else {
+            panic!("expected a tool response");
+        };
+        assert_eq!(response.id, "call-1");
+        assert!(response.tool_result.is_ok());
+    }
+
+    #[test]
+    fn a_tool_call_ends_the_out_of_band_text_run() {
+        let publisher = OutOfBandMessagePublisher::default();
+        let published = collect_published(&publisher);
+
+        publisher.publish(AcpUpdate::Text(TextContent::new("running the tests")));
+        publisher.publish(AcpUpdate::ToolCallStart {
+            id: "call-1".to_string(),
+            name: "Bash".to_string(),
+            kind: ToolKind::Execute,
+            raw_input: None,
+        });
+        publisher.publish(AcpUpdate::Text(TextContent::new("they passed")));
+
+        let published = published.lock().unwrap();
+        assert_eq!(published.len(), 3);
+        assert_ne!(
+            published[0].id, published[2].id,
+            "text on either side of a tool call must not coalesce into one bubble"
+        );
     }
 
     #[tokio::test]

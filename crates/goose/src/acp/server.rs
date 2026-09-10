@@ -483,6 +483,19 @@ fn out_of_band_session_update(
                 ContentBlock::Text(TextContent::new(&thinking.thinking)),
             )))
         }
+        // The agent ran these itself, so the pair is only ever a record of
+        // finished work. Titles are the default ones: enrichment is a turn's
+        // job, and there is no turn here to own the task.
+        MessageContent::ToolRequest(tool_request) => Some(SessionUpdate::ToolCall(
+            build_initial_tool_call_with_message_meta(tool_request, message, false),
+        )),
+        MessageContent::ToolResponse(tool_response) => Some(SessionUpdate::ToolCallUpdate(
+            ToolCallUpdate::new(
+                ToolCallId::new(tool_response.id.clone()),
+                tool_call_update_fields_from_response(tool_response, None, false),
+            )
+            .meta(trusted_update_meta(tool_response)),
+        )),
         _ => None,
     }
 }
