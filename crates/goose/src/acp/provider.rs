@@ -284,6 +284,57 @@ fn provider_error_from_acp(error: agent_client_protocol::Error) -> ProviderError
 struct AccumulatedToolCall {
     raw_output: Option<serde_json::Value>,
     content: Vec<ToolCallContent>,
+    /// An announcement held back because the agent had not finished streaming
+    /// the call's input when it made it. See [`PendingToolCallStart`].
+    pending_start: Option<PendingToolCallStart>,
+}
+
+/// A tool call the agent has announced but that goose has not shown yet.
+///
+/// claude-acp announces a call at `content_block_start`, when the input is
+/// still streaming: `raw_input` is `{}` and the title is the placeholder the
+/// agent derives from an empty input — every Bash call is "Terminal", every
+/// read is "Read File". The real title and input arrive moments later in a
+/// refining `tool_call_update`. goose renders a tool call from the
+/// `tool_request` message it emits once, and a message's content cannot be
+/// revised afterwards, so announcing eagerly means the card is stuck saying
+/// nothing for the whole run. Holding the announcement for the refinement
+/// trades a fraction of a second of "something started" for a card that says
+/// what is running.
+#[derive(Debug)]
+struct PendingToolCallStart {
+    name: String,
+    kind: ToolKind,
+    raw_input: Option<serde_json::Value>,
+}
+
+impl PendingToolCallStart {
+    /// Whether the announcement says anything yet. An absent or empty input
+    /// object is the signature of one made mid-stream.
+    fn is_described(&self) -> bool {
+        matches!(&self.raw_input, Some(serde_json::Value::Object(args)) if !args.is_empty())
+    }
+
+    fn refine(&mut self, fields: &agent_client_protocol::schema::v1::ToolCallUpdateFields) {
+        if let Some(title) = fields.title.clone() {
+            self.name = title;
+        }
+        if let Some(kind) = fields.kind {
+            self.kind = kind;
+        }
+        if let Some(raw_input) = fields.raw_input.clone() {
+            self.raw_input = Some(raw_input);
+        }
+    }
+
+    fn into_update(self, id: String) -> AcpUpdate {
+        AcpUpdate::ToolCallStart {
+            id,
+            name: self.name,
+            kind: self.kind,
+            raw_input: self.raw_input,
+        }
+    }
 }
 
 /// The single ACP session backing this provider instance.
@@ -1947,6 +1998,23 @@ impl AcpClientLoop {
                                     initial_status,
                                     ToolCallStatus::Completed | ToolCallStatus::Failed
                                 );
+                                // ACP carries no canonical tool name to clients — only
+                                // `title` (display) and `kind` (category). We pass `title`
+                                // for renderer affordance, surface `kind` separately via
+                                // tool_meta for stable categorization, and the
+                                // goose.external_dispatch marker keeps `name` off the
+                                // agent loop's routing/auth paths.
+                                let mut start = Some(PendingToolCallStart {
+                                    name: tool_call.title.clone(),
+                                    kind: tool_call.kind,
+                                    raw_input: tool_call.raw_input.clone(),
+                                });
+                                // A call announced mid-stream waits for the refinement
+                                // that describes it. A terminal one has no refinement
+                                // coming, so it goes out as-is.
+                                let announce_now =
+                                    start.as_ref().is_some_and(|start| start.is_described())
+                                        || synchronous_terminal;
                                 // Seed the buffer; drain immediately if the call is
                                 // already terminal (synchronous tool, no follow-up).
                                 let synchronous_accumulated =
@@ -1956,6 +2024,9 @@ impl AcpClientLoop {
                                             entry.raw_output = Some(raw_output);
                                         }
                                         entry.content.extend(tool_call.content.clone());
+                                        if !announce_now {
+                                            entry.pending_start = start.take();
+                                        }
                                         if synchronous_terminal {
                                             buffer.remove(&id)
                                         } else {
@@ -1964,23 +2035,14 @@ impl AcpClientLoop {
                                     } else {
                                         None
                                     };
-                                // ACP carries no canonical tool name to clients — only
-                                // `title` (display) and `kind` (category). We pass `title`
-                                // for renderer affordance, surface `kind` separately via
-                                // tool_meta for stable categorization, and the
-                                // goose.external_dispatch marker keeps `name` off the
-                                // agent loop's routing/auth paths.
-                                deliver_or_publish(
-                                    tx.as_ref(),
-                                    &out_of_band_publisher,
-                                    AcpUpdate::ToolCallStart {
-                                        id: id.clone(),
-                                        name: tool_call.title.clone(),
-                                        kind: tool_call.kind,
-                                        raw_input: tool_call.raw_input.clone(),
-                                    },
-                                )
-                                .await;
+                                if let Some(start) = start {
+                                    deliver_or_publish(
+                                        tx.as_ref(),
+                                        &out_of_band_publisher,
+                                        start.into_update(id.clone()),
+                                    )
+                                    .await;
+                                }
                                 if let Some(accumulated) = synchronous_accumulated {
                                     let content = if accumulated.content.is_empty() {
                                         None
@@ -2005,10 +2067,15 @@ impl AcpClientLoop {
                             }
                             SessionUpdate::ToolCallUpdate(update) => {
                                 let id = update.tool_call_id.0.to_string();
-                                // Merge patch-like fields; only emit on terminal status.
+                                // Merge patch-like fields; only emit the result on
+                                // terminal status, but release a held announcement as
+                                // soon as this update describes the call.
                                 let terminal_status = update.fields.status.filter(|s| {
                                     matches!(s, ToolCallStatus::Completed | ToolCallStatus::Failed)
                                 });
+                                let carries_output = update.fields.raw_output.is_some()
+                                    || update.fields.content.is_some();
+                                let mut released_start = None;
                                 let accumulated =
                                     if let Ok(mut buffer) = pending_tool_updates.lock() {
                                         let entry = buffer.entry(id.clone()).or_default();
@@ -2018,6 +2085,20 @@ impl AcpClientLoop {
                                         if let Some(content) = update.fields.content.clone() {
                                             entry.content.extend(content);
                                         }
+                                        if let Some(start) = entry.pending_start.as_mut() {
+                                            start.refine(&update.fields);
+                                            // Release once the call is described, and
+                                            // unconditionally once it produces output or
+                                            // ends — a response must never reach the turn
+                                            // without its request, and work in flight is
+                                            // worth showing even undescribed.
+                                            if start.is_described()
+                                                || carries_output
+                                                || terminal_status.is_some()
+                                            {
+                                                released_start = entry.pending_start.take();
+                                            }
+                                        }
                                         if terminal_status.is_some() {
                                             buffer.remove(&id)
                                         } else {
@@ -2026,6 +2107,14 @@ impl AcpClientLoop {
                                     } else {
                                         None
                                     };
+                                if let Some(start) = released_start {
+                                    deliver_or_publish(
+                                        tx.as_ref(),
+                                        &out_of_band_publisher,
+                                        start.into_update(id.clone()),
+                                    )
+                                    .await;
+                                }
                                 if let (Some(accumulated), Some(status)) =
                                     (accumulated, terminal_status)
                                 {
@@ -3733,6 +3822,50 @@ mod tests {
         let published = published.lock().unwrap();
         assert_eq!(published.len(), 1);
         assert!(!published[0].is_agent_visible());
+    }
+
+    #[test]
+    fn an_announcement_made_mid_stream_is_not_described_yet() {
+        let mut start = PendingToolCallStart {
+            name: "Terminal".to_string(),
+            kind: ToolKind::Execute,
+            raw_input: Some(serde_json::json!({})),
+        };
+        assert!(
+            !start.is_described(),
+            "an empty input object is what the agent sends while the input is still streaming"
+        );
+
+        start.raw_input = None;
+        assert!(!start.is_described(), "no input describes nothing either");
+
+        start.raw_input = Some(serde_json::json!({ "command": "composer phpstan" }));
+        assert!(start.is_described());
+    }
+
+    #[test]
+    fn refining_an_announcement_takes_the_real_title_and_input() {
+        let mut start = PendingToolCallStart {
+            name: "Terminal".to_string(),
+            kind: ToolKind::Other,
+            raw_input: Some(serde_json::json!({})),
+        };
+
+        start.refine(
+            &agent_client_protocol::schema::v1::ToolCallUpdateFields::new()
+                .title("composer phpstan")
+                .kind(ToolKind::Execute)
+                .raw_input(serde_json::json!({ "command": "composer phpstan" })),
+        );
+
+        assert_eq!(start.name, "composer phpstan");
+        assert_eq!(start.kind, ToolKind::Execute);
+        assert!(start.is_described());
+
+        // A later update that says nothing about the call must not undo it.
+        start.refine(&agent_client_protocol::schema::v1::ToolCallUpdateFields::new());
+        assert_eq!(start.name, "composer phpstan");
+        assert!(start.is_described());
     }
 
     #[test]
