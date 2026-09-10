@@ -362,6 +362,99 @@ impl AcpSessionState {
     }
 }
 
+type OutOfBandMessageCallback = Arc<dyn Fn(Message) + Send + Sync>;
+
+/// Turns assistant content that arrives while no turn is consuming updates into
+/// standalone messages. The ACP backend can resume itself after its turn ended —
+/// reporting on a build it was told to wait for, say — and that content has no
+/// reply stream left to ride on.
+#[derive(Clone, Default)]
+struct OutOfBandMessagePublisher {
+    callback: Arc<Mutex<Option<OutOfBandMessageCallback>>>,
+    run: Arc<Mutex<OutOfBandRun>>,
+}
+
+/// Stable id+timestamp per contiguous run, so Desktop and session replay both
+/// coalesce a run's chunks into one bubble.
+#[derive(Default)]
+struct OutOfBandRun {
+    text: Option<(String, i64)>,
+    thought: Option<(String, i64)>,
+}
+
+impl OutOfBandMessagePublisher {
+    fn set_callback(&self, callback: OutOfBandMessageCallback) {
+        *self.callback.lock().unwrap() = Some(callback);
+    }
+
+    /// Ends the current run so content published on either side of a turn is
+    /// not coalesced into a single message spanning it.
+    fn end_run(&self) {
+        *self.run.lock().unwrap() = OutOfBandRun::default();
+    }
+
+    /// Only assistant content has an out-of-band representation. A tool call or
+    /// permission request still needs a live turn to dispatch and answer it.
+    fn publish(&self, update: AcpUpdate) {
+        let Some(callback) = self.callback.lock().unwrap().clone() else {
+            return;
+        };
+        let message = match update {
+            AcpUpdate::Text(text) => {
+                let (id, created) = self
+                    .run
+                    .lock()
+                    .unwrap()
+                    .text
+                    .get_or_insert_with(fresh_text_run)
+                    .clone();
+                acp_text_update_message(text, id, created)
+            }
+            AcpUpdate::Thought(text) => {
+                let (id, created) = self
+                    .run
+                    .lock()
+                    .unwrap()
+                    .thought
+                    .get_or_insert_with(fresh_text_run)
+                    .clone();
+                Message::new(Role::Assistant, created, vec![])
+                    .with_thinking(text, "")
+                    .with_visibility(true, false)
+                    .with_id(id)
+            }
+            _ => return,
+        };
+        callback(message);
+    }
+}
+
+/// Hands an update to the turn consuming updates, or publishes it as a
+/// standalone message once no turn can take it.
+///
+/// A failed send is the signal rather than a separate turn-active flag: the
+/// sender stays registered between turns, so only the receiver's presence says
+/// whether a turn can still take content, and testing it by sending makes the
+/// two outcomes exclusive. A chunk racing the end of a turn is delivered to
+/// that turn as long as the stream is still reading, and published only once
+/// the stream is gone.
+///
+/// Before the first prompt there is no sender at all, and nothing to be out of
+/// band of: a resumed session replays its entire conversation as updates, and
+/// goose already holds those messages.
+async fn deliver_or_publish(
+    tx: Option<&mpsc::Sender<AcpUpdate>>,
+    publisher: &OutOfBandMessagePublisher,
+    update: AcpUpdate,
+) {
+    let Some(tx) = tx else {
+        return;
+    };
+    if let Err(mpsc::error::SendError(update)) = tx.send(update).await {
+        publisher.publish(update);
+    }
+}
+
 pub struct AcpProvider {
     name: String,
     goose_mode: Arc<Mutex<GooseMode>>,
@@ -385,6 +478,7 @@ pub struct AcpProvider {
     /// abandons the exhausted backend session and starts a fresh one, so the
     /// bounded handoff memo can rebuild context from goose's own history.
     session_exhausted: Arc<AtomicBool>,
+    out_of_band_publisher: OutOfBandMessagePublisher,
 
     /// Config option id used to select the model, if this agent supports it.
     model_config_option_id: Option<String>,
@@ -470,6 +564,7 @@ struct AcpConnection {
     applied_model: Option<String>,
     pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
     context_size: Arc<AtomicU64>,
+    out_of_band_publisher: OutOfBandMessagePublisher,
     effort: AcpEffortState,
     supports_llm_backends: bool,
     llm_backend: Option<LlmBackend>,
@@ -500,12 +595,14 @@ impl AcpConnection {
         let pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>> =
             Arc::new(Mutex::new(HashMap::new()));
         let context_size = Arc::new(AtomicU64::new(0));
+        let out_of_band_publisher = OutOfBandMessagePublisher::default();
         let effort = AcpEffortState::new();
         let client_loop = AcpClientLoop::new(
             config,
             goose_mode.clone(),
             pending_tool_updates.clone(),
             context_size.clone(),
+            out_of_band_publisher.clone(),
             effort.clone(),
         );
         let (cancel_tx, cancel_rx) = oneshot::channel();
@@ -528,6 +625,7 @@ impl AcpConnection {
             applied_model,
             pending_tool_updates,
             context_size,
+            out_of_band_publisher,
             effort,
             supports_llm_backends,
             llm_backend,
@@ -591,6 +689,7 @@ impl AcpConnection {
             handoff_context_sent: Arc::new(AtomicBool::new(false)),
             context_size: self.context_size,
             session_exhausted: Arc::new(AtomicBool::new(false)),
+            out_of_band_publisher: self.out_of_band_publisher,
             model_config_option_id: self.model_config_option_id,
             applied_model: Arc::new(Mutex::new(self.applied_model)),
             effort: self.effort,
@@ -1195,6 +1294,10 @@ impl Provider for AcpProvider {
         true
     }
 
+    fn set_out_of_band_message_callback(&self, callback: Arc<dyn Fn(Message) + Send + Sync>) {
+        self.out_of_band_publisher.set_callback(callback);
+    }
+
     async fn handle_permission_confirmation(
         &self,
         request_id: &str,
@@ -1272,6 +1375,7 @@ impl Provider for AcpProvider {
         if let Ok(mut buffer) = self.pending_tool_updates.lock() {
             buffer.clear();
         }
+        self.out_of_band_publisher.end_run();
         let mut rx = match self.prompt(session_id.clone(), prompt_blocks).await {
             Ok(rx) => rx,
             Err(e) => match bare_retry_blocks.take() {
@@ -1647,6 +1751,7 @@ struct AcpClientLoop {
     prompt_response_tx: Arc<Mutex<Option<mpsc::Sender<AcpUpdate>>>>,
     pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
     context_size: Arc<AtomicU64>,
+    out_of_band_publisher: OutOfBandMessagePublisher,
     effort: AcpEffortState,
     /// Session the notification handler will accept updates for. `reset_context`
     /// leaves a superseded session that may still emit trailing usage and mode
@@ -1660,6 +1765,7 @@ impl AcpClientLoop {
         goose_mode: Arc<Mutex<GooseMode>>,
         pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
         context_size: Arc<AtomicU64>,
+        out_of_band_publisher: OutOfBandMessagePublisher,
         effort: AcpEffortState,
     ) -> Self {
         Self {
@@ -1668,6 +1774,7 @@ impl AcpClientLoop {
             prompt_response_tx: Arc::new(Mutex::new(None)),
             pending_tool_updates,
             context_size,
+            out_of_band_publisher,
             effort,
             active_session: Arc::new(Mutex::new(None)),
         }
@@ -1724,6 +1831,7 @@ impl AcpClientLoop {
             prompt_response_tx,
             pending_tool_updates,
             context_size,
+            out_of_band_publisher,
             effort,
             active_session,
         } = self;
@@ -1740,6 +1848,7 @@ impl AcpClientLoop {
                     let goose_mode = goose_mode.clone();
                     let pending_tool_updates = pending_tool_updates.clone();
                     let context_size = context_size.clone();
+                    let out_of_band_publisher = out_of_band_publisher.clone();
                     let session_state = session_state.clone();
                     let active_session = active_session.clone();
                     async move |notification: SessionNotification, _cx| {
@@ -1793,30 +1902,41 @@ impl AcpClientLoop {
                             }
                             _ => {}
                         }
-                        // Clone the sender out of the lock so sends can be
-                        // awaited: a full channel must back-pressure the
-                        // dispatch loop rather than silently drop the chunk,
-                        // and a guard held across an await could deadlock
-                        // against the request loop.
+                        // Clone the sender out of the lock: deliver_or_publish
+                        // awaits, so a full channel back-pressures the dispatch
+                        // loop rather than silently dropping the chunk, and a
+                        // guard held across that await could deadlock against
+                        // the request loop.
                         let tx = prompt_response_tx.lock().ok().and_then(|g| g.clone());
+                        let update = match notification.update {
+                            SessionUpdate::AgentMessageChunk(ContentChunk {
+                                content: ContentBlock::Text(text),
+                                ..
+                            }) => {
+                                deliver_or_publish(
+                                    tx.as_ref(),
+                                    &out_of_band_publisher,
+                                    AcpUpdate::Text(text),
+                                )
+                                .await;
+                                return Ok(());
+                            }
+                            SessionUpdate::AgentThoughtChunk(ContentChunk {
+                                content: ContentBlock::Text(TextContent { text, .. }),
+                                ..
+                            }) => {
+                                deliver_or_publish(
+                                    tx.as_ref(),
+                                    &out_of_band_publisher,
+                                    AcpUpdate::Thought(text),
+                                )
+                                .await;
+                                return Ok(());
+                            }
+                            update => update,
+                        };
                         if let Some(tx) = tx {
-                            match notification.update {
-                                SessionUpdate::AgentMessageChunk(ContentChunk {
-                                    content: ContentBlock::Text(text),
-                                    ..
-                                }) => {
-                                    if let Err(e) = tx.send(AcpUpdate::Text(text)).await {
-                                        tracing::warn!(error = %e, "undelivered ACP agent message chunk");
-                                    }
-                                }
-                                SessionUpdate::AgentThoughtChunk(ContentChunk {
-                                    content: ContentBlock::Text(TextContent { text, .. }),
-                                    ..
-                                }) => {
-                                    if let Err(e) = tx.send(AcpUpdate::Thought(text)).await {
-                                        tracing::warn!(error = %e, "undelivered ACP agent thought chunk");
-                                    }
-                                }
+                            match update {
                                 SessionUpdate::ToolCall(tool_call) => {
                                     let id = tool_call.tool_call_id.0.to_string();
                                     let initial_status = tool_call.status;
@@ -2326,12 +2446,13 @@ async fn handle_requests(
                     }
                 }
 
-                // Deliberately keep prompt_response_tx registered: message
-                // chunks dispatched after the prompt response resolves would
-                // otherwise race this handler clearing the sender and be
-                // dropped silently (turns arrive empty). The next prompt
-                // replaces the sender; between turns the receiver is gone,
-                // so late sends fail and are logged by the dispatch handler.
+                // Deliberately keep prompt_response_tx registered:
+                // deliver_or_publish treats a failed send as the signal that
+                // no turn is live, so chunks arriving between turns are
+                // published out of band instead of vanishing. The next prompt
+                // replaces the sender; before the first prompt there is no
+                // sender at all and updates are dropped, because a resumed
+                // session replays its whole conversation that way.
             }
             ClientRequest::SetLlmBackend {
                 backend,
@@ -3252,6 +3373,7 @@ mod tests {
                 handoff_context_sent: Arc::new(AtomicBool::new(false)),
                 context_size: Arc::new(AtomicU64::new(0)),
                 session_exhausted: Arc::new(AtomicBool::new(false)),
+                out_of_band_publisher: OutOfBandMessagePublisher::default(),
                 model_config_option_id: None,
                 applied_model: Arc::new(Mutex::new(None)),
                 effort: AcpEffortState::new(),
@@ -3523,6 +3645,44 @@ mod tests {
         assert_ne!(first_id, second_id);
     }
 
+    fn collect_published(publisher: &OutOfBandMessagePublisher) -> Arc<Mutex<Vec<Message>>> {
+        let published = Arc::new(Mutex::new(Vec::new()));
+        let sink = published.clone();
+        publisher.set_callback(Arc::new(move |message| {
+            sink.lock().unwrap().push(message);
+        }));
+        published
+    }
+
+    #[test]
+    fn out_of_band_publisher_coalesces_a_run_and_starts_a_new_one_after_a_turn() {
+        let publisher = OutOfBandMessagePublisher::default();
+        let published = collect_published(&publisher);
+
+        publisher.publish(AcpUpdate::Text(TextContent::new("the build ")));
+        publisher.publish(AcpUpdate::Text(TextContent::new("passed")));
+        publisher.end_run();
+        publisher.publish(AcpUpdate::Text(TextContent::new("and so did the tests")));
+
+        let published = published.lock().unwrap();
+        let texts: Vec<String> = published.iter().map(|m| m.as_concat_text()).collect();
+        assert_eq!(texts, vec!["the build ", "passed", "and so did the tests"]);
+        assert_eq!(published[0].id, published[1].id);
+        assert_ne!(published[1].id, published[2].id);
+    }
+
+    #[test]
+    fn out_of_band_publisher_keeps_thoughts_out_of_agent_visible_history() {
+        let publisher = OutOfBandMessagePublisher::default();
+        let published = collect_published(&publisher);
+
+        publisher.publish(AcpUpdate::Thought("still waiting".to_string()));
+
+        let published = published.lock().unwrap();
+        assert_eq!(published.len(), 1);
+        assert!(!published[0].is_agent_visible());
+    }
+
     #[tokio::test]
     async fn stream_recovers_text_chunks_that_trail_the_prompt_response() {
         use futures::StreamExt;
@@ -3601,6 +3761,100 @@ mod tests {
 
         assert_eq!(messages.len(), 1);
         assert_eq!(messages[0].as_concat_text(), "reply");
+    }
+
+    #[tokio::test]
+    async fn text_arriving_after_a_turn_ends_becomes_an_out_of_band_message() {
+        use futures::StreamExt;
+
+        let (tx, mut rx) = mpsc::channel(1);
+        let (provider, model) = test_provider_with_tx(Some(tx));
+        let published = collect_published(&provider.out_of_band_publisher);
+
+        let messages = vec![Message::user().with_text("run the build")];
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        let response_tx = match rx.recv().await.expect("expected ACP prompt request") {
+            ClientRequest::Prompt { response_tx, .. } => response_tx,
+            _ => panic!("expected ACP prompt request"),
+        };
+
+        response_tx
+            .send(AcpUpdate::Text(TextContent::new("waiting on the build")))
+            .await
+            .unwrap();
+        response_tx
+            .send(AcpUpdate::Complete(StopReason::EndTurn, None))
+            .await
+            .unwrap();
+        while stream.next().await.is_some() {}
+        drop(stream);
+
+        deliver_or_publish(
+            Some(&response_tx),
+            &provider.out_of_band_publisher,
+            AcpUpdate::Text(TextContent::new("the build passed")),
+        )
+        .await;
+
+        let published = published.lock().unwrap();
+        assert_eq!(published.len(), 1);
+        assert_eq!(published[0].as_concat_text(), "the build passed");
+    }
+
+    #[tokio::test]
+    async fn text_delivered_to_a_live_turn_is_not_republished() {
+        use futures::StreamExt;
+
+        let (tx, mut rx) = mpsc::channel(1);
+        let (provider, model) = test_provider_with_tx(Some(tx));
+        let published = collect_published(&provider.out_of_band_publisher);
+
+        let messages = vec![Message::user().with_text("hello")];
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        let response_tx = match rx.recv().await.expect("expected ACP prompt request") {
+            ClientRequest::Prompt { response_tx, .. } => response_tx,
+            _ => panic!("expected ACP prompt request"),
+        };
+
+        deliver_or_publish(
+            Some(&response_tx),
+            &provider.out_of_band_publisher,
+            AcpUpdate::Text(TextContent::new("late reply")),
+        )
+        .await;
+        response_tx
+            .send(AcpUpdate::Complete(StopReason::EndTurn, None))
+            .await
+            .unwrap();
+        drop(response_tx);
+
+        let mut turn_messages = Vec::new();
+        while let Some(item) = stream.next().await {
+            if let (Some(message), _) = item.unwrap() {
+                turn_messages.push(message);
+            }
+        }
+
+        assert_eq!(turn_messages.len(), 1);
+        assert_eq!(turn_messages[0].as_concat_text(), "late reply");
+        assert!(published.lock().unwrap().is_empty());
+    }
+
+    /// A resumed ACP session replays its whole conversation as updates before
+    /// goose prompts; republishing those would duplicate the conversation.
+    #[tokio::test]
+    async fn updates_arriving_before_any_turn_are_not_published() {
+        let publisher = OutOfBandMessagePublisher::default();
+        let published = collect_published(&publisher);
+
+        deliver_or_publish(
+            None,
+            &publisher,
+            AcpUpdate::Text(TextContent::new("replayed history")),
+        )
+        .await;
+
+        assert!(published.lock().unwrap().is_empty());
     }
 
     #[test]

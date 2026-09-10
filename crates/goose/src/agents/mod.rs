@@ -26,7 +26,9 @@ mod tool_schema_normalize;
 pub mod types;
 pub mod validate_extensions;
 
-pub use agent::{Agent, AgentConfig, ExtensionLoadResult, GoosePlatform, MCP_PROTOCOL_VERSION};
+pub use agent::{
+    Agent, AgentConfig, ExtensionLoadResult, GoosePlatform, OutOfBandMessage, MCP_PROTOCOL_VERSION,
+};
 pub use container::Container;
 pub use execute_commands::{
     compaction_unsupported_message, stale_provider_context_message, COMPACT_TRIGGERS,
