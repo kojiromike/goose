@@ -47,6 +47,12 @@ pub enum LlmBackendKind {
 #[serde(rename_all = "camelCase")]
 pub struct LlmBackendState {
     pub active: Option<LlmBackend>,
+    /// The backend this harness's traffic actually reaches, which for a
+    /// backend carried by the spawn environment is decided once and cannot be
+    /// changed while the harness runs. `active` only covers routing installed
+    /// over the wire, so it is silent about exactly the case that bills the
+    /// wrong account.
+    pub in_use: Option<LlmBackendKind>,
 }
 
 impl LlmBackend {

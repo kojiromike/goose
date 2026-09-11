@@ -46,3 +46,14 @@ export async function acpConfigureLlmBackend(
 export function needsGoogleCloudSignIn(status: LlmBackendStatus, backendId: string): boolean {
   return backendId === 'vertex' && (status.googleCloud?.state ?? 'not_configured') !== 'ready';
 }
+
+// An agent left on its own routing has no option row, so name it for what it is
+// rather than leaving a sentence with a hole in it.
+export function backendLabel(
+  status: LlmBackendStatus,
+  backendId: string | null | undefined
+): string {
+  return (
+    status.options.find((option) => option.id === backendId)?.label ?? 'the agent’s own login'
+  );
+}

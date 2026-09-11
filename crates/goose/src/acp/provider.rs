@@ -34,7 +34,9 @@ use tokio::sync::{mpsc, oneshot, watch, Mutex as TokioMutex};
 use tokio_util::compat::{TokioAsyncReadCompatExt as _, TokioAsyncWriteCompatExt as _};
 
 use crate::acp::handoff::{build_handoff_context_memo, memo_token_budget, prompt_token_cost};
-use crate::acp::llm_backend::{disable_request, set_provider_request, LlmBackend, LlmBackendState};
+use crate::acp::llm_backend::{
+    disable_request, set_provider_request, LlmBackend, LlmBackendKind, LlmBackendState,
+};
 use crate::acp::{map_permission_response, PermissionDecision};
 use crate::config::{Config, ExtensionConfig, GooseMode};
 use crate::conversation::message::{Message, MessageContent, TOOL_META_EXTERNAL_DISPATCH_KEY};
@@ -108,6 +110,10 @@ pub struct AcpProviderConfig {
     /// Backend the agent's API traffic should reach, applied with `providers/set`
     /// before the first session. `None` leaves the agent on its own routing.
     pub llm_backend: Option<LlmBackend>,
+    /// Backend `env` was built for. A backend the agent has to be started with
+    /// is fixed for the life of the child, so this is what the session bills
+    /// even after the saved selection moves on.
+    pub spawn_backend: Option<LlmBackendKind>,
     pub notification_callback: Option<Arc<dyn Fn(SessionNotification) + Send + Sync>>,
 }
 
@@ -576,6 +582,8 @@ pub struct AcpProvider {
     /// Backend currently applied with `providers/set`. `None` is the agent's own
     /// routing.
     llm_backend: Mutex<Option<LlmBackend>>,
+    /// Backend the child process was started for, from [`AcpProviderConfig`].
+    spawn_backend: Option<LlmBackendKind>,
 
     tx: Option<mpsc::Sender<ClientRequest>>,
     cancel_tx: Option<oneshot::Sender<()>>,
@@ -644,6 +652,7 @@ struct AcpConnection {
     effort: AcpEffortState,
     supports_llm_backends: bool,
     llm_backend: Option<LlmBackend>,
+    spawn_backend: Option<LlmBackendKind>,
     tx: mpsc::Sender<ClientRequest>,
     cancel_tx: oneshot::Sender<()>,
     loop_thread: JoinHandle<()>,
@@ -660,6 +669,7 @@ impl AcpConnection {
         let mode_mapping = config.mode_mapping.clone();
         let model_config_option_id = config.model_config_option_id.clone();
         let llm_backend = config.llm_backend.clone();
+        let spawn_backend = config.spawn_backend;
         let applied_model = config.model_config_option_id.as_ref().and_then(|id| {
             config
                 .session_config_options
@@ -705,6 +715,7 @@ impl AcpConnection {
             effort,
             supports_llm_backends,
             llm_backend,
+            spawn_backend,
             tx: client_loop_guard.tx.take().unwrap(),
             cancel_tx: client_loop_guard.cancel_tx.take().unwrap(),
             loop_thread: client_loop_guard.thread.take().unwrap(),
@@ -771,6 +782,7 @@ impl AcpConnection {
             effort: self.effort,
             supports_llm_backends: self.supports_llm_backends,
             llm_backend: Mutex::new(self.llm_backend),
+            spawn_backend: self.spawn_backend,
             tx: Some(self.tx),
             cancel_tx: Some(self.cancel_tx),
             loop_thread: Some(self.loop_thread),
@@ -887,6 +899,16 @@ impl AcpProvider {
 
     pub fn llm_backend(&self) -> Option<LlmBackend> {
         self.llm_backend.lock().unwrap().clone()
+    }
+
+    /// The backend this agent's traffic reaches right now. Routing installed
+    /// over the wire replaces what the agent was started for; a backend the
+    /// agent had to be started with survives, because nothing since could have
+    /// moved it.
+    pub fn llm_backend_in_use(&self) -> Option<LlmBackendKind> {
+        self.llm_backend()
+            .map(|backend| backend.kind())
+            .or(self.spawn_backend)
     }
 
     /// Route the agent's API traffic to `backend`, or hand routing back to the
@@ -1313,6 +1335,7 @@ impl Provider for AcpProvider {
     fn llm_backend_state(&self) -> Option<LlmBackendState> {
         self.supports_llm_backends.then(|| LlmBackendState {
             active: self.llm_backend(),
+            in_use: self.llm_backend_in_use(),
         })
     }
 
@@ -3520,6 +3543,7 @@ mod tests {
                 effort: AcpEffortState::new(),
                 supports_llm_backends: false,
                 llm_backend: Mutex::new(None),
+                spawn_backend: None,
                 tx,
                 cancel_tx: None,
                 loop_thread: None,
@@ -5565,6 +5589,7 @@ mod tests {
             model_config_option_id: None,
             mode_mapping,
             llm_backend: None,
+            spawn_backend: None,
             notification_callback: None,
         }
     }

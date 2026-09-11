@@ -17,6 +17,7 @@ import { acpReadThinkingEffort } from '../../../../acp/providers';
 import {
   acpReadLlmBackend,
   acpSetLlmBackend,
+  backendLabel,
   needsGoogleCloudSignIn,
   UNSUPPORTED_LLM_BACKEND,
   type LlmBackendStatus,
@@ -87,6 +88,15 @@ const i18n = defineMessages({
   backendNextSession: {
     id: 'modelsBottomBar.backendNextSession',
     defaultMessage: 'This backend is applied when the agent starts, so it takes effect in a new chat.',
+  },
+  backendPending: {
+    id: 'modelsBottomBar.backendPending',
+    defaultMessage: 'next chat',
+  },
+  backendStale: {
+    id: 'modelsBottomBar.backendStale',
+    defaultMessage:
+      'This chat is still on {active}, because it started before {selected} was chosen. Open a new chat to use {selected}.',
   },
 });
 
@@ -272,7 +282,12 @@ export default function ModelsBottomBar({
   }, [isModelMenuOpen, sessionId]);
 
   const handleBackendSelected = async (backendId: string) => {
-    if (!sessionId || backendId === llmBackend.active) return;
+    // Only a click that changes nothing at all is a no-op. Picking the backend
+    // this chat already runs on is still worth sending when it is not the saved
+    // one, otherwise the saved choice can never be moved back.
+    if (!sessionId || (backendId === llmBackend.active && backendId === llmBackend.selected)) {
+      return;
+    }
 
     setSwitchingBackend(backendId);
     try {
@@ -408,8 +423,21 @@ export default function ModelsBottomBar({
                       : ''}
                   </span>
                   {option.id === llmBackend.active && <Check className="ml-auto h-3.5 w-3.5" />}
+                  {llmBackend.appliesNextSession && option.id === llmBackend.selected && (
+                    <span className="ml-auto text-xs text-text-muted">
+                      {intl.formatMessage(i18n.backendPending)}
+                    </span>
+                  )}
                 </DropdownMenuItem>
               ))}
+              {llmBackend.appliesNextSession && (
+                <p className="text-xs text-text-muted mx-2 mb-1">
+                  {intl.formatMessage(i18n.backendStale, {
+                    active: backendLabel(llmBackend, llmBackend.active),
+                    selected: backendLabel(llmBackend, llmBackend.selected),
+                  })}
+                </p>
+              )}
               {llmBackend.options
                 .filter((option) => !option.configured && option.detail)
                 .map((option) => (

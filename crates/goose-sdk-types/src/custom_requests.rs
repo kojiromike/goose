@@ -2390,12 +2390,20 @@ pub struct LlmBackendStatusResponse {
     /// False when this provider's backend is not the client's to choose; the
     /// rest of the response is then empty.
     pub supported: bool,
-    /// `null` means the agent is using its own routing.
+    /// The backend this session's traffic actually reaches. `null` means the
+    /// agent is using its own routing. This is the one to put a checkmark
+    /// against: it is what the session bills, which is not always what is
+    /// saved.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub active: Option<String>,
+    /// The saved selection, which is what a session started from now on will
+    /// use. Equal to `active` unless the choice was made after this session's
+    /// agent had already started.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selected: Option<String>,
     pub options: Vec<LlmBackendOptionDto>,
-    /// The selection was saved but the running session keeps its current
-    /// backend: this one is applied when the agent starts.
+    /// `selected` is saved but this session keeps `active`: the agent had to be
+    /// started for its backend, so the choice reaches the next session instead.
     #[serde(default)]
     pub applies_next_session: bool,
     /// Stored Vertex routing, for editing.

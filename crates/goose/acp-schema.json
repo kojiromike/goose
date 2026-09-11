@@ -667,7 +667,14 @@
             "string",
             "null"
           ],
-          "description": "`null` means the agent is using its own routing."
+          "description": "The backend this session's traffic actually reaches. `null` means the\nagent is using its own routing. This is the one to put a checkmark\nagainst: it is what the session bills, which is not always what is\nsaved."
+        },
+        "selected": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The saved selection, which is what a session started from now on will\nuse. Equal to `active` unless the choice was made after this session's\nagent had already started."
         },
         "options": {
           "type": "array",
@@ -677,7 +684,7 @@
         },
         "appliesNextSession": {
           "type": "boolean",
-          "description": "The selection was saved but the running session keeps its current\nbackend: this one is applied when the agent starts.",
+          "description": "`selected` is saved but this session keeps `active`: the agent had to be\nstarted for its backend, so the choice reaches the next session instead.",
           "default": false
         },
         "vertex": {

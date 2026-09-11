@@ -78,6 +78,7 @@ impl PiAcpProvider {
                 model_config_option_id: Some("model".to_string()),
                 mode_mapping: HashMap::new(),
                 llm_backend: None,
+                spawn_backend: None,
                 notification_callback: None,
             };
 
