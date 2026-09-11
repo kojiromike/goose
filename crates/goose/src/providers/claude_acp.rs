@@ -3,7 +3,7 @@ use futures::future::BoxFuture;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::acp::llm_backend::configured_backend;
+use crate::acp::llm_backend::load_settings;
 use crate::acp::{
     extension_configs_to_mcp_servers, AcpProvider, AcpProviderConfig, ACP_CURRENT_MODEL,
 };
@@ -81,7 +81,8 @@ impl ProviderDef for ClaudeAcpProvider {
                 (GooseMode::Chat, vec!["plan".to_string()]),
             ]);
 
-            let backend = configured_backend(config, CLAUDE_ACP_PROVIDER_NAME)?;
+            let settings = load_settings(config, CLAUDE_ACP_PROVIDER_NAME);
+            let backend = settings.resolve()?;
             let env = backend
                 .as_ref()
                 .map(|backend| backend.spawn_env())
@@ -107,6 +108,7 @@ impl ProviderDef for ClaudeAcpProvider {
                 model_config_option_id: Some("model".to_string()),
                 mode_mapping,
                 llm_backend,
+                spawn_backend: settings.active,
                 notification_callback: None,
             };
 

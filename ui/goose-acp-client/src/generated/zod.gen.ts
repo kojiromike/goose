@@ -219,6 +219,7 @@ export const zGoogleCloudAuthDto = z.object({
 export const zLlmBackendStatusResponse_unstable = z.object({
     supported: z.boolean(),
     active: z.string().nullish(),
+    selected: z.string().nullish(),
     options: z.array(zLlmBackendOptionDto),
     appliesNextSession: z.boolean().optional().default(false),
     vertex: zVertexRoutingDto.nullish(),

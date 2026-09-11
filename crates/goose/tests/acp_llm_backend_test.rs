@@ -4,7 +4,9 @@ use agent_client_protocol::schema::v1::{
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::{on_receive_request, Agent as SacpAgent, ByteStreams};
-use goose::acp::llm_backend::{set_provider_request, LlmBackend, SetProvider, VertexRouting};
+use goose::acp::llm_backend::{
+    set_provider_request, LlmBackend, LlmBackendKind, SetProvider, VertexRouting,
+};
 use goose::acp::{AcpProvider, AcpProviderConfig};
 use goose::config::GooseMode;
 use goose::providers::base::Provider;
@@ -23,6 +25,13 @@ fn vertex_backend() -> LlmBackend {
 }
 
 fn provider_config(llm_backend: Option<LlmBackend>) -> AcpProviderConfig {
+    provider_config_started_on(llm_backend, None)
+}
+
+fn provider_config_started_on(
+    llm_backend: Option<LlmBackend>,
+    spawn_backend: Option<LlmBackendKind>,
+) -> AcpProviderConfig {
     AcpProviderConfig {
         command: "unused".into(),
         args: vec![],
@@ -35,6 +44,7 @@ fn provider_config(llm_backend: Option<LlmBackend>) -> AcpProviderConfig {
         model_config_option_id: None,
         mode_mapping: HashMap::new(),
         llm_backend,
+        spawn_backend,
         notification_callback: None,
     }
 }
@@ -152,6 +162,47 @@ async fn no_configured_backend_leaves_the_agent_on_its_own_routing() {
     assert_eq!(*calls.lock().unwrap(), vec!["session/new".to_string()]);
     assert_eq!(provider.llm_backend(), None);
     assert!(provider.supports_llm_backends());
+}
+
+/// A Vertex account reaches the agent through its environment, so nothing is
+/// sent over the wire and `llm_backend()` stays empty. The provider still has
+/// to report Vertex as the backend in use, or the picker puts its checkmark on
+/// the account this session never talks to.
+#[tokio::test]
+async fn an_environment_carried_backend_is_still_the_one_in_use() {
+    let (provider, calls, _payloads) = connect_to_scripted_agent(
+        true,
+        provider_config_started_on(None, Some(LlmBackendKind::Vertex)),
+    )
+    .await;
+
+    let provider = provider.expect("provider should connect to the scripted agent");
+
+    assert_eq!(*calls.lock().unwrap(), vec!["session/new".to_string()]);
+    assert_eq!(provider.llm_backend(), None);
+    assert_eq!(
+        provider.llm_backend_in_use(),
+        Some(LlmBackendKind::Vertex),
+        "a backend carried by the spawn environment is invisible on the wire"
+    );
+}
+
+/// Choosing a different backend after the agent started saves the choice but
+/// cannot move this session, so the session must keep reporting what it runs on.
+#[tokio::test]
+async fn a_later_choice_does_not_change_what_a_running_session_reports() {
+    let (provider, _calls, _payloads) = connect_to_scripted_agent(
+        true,
+        provider_config_started_on(None, Some(LlmBackendKind::Anthropic)),
+    )
+    .await;
+
+    let provider = provider.expect("provider should connect to the scripted agent");
+
+    assert_eq!(
+        provider.llm_backend_in_use(),
+        Some(LlmBackendKind::Anthropic)
+    );
 }
 
 /// Falling back to the agent's own routing would silently bill the wrong

@@ -85,6 +85,7 @@ impl ProviderDef for AmpAcpProvider {
                 model_config_option_id: None,
                 mode_mapping,
                 llm_backend: None,
+                spawn_backend: None,
                 notification_callback: None,
             };
 

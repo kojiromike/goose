@@ -193,6 +193,7 @@ impl Connection for AcpProviderConnection {
                 })
                 .collect(),
             llm_backend: None,
+            spawn_backend: None,
             notification_callback: Some(Arc::new(move |n| {
                 sink_clone.lock().unwrap().push(n.update.clone());
             })),

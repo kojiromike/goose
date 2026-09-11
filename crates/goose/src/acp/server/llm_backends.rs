@@ -13,15 +13,15 @@ impl GooseAcpAgent {
         req: ReadLlmBackendRequest,
     ) -> Result<LlmBackendStatusResponse, agent_client_protocol::Error> {
         let provider = self.session_provider(&req.session_id).await?;
-        if provider.llm_backend_state().is_none() {
+        let Some(state) = provider.llm_backend_state() else {
             return Ok(LlmBackendStatusResponse::default());
-        }
+        };
 
         let settings = load_settings(Config::global(), provider.get_name());
         Ok(status(
             &settings,
+            state.in_use,
             google_cloud_status(&settings).await,
-            false,
         ))
     }
 
@@ -30,9 +30,9 @@ impl GooseAcpAgent {
         req: ConfigureLlmBackendRequest,
     ) -> Result<LlmBackendStatusResponse, agent_client_protocol::Error> {
         let provider = self.session_provider(&req.session_id).await?;
-        if provider.llm_backend_state().is_none() {
+        let Some(state) = provider.llm_backend_state() else {
             return Ok(LlmBackendStatusResponse::default());
-        }
+        };
 
         let config = Config::global();
         let mut settings = load_settings(config, provider.get_name());
@@ -48,8 +48,8 @@ impl GooseAcpAgent {
 
         Ok(status(
             &settings,
+            state.in_use,
             google_cloud_status(&settings).await,
-            false,
         ))
     }
 
@@ -118,10 +118,13 @@ impl GooseAcpAgent {
         settings.active = kind;
         save_settings(config, provider.get_name(), &settings).internal_err()?;
 
+        // Read the session's backend back rather than assuming the save moved
+        // it: whether the switch reached this session is the whole question.
+        let in_use = provider.llm_backend_state().and_then(|state| state.in_use);
         Ok(status(
             &settings,
+            in_use,
             google_cloud_status(&settings).await,
-            carried_by_env || leaving_env,
         ))
     }
 
@@ -161,6 +164,13 @@ fn needs_google_cloud(backend: Option<&LlmBackend>) -> bool {
     matches!(backend, Some(LlmBackend::Vertex(_)))
 }
 
+fn backend_id(kind: LlmBackendKind) -> String {
+    match kind {
+        LlmBackendKind::Anthropic => ANTHROPIC_ID.to_string(),
+        LlmBackendKind::Vertex => VERTEX_ID.to_string(),
+    }
+}
+
 /// Only report credential state once Vertex is on the table: an Anthropic-only
 /// user should never see a Google Cloud line, and the check mints a token.
 async fn google_cloud_status(settings: &LlmBackendSettings) -> Option<AdcStatus> {
@@ -170,20 +180,22 @@ async fn google_cloud_status(settings: &LlmBackendSettings) -> Option<AdcStatus>
     Some(gcloud_adc::status().await)
 }
 
+/// `in_use` is the backend this session's agent was started for, which is the
+/// one it bills. It differs from the saved selection whenever the choice was
+/// made after the agent started, and a checkmark on the saved selection would
+/// then point at an account this session never reaches.
 fn status(
     settings: &LlmBackendSettings,
+    in_use: Option<LlmBackendKind>,
     google_cloud: Option<AdcStatus>,
-    applies_next_session: bool,
 ) -> LlmBackendStatusResponse {
     let vertex_configured = settings.backend(LlmBackendKind::Vertex).is_ok()
         && !settings.requires_model(LlmBackendKind::Vertex);
     LlmBackendStatusResponse {
         supported: true,
-        applies_next_session,
-        active: settings.active.map(|kind| match kind {
-            LlmBackendKind::Anthropic => ANTHROPIC_ID.to_string(),
-            LlmBackendKind::Vertex => VERTEX_ID.to_string(),
-        }),
+        applies_next_session: settings.active != in_use,
+        active: in_use.map(backend_id),
+        selected: settings.active.map(backend_id),
         options: vec![
             LlmBackendOptionDto {
                 id: ANTHROPIC_ID.to_string(),
@@ -269,7 +281,7 @@ mod tests {
     /// would carry over one it does not offer.
     #[test]
     fn vertex_is_not_configured_until_it_has_a_model() {
-        let response = status(&vertex_settings(), None, false);
+        let response = status(&vertex_settings(), Some(LlmBackendKind::Vertex), None);
 
         let vertex = &response.options[1];
         assert!(!vertex.configured);
@@ -283,15 +295,37 @@ mod tests {
     /// broken.
     #[test]
     fn a_backend_applied_at_startup_is_reported_not_raised() {
-        let response = status(&vertex_settings(), None, true);
+        let response = status(&vertex_settings(), None, None);
 
         assert!(response.applies_next_session);
+        assert_eq!(response.selected.as_deref(), Some("vertex"));
+    }
+
+    /// The checkmark answers "where does this session's money go", so it
+    /// follows the running agent, not the setting. Saving Vertex while a
+    /// session is already up on the Claude Code login leaves that session
+    /// billing the login until it restarts.
+    #[test]
+    fn the_check_follows_the_session_not_the_saved_selection() {
+        let response = status(&vertex_settings(), Some(LlmBackendKind::Anthropic), None);
+
+        assert_eq!(response.active.as_deref(), Some("anthropic"));
+        assert_eq!(response.selected.as_deref(), Some("vertex"));
+        assert!(response.applies_next_session);
+    }
+
+    #[test]
+    fn a_session_started_on_the_saved_backend_is_not_reported_as_pending() {
+        let response = status(&vertex_settings(), Some(LlmBackendKind::Vertex), None);
+
         assert_eq!(response.active.as_deref(), Some("vertex"));
+        assert_eq!(response.selected.as_deref(), Some("vertex"));
+        assert!(!response.applies_next_session);
     }
 
     #[test]
     fn the_anthropic_option_describes_the_agents_own_login() {
-        let response = status(&LlmBackendSettings::default(), None, false);
+        let response = status(&LlmBackendSettings::default(), None, None);
 
         let anthropic = &response.options[0];
         assert!(anthropic.configured);
@@ -300,7 +334,7 @@ mod tests {
 
     #[test]
     fn an_unconfigured_vertex_option_says_what_is_missing() {
-        let response = status(&LlmBackendSettings::default(), None, false);
+        let response = status(&LlmBackendSettings::default(), None, None);
 
         let vertex = &response.options[1];
         assert!(!vertex.configured);
@@ -316,10 +350,10 @@ mod tests {
 
         let response = status(
             &settings,
+            Some(LlmBackendKind::Vertex),
             Some(AdcStatus::Ready {
                 account: Some("dev@example.com".to_string()),
             }),
-            false,
         );
 
         let vertex = &response.options[1];
