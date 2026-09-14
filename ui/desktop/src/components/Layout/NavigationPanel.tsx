@@ -1,6 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  AppWindow,
+  ChevronDown,
+  ChevronRight,
+  MessageSquarePlus,
+  MoreHorizontal,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigationContext } from './NavigationContext';
 import { useConfig } from '../ConfigContext';
@@ -16,6 +22,12 @@ import { InlineEditText } from '../common/InlineEditText';
 import { SessionIndicators } from '../SessionIndicators';
 import { acpRenameSession, type SessionListItem } from '../../acp/sessions';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/Tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 import { formatMessageTimestamp } from '../../utils/timeUtils';
 import { cn } from '../../utils';
 import type { ProjectGroup } from '../../utils/projectSessions';
@@ -76,6 +88,18 @@ const i18n = defineMessages({
   statusIdle: {
     id: 'navigationPanel.statusIdle',
     defaultMessage: 'Idle',
+  },
+  projectActions: {
+    id: 'navigationPanel.projectActions',
+    defaultMessage: 'Actions for {project}',
+  },
+  projectNewChat: {
+    id: 'navigationPanel.projectNewChat',
+    defaultMessage: 'New chat in this project',
+  },
+  projectNewChatWindow: {
+    id: 'navigationPanel.projectNewChatWindow',
+    defaultMessage: 'New chat in this project (new window)',
   },
 });
 
@@ -219,6 +243,73 @@ const SessionRow: React.FC<SessionRowProps> = ({ session, active, status, onClic
   );
 };
 
+interface ProjectHeaderProps {
+  group: ProjectGroup;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+  onNewChat: () => void;
+  onNewChatWindow: () => void;
+}
+
+const ProjectHeader: React.FC<ProjectHeaderProps> = ({
+  group,
+  collapsed,
+  onToggleCollapsed,
+  onNewChat,
+  onNewChatWindow,
+}) => {
+  const intl = useIntl();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  return (
+    <div
+      className="group flex items-center gap-1 px-3 pt-2 pb-0.5"
+      onContextMenu={(event) => {
+        event.preventDefault();
+        setMenuOpen(true);
+      }}
+    >
+      <button
+        onClick={onToggleCollapsed}
+        aria-expanded={!collapsed}
+        className="flex items-center gap-1 min-w-0 flex-1 text-[10px] uppercase tracking-wider text-text-tertiary hover:text-text-secondary transition-colors"
+        title={group.path}
+      >
+        {collapsed ? (
+          <ChevronRight className="w-3 h-3 flex-shrink-0" />
+        ) : (
+          <ChevronDown className="w-3 h-3 flex-shrink-0" />
+        )}
+        <span className="truncate">{group.label}</span>
+      </button>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={intl.formatMessage(i18n.projectActions, { project: group.label })}
+            className={cn(
+              'flex-shrink-0 rounded p-0.5 text-text-tertiary hover:text-text-primary hover:bg-background-tertiary transition-opacity',
+              'opacity-0 group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100'
+            )}
+          >
+            <MoreHorizontal className="w-3.5 h-3.5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={onNewChat}>
+            <MessageSquarePlus className="mr-2 h-4 w-4" />
+            {intl.formatMessage(i18n.projectNewChat)}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onNewChatWindow}>
+            <AppWindow className="mr-2 h-4 w-4" />
+            {intl.formatMessage(i18n.projectNewChatWindow)}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+};
+
 export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
   const intl = useIntl();
   const { isNavExpanded } = useNavigationContext();
@@ -243,6 +334,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
     fetchSessions,
     handleNavClick,
     handleSessionClick,
+    handleProjectNewChat,
   } = useNavigationSessions();
 
   const [sessionStatuses, setSessionStatuses] = useState<Map<string, SessionStatus>>(new Map());
@@ -350,19 +442,13 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                 const isCollapsed = collapsedProjects.has(group.path);
                 return (
                   <React.Fragment key={group.path}>
-                    <button
-                      onClick={() => toggleProjectCollapsed(group.path)}
-                      aria-expanded={!isCollapsed}
-                      className="flex items-center gap-1 w-full px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-wider text-text-tertiary hover:text-text-secondary transition-colors"
-                      title={group.path}
-                    >
-                      {isCollapsed ? (
-                        <ChevronRight className="w-3 h-3 flex-shrink-0" />
-                      ) : (
-                        <ChevronDown className="w-3 h-3 flex-shrink-0" />
-                      )}
-                      <span className="truncate">{group.label}</span>
-                    </button>
+                    <ProjectHeader
+                      group={group}
+                      collapsed={isCollapsed}
+                      onToggleCollapsed={() => toggleProjectCollapsed(group.path)}
+                      onNewChat={() => handleProjectNewChat(group.path)}
+                      onNewChatWindow={() => window.electron.createChatWindow({ dir: group.path })}
+                    />
                     {!isCollapsed &&
                       group.sessions.map((session) => (
                         <SessionRow

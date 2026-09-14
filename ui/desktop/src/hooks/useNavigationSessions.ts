@@ -10,6 +10,7 @@ import {
   type SessionListItem,
 } from '../acp/sessions';
 import { groupSessionsByProject } from '../utils/projectSessions';
+import type { ViewOptions } from '../utils/navigationUtils';
 
 const MAX_RECENT_SESSIONS = 25;
 
@@ -211,6 +212,14 @@ export function useNavigationSessions() {
     [navigate]
   );
 
+  const handleProjectNewChat = useCallback(
+    (workingDir: string) => {
+      const options: ViewOptions = { workingDir };
+      navigate('/', { state: options });
+    },
+    [navigate]
+  );
+
   return {
     recentSessions,
     recentSessionsByProject,
@@ -218,5 +227,6 @@ export function useNavigationSessions() {
     fetchSessions,
     handleNavClick,
     handleSessionClick,
+    handleProjectNewChat,
   };
 }

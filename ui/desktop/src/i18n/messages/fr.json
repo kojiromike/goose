@@ -2369,6 +2369,15 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Aucune discussion récente"
   },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "Actions pour {project}"
+  },
+  "navigationPanel.projectNewChat": {
+    "defaultMessage": "Nouvelle discussion dans ce projet"
+  },
+  "navigationPanel.projectNewChatWindow": {
+    "defaultMessage": "Nouvelle discussion dans ce projet (nouvelle fenêtre)"
+  },
   "navigationPanel.statusError": {
     "defaultMessage": "Erreur"
   },

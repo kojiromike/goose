@@ -30,6 +30,8 @@ export type ViewOptions = {
   initialMessage?: UserInput;
   resumeSessionId?: string;
   pendingScheduleDeepLink?: string;
+  /** Start the next chat in this directory instead of the window's own. */
+  workingDir?: string;
 };
 
 export const createNavigationHandler = (navigate: NavigateFunction) => {
