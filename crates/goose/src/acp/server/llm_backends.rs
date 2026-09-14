@@ -95,21 +95,14 @@ impl GooseAcpAgent {
             self.ensure_google_cloud_signin(req.sign_in).await?;
         }
 
-        // A backend the agent must be started with cannot be installed on a
-        // running session, and neither can leaving one.
-        let carried_by_env = backend
-            .as_ref()
-            .is_some_and(|backend| !backend.is_routable());
-        let leaving_env = settings
-            .active
-            .and_then(|kind| settings.backend(kind).ok().flatten())
-            .is_some_and(|previous| !previous.is_routable());
+        let needs_restart = requires_restart(&settings, backend.as_ref());
 
-        if !carried_by_env && !leaving_env {
-            provider
-                .set_llm_backend(backend.clone())
-                .await
-                .internal_err()?;
+        // The restart replaces the agent the running turn is talking to, which
+        // would strand that turn's answer in a process nothing is reading.
+        if needs_restart && self.has_active_run(&req.session_id).await {
+            return Err(agent_client_protocol::Error::invalid_params().data(
+                "This chat is mid-response. Let it finish or stop it first: switching backend restarts its agent.",
+            ));
         }
 
         if let (Some(leaving), Some(model)) = (settings.active, req.current_model.as_deref()) {
@@ -118,14 +111,79 @@ impl GooseAcpAgent {
         settings.active = kind;
         save_settings(config, provider.get_name(), &settings).internal_err()?;
 
+        if needs_restart {
+            // After the save: the replacement agent reads its backend from the
+            // stored selection.
+            self.restart_session_on_backend(&req.session_id, &settings, kind)
+                .await?;
+        } else {
+            provider
+                .set_llm_backend(backend.clone())
+                .await
+                .internal_err()?;
+        }
+
         // Read the session's backend back rather than assuming the save moved
         // it: whether the switch reached this session is the whole question.
+        // A restart replaced the provider, so ask the session for it again.
+        let provider = self.session_provider(&req.session_id).await?;
         let in_use = provider.llm_backend_state().and_then(|state| state.in_use);
         Ok(status(
             &settings,
             in_use,
             google_cloud_status(&settings).await,
         ))
+    }
+
+    /// Moves a live session onto `kind` by replacing its agent with one started
+    /// for that backend, resuming the conversation into it.
+    ///
+    /// The model moves with it: backends spell model ids differently, and a
+    /// Vertex project enables them one by one, so carrying the outgoing
+    /// backend's id across would strand the session on a model the new one
+    /// does not serve.
+    async fn restart_session_on_backend(
+        &self,
+        session_id: &str,
+        settings: &LlmBackendSettings,
+        kind: Option<LlmBackendKind>,
+    ) -> Result<(), agent_client_protocol::Error> {
+        let agent = self.get_session_agent(session_id).await?;
+        let provider_name = agent
+            .provider()
+            .await
+            .internal_err()?
+            .get_name()
+            .to_string();
+        let current_model_config = agent
+            .model_config_for_session(session_id)
+            .await
+            .internal_err_ctx("Failed to resolve model config")?;
+        let model = model_for_switch(settings, kind, &current_model_config.model_name);
+        let model_config =
+            crate::model_config::model_config_from_user_config_with_session_settings(
+                &provider_name,
+                model,
+                Some(&current_model_config),
+                None,
+                None,
+            )
+            .invalid_params_err_ctx("Invalid model config")?;
+
+        agent
+            .recreate_provider_for_session(session_id, &provider_name, model_config)
+            .await
+            .internal_err_ctx("Failed to restart this chat on the selected backend")?;
+        self.subscribe_thinking_effort_updates(session_id, &agent)
+            .await;
+        Ok(())
+    }
+
+    async fn has_active_run(&self, session_id: &str) -> bool {
+        self.active_prompt_runs
+            .lock()
+            .await
+            .contains_key(session_id)
     }
 
     /// Signing in opens a browser, so it only happens when the user asked for
@@ -162,6 +220,35 @@ impl GooseAcpAgent {
 
 fn needs_google_cloud(backend: Option<&LlmBackend>) -> bool {
     matches!(backend, Some(LlmBackend::Vertex(_)))
+}
+
+/// Whether moving to `next` needs the session's agent replaced rather than
+/// switched in place.
+///
+/// Routing sent over the wire reaches a live agent. A backend carried in the
+/// child's environment does not: it is fixed when that child starts, so both
+/// arriving at one and leaving one take a new child.
+fn requires_restart(settings: &LlmBackendSettings, next: Option<&LlmBackend>) -> bool {
+    let arriving_by_env = next.is_some_and(|backend| !backend.is_routable());
+    let leaving_by_env = settings
+        .active
+        .and_then(|kind| settings.backend(kind).ok().flatten())
+        .is_some_and(|previous| !previous.is_routable());
+    arriving_by_env || leaving_by_env
+}
+
+/// The model a session restarted onto `kind` should run.
+///
+/// Each backend remembers the model it was last used with, because the ids are
+/// spelled differently and a Vertex project enables them one at a time. Only a
+/// backend nothing is remembered for keeps the outgoing model.
+fn model_for_switch<'a>(
+    settings: &'a LlmBackendSettings,
+    kind: Option<LlmBackendKind>,
+    current: &'a str,
+) -> &'a str {
+    kind.and_then(|kind| settings.model_for(kind))
+        .unwrap_or(current)
 }
 
 fn backend_id(kind: LlmBackendKind) -> String {
@@ -263,6 +350,14 @@ fn google_cloud_dto(status: AdcStatus) -> GoogleCloudAuthDto {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn vertex_backend() -> LlmBackend {
+        LlmBackend::Vertex(VertexRouting {
+            project_id: "my-project".to_string(),
+            region: "us-east5".to_string(),
+            base_url: None,
+        })
+    }
 
     fn vertex_settings() -> LlmBackendSettings {
         LlmBackendSettings {
@@ -368,6 +463,65 @@ mod tests {
             response.google_cloud.unwrap().account.as_deref(),
             Some("dev@example.com")
         );
+    }
+
+    /// The case that cost real money: Vertex arrives in the child's
+    /// environment, so a session already up on the Claude Code login only
+    /// reaches it by starting a new child.
+    #[test]
+    fn arriving_at_an_environment_carried_backend_restarts_the_session() {
+        let settings = LlmBackendSettings::default();
+
+        assert!(requires_restart(&settings, Some(&vertex_backend())));
+    }
+
+    /// Symmetric: the environment cannot be unset on a running child either, so
+    /// going back to the Claude Code login is just as much a restart.
+    #[test]
+    fn leaving_an_environment_carried_backend_restarts_the_session() {
+        let settings = vertex_settings();
+
+        assert!(requires_restart(&settings, None));
+    }
+
+    /// A gateway is installed over the wire, which a live agent accepts — and a
+    /// restart there would cost a conversation replay for nothing.
+    #[test]
+    fn a_routable_backend_is_installed_without_a_restart() {
+        let settings = LlmBackendSettings {
+            anthropic_base_url: Some("https://gateway.internal".to_string()),
+            ..LlmBackendSettings::default()
+        };
+        let gateway = LlmBackend::AnthropicGateway {
+            base_url: "https://gateway.internal".to_string(),
+        };
+
+        assert!(!requires_restart(&settings, Some(&gateway)));
+    }
+
+    /// Carrying `claude-opus-5[1m]` onto Vertex strands the session on an id
+    /// that project does not serve, so the switch takes the model with it.
+    #[test]
+    fn a_restart_lands_on_the_model_the_new_backend_remembers() {
+        let mut settings = vertex_settings();
+        settings.remember_model(LlmBackendKind::Vertex, "claude-opus-5@20260514");
+
+        let model = model_for_switch(&settings, Some(LlmBackendKind::Vertex), "claude-opus-5[1m]");
+
+        assert_eq!(model, "claude-opus-5@20260514");
+    }
+
+    #[test]
+    fn a_backend_with_no_remembered_model_keeps_the_current_one() {
+        let settings = LlmBackendSettings::default();
+
+        let model = model_for_switch(
+            &settings,
+            Some(LlmBackendKind::Anthropic),
+            "claude-opus-5[1m]",
+        );
+
+        assert_eq!(model, "claude-opus-5[1m]");
     }
 
     #[tokio::test]
