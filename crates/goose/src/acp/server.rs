@@ -2532,6 +2532,13 @@ impl GooseAcpAgent {
             .model_config_for_session(session_id)
             .await
             .internal_err_ctx("Failed to resolve model config")?;
+        // Recreating the provider replaces the agent, and an ACP agent then has
+        // to replay the whole conversation to resume it. That is too expensive
+        // to spend on a model the session already runs — which is what a client
+        // re-pinning the model after some other change asks for.
+        if current_model_config.model_name == model_id {
+            return Ok(());
+        }
         let model_config =
             crate::model_config::model_config_from_user_config_with_session_settings(
                 &provider_name,
