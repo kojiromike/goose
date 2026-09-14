@@ -57,16 +57,19 @@ function useClock() {
 export default function Hub({
   setView,
   draftRef,
+  requestedWorkingDir,
 }: {
   setView: (view: View, viewOptions?: ViewOptions) => void;
   /** Unsent input of this screen, kept above the route outlet across the unmount. */
   draftRef: RefObject<string>;
+  /** Directory the caller picked for this chat, e.g. a project in the sidebar. */
+  requestedWorkingDir?: string;
 }) {
   const intl = useIntl();
   const { extensionsList } = useConfig();
   const { currentProvider } = useModelAndProvider();
-  const [workingDir, setWorkingDir] = useState(getInitialWorkingDir());
-  const userSelectedWorkingDirRef = useRef(false);
+  const [workingDir, setWorkingDir] = useState(requestedWorkingDir ?? getInitialWorkingDir());
+  const userSelectedWorkingDirRef = useRef(requestedWorkingDir !== undefined);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [nextChatExtensionDraft, setNextChatExtensionDraft] =
@@ -85,6 +88,14 @@ export default function Hub({
       active = false;
     };
   }, []);
+
+  // Starting another project's chat from the sidebar re-navigates to this same
+  // route, so the request arrives as a prop change rather than a fresh mount.
+  useEffect(() => {
+    if (requestedWorkingDir === undefined) return;
+    userSelectedWorkingDirRef.current = true;
+    setWorkingDir(requestedWorkingDir);
+  }, [requestedWorkingDir]);
 
   const greeting = useMemo(() => {
     if (hour < 12) return intl.formatMessage(i18n.goodMorning);

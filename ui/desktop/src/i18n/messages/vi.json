@@ -2468,6 +2468,15 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Không có cuộc trò chuyện gần đây"
   },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "Hành động cho {project}"
+  },
+  "navigationPanel.projectNewChat": {
+    "defaultMessage": "Trò chuyện mới trong dự án này"
+  },
+  "navigationPanel.projectNewChatWindow": {
+    "defaultMessage": "Trò chuyện mới trong dự án này (cửa sổ mới)"
+  },
   "navigationPanel.rename": {
     "defaultMessage": "Đổi tên"
   },

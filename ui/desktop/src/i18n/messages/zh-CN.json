@@ -2468,6 +2468,15 @@
   "navigationPanel.noChats": {
     "defaultMessage": "没有最近的聊天"
   },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "{project} 的操作"
+  },
+  "navigationPanel.projectNewChat": {
+    "defaultMessage": "在此项目中新建对话"
+  },
+  "navigationPanel.projectNewChatWindow": {
+    "defaultMessage": "在此项目中新建对话（新窗口）"
+  },
   "navigationPanel.rename": {
     "defaultMessage": "重命名"
   },

@@ -2468,6 +2468,15 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Son sohbet yok"
   },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "{project} eylemleri"
+  },
+  "navigationPanel.projectNewChat": {
+    "defaultMessage": "Bu projede yeni sohbet"
+  },
+  "navigationPanel.projectNewChatWindow": {
+    "defaultMessage": "Bu projede yeni sohbet (yeni pencere)"
+  },
   "navigationPanel.rename": {
     "defaultMessage": "Yeniden adlandır"
   },

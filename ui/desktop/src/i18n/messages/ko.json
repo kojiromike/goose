@@ -2468,6 +2468,15 @@
   "navigationPanel.noChats": {
     "defaultMessage": "최근 채팅 없음"
   },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "{project} 작업"
+  },
+  "navigationPanel.projectNewChat": {
+    "defaultMessage": "이 프로젝트에서 새 채팅"
+  },
+  "navigationPanel.projectNewChatWindow": {
+    "defaultMessage": "이 프로젝트에서 새 채팅(새 창)"
+  },
   "navigationPanel.rename": {
     "defaultMessage": "이름 변경"
   },

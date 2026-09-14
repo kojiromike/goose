@@ -2468,6 +2468,15 @@
   "navigationPanel.noChats": {
     "defaultMessage": "最近のチャットはありません"
   },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "{project} の操作"
+  },
+  "navigationPanel.projectNewChat": {
+    "defaultMessage": "このプロジェクトで新規チャット"
+  },
+  "navigationPanel.projectNewChatWindow": {
+    "defaultMessage": "このプロジェクトで新規チャット（新しいウィンドウ）"
+  },
   "navigationPanel.rename": {
     "defaultMessage": "名前を変更"
   },

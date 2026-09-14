@@ -65,7 +65,9 @@ function PageViewTracker() {
 // Route Components
 const HubRouteWrapper = ({ draftRef }: { draftRef: RefObject<string> }) => {
   const setView = useNavigation();
-  return <Hub setView={setView} draftRef={draftRef} />;
+  const location = useLocation();
+  const requestedWorkingDir = (location.state as ViewOptions | null)?.workingDir;
+  return <Hub setView={setView} draftRef={draftRef} requestedWorkingDir={requestedWorkingDir} />;
 };
 
 export function resolveSessionInitialMessage(

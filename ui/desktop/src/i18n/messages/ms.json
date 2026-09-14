@@ -2468,6 +2468,15 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Tiada sembang terkini"
   },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "Tindakan untuk {project}"
+  },
+  "navigationPanel.projectNewChat": {
+    "defaultMessage": "Sembang baharu dalam projek ini"
+  },
+  "navigationPanel.projectNewChatWindow": {
+    "defaultMessage": "Sembang baharu dalam projek ini (tetingkap baharu)"
+  },
   "navigationPanel.rename": {
     "defaultMessage": "Namakan semula"
   },

@@ -2468,6 +2468,15 @@
   "navigationPanel.noChats": {
     "defaultMessage": "कोई हालिया चैट नहीं"
   },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "{project} के लिए क्रियाएँ"
+  },
+  "navigationPanel.projectNewChat": {
+    "defaultMessage": "इस प्रोजेक्ट में नई चैट"
+  },
+  "navigationPanel.projectNewChatWindow": {
+    "defaultMessage": "इस प्रोजेक्ट में नई चैट (नई विंडो)"
+  },
   "navigationPanel.rename": {
     "defaultMessage": "नाम बदलें"
   },

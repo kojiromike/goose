@@ -2474,6 +2474,15 @@
   "navigationPanel.noChats": {
     "defaultMessage": "No recent chats"
   },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "Actions for {project}"
+  },
+  "navigationPanel.projectNewChat": {
+    "defaultMessage": "New chat in this project"
+  },
+  "navigationPanel.projectNewChatWindow": {
+    "defaultMessage": "New chat in this project (new window)"
+  },
   "navigationPanel.rename": {
     "defaultMessage": "Rename"
   },
