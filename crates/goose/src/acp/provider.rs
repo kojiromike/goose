@@ -1,13 +1,14 @@
 use agent_client_protocol::schema::v1::{
-    Annotations as AcpAnnotations, ClientCapabilities, CloseSessionRequest, ContentBlock,
-    ContentChunk, EnvVariable, HttpHeader, ImageContent, InitializeRequest, InitializeResponse,
-    ListSessionsRequest, LoadSessionRequest, McpCapabilities, McpServer, McpServerHttp,
-    McpServerStdio, NewSessionRequest, NewSessionResponse, PromptRequest, PromptResponse,
-    RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse, Role as AcpRole,
-    SessionConfigKind, SessionConfigOption, SessionConfigOptionCategory, SessionConfigSelectOption,
-    SessionConfigSelectOptions, SessionId, SessionInfo, SessionModeState, SessionNotification,
-    SessionUpdate, SetSessionConfigOptionRequest, SetSessionModeRequest, SetSessionModeResponse,
-    StopReason, TextContent, ToolCallContent, ToolCallStatus, ToolKind,
+    Annotations as AcpAnnotations, CancelNotification, ClientCapabilities, CloseSessionRequest,
+    ContentBlock, ContentChunk, EnvVariable, HttpHeader, ImageContent, InitializeRequest,
+    InitializeResponse, ListSessionsRequest, LoadSessionRequest, McpCapabilities, McpServer,
+    McpServerHttp, McpServerStdio, NewSessionRequest, NewSessionResponse, PromptRequest,
+    PromptResponse, RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
+    Role as AcpRole, SessionConfigKind, SessionConfigOption, SessionConfigOptionCategory,
+    SessionConfigSelectOption, SessionConfigSelectOptions, SessionId, SessionInfo,
+    SessionModeState, SessionNotification, SessionUpdate, SetSessionConfigOptionRequest,
+    SetSessionModeRequest, SetSessionModeResponse, StopReason, TextContent, ToolCallContent,
+    ToolCallStatus, ToolKind,
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::{Agent, Client, ConnectionTo};
@@ -24,7 +25,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
-    Arc, Mutex,
+    Arc, Mutex, OnceLock,
 };
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -63,6 +64,10 @@ const EFFORT_CONFIG_OPTION_ID: &str = "effort";
 /// giving up. These requests are served from the agent's own state, so a
 /// healthy one answers in well under a second.
 const CHILD_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Error message for a request abandoned because its reply's cancel scope
+/// fired. Distinguishes a failed reply from a model the agent declined.
+const REPLY_CANCELLED: &str = "reply cancelled";
 
 /// `session/load` replays the whole conversation into the agent, which is slow
 /// for a long session, so it gets a far more generous bound than the other
@@ -141,11 +146,26 @@ enum ClientRequest {
         session_id: SessionId,
         config_id: String,
         value: String,
+        /// `Some(epoch)` when this option is applied as part of a reply's
+        /// pre-prompt setup, so the client loop can skip it — or stop awaiting
+        /// it — once that reply is cancelled, instead of leaving the serial
+        /// loop blocked on a slow backend with later prompts queued behind it.
+        /// `None` for out-of-band updates (mode/config changes), which are not
+        /// tied to a reply and always run.
+        cancel_epoch: Option<u64>,
         response_tx: oneshot::Sender<Result<()>>,
     },
     Prompt {
         session_id: SessionId,
         content: Vec<ContentBlock>,
+        /// Value of `cancel_epoch` when this prompt was enqueued. The client
+        /// loop suppresses the prompt if a cancel has since been recorded for
+        /// this epoch, even when it is handled after a newer reply started.
+        cancel_epoch: u64,
+        /// Whether this prompt claimed the one-shot handoff context. If the
+        /// client loop suppresses the prompt, it rolls the claim back so the
+        /// next prompt still carries the context the backend never received.
+        claimed_handoff: bool,
         response_tx: mpsc::Sender<AcpUpdate>,
     },
     SetLlmBackend {
@@ -551,6 +571,8 @@ pub struct AcpProvider {
     pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
     /// True after the first ACP prompt completes with the handoff context committed.
     /// Failed or abandoned first prompts reset this so the next prompt can retry it.
+    /// Shared with the client loop so a suppressed (cancelled-before-send) first
+    /// prompt can roll back the claim it made.
     handoff_context_sent: Arc<AtomicBool>,
     /// Latest `size` reported by the ACP server in a `session/update` →
     /// `usage_update` notification. 0 means no real update has arrived yet.
@@ -567,6 +589,10 @@ pub struct AcpProvider {
     /// Model currently applied via `model_config_option_id`, used to avoid
     /// redundant `SetConfigOption` calls.
     applied_model: Arc<Mutex<Option<String>>>,
+    /// Model setups the client loop has sent but not yet seen answered; the
+    /// next prompt waits for them so the backend is not left on a
+    /// cancel-abandoned model while that prompt runs.
+    model_setups_in_flight: Arc<ModelSetupsInFlight>,
 
     /// The agent's thinking-effort config option, mirrored from every
     /// config-options payload it sends. `None` means the agent offers no effort
@@ -575,6 +601,31 @@ pub struct AcpProvider {
     /// value, it tracks the agent resetting its own effort (e.g. on a model
     /// switch), so the persisted value is re-applied when that happens.
     effort: AcpEffortState,
+    /// Current cancel epoch, bumped by `begin_cancel_scope()` when a new
+    /// reply begins. Prompts capture it at enqueue time; each reply's cancel
+    /// forwarder passes its own epoch back through `cancel()`.
+    cancel_epoch: Arc<AtomicU64>,
+    /// Epochs for which `cancel()` has fired. The client loop suppresses (or
+    /// re-cancels) any prompt whose captured epoch is in here: a cancel that
+    /// fired before the prompt reached the wire would otherwise be ignored by
+    /// the backend as targeting no active run, and the prompt would start with
+    /// its only cancel already spent. Keying by epoch keeps a stale queued
+    /// prompt cancelled even when it is handled after a newer reply has
+    /// already begun. Each epoch is recorded on its own rather than as a
+    /// high-water mark, because prompts from different replies can sit in the
+    /// queue together and cancelling a later one says nothing about an earlier
+    /// one that is still live.
+    cancelled_scopes: Arc<Mutex<HashSet<u64>>>,
+    /// Epoch of the prompt currently in flight on the backend (0 = none).
+    /// The client loop sets it around `session/prompt`; `cancel()` only sends
+    /// the wire notification when the in-flight prompt belongs to the scope
+    /// being cancelled, so a stale forwarder from a finished reply can never
+    /// cancel a newer reply's active run.
+    active_prompt_epoch: Arc<AtomicU64>,
+    /// Woken whenever a scope is cancelled, so the client loop can stop
+    /// awaiting an in-flight pre-prompt request the moment its reply is
+    /// cancelled rather than only noticing between requests.
+    cancel_notify: Arc<tokio::sync::Notify>,
 
     /// Whether the agent advertised the `providers` capability, i.e. whether the
     /// backend can be chosen at all.
@@ -588,6 +639,13 @@ pub struct AcpProvider {
     tx: Option<mpsc::Sender<ClientRequest>>,
     cancel_tx: Option<oneshot::Sender<()>>,
     loop_thread: Option<JoinHandle<()>>,
+
+    /// Connection handle to the ACP agent, populated once the client loop has
+    /// connected. Used to send `session/cancel` out-of-band — the serial
+    /// request loop is blocked awaiting the in-flight prompt response, so a
+    /// cancel routed through `tx` could not be delivered until the turn it is
+    /// meant to interrupt has already finished.
+    agent_cx: Arc<OnceLock<ConnectionTo<Agent>>>,
 }
 
 impl std::fmt::Debug for AcpProvider {
@@ -645,7 +703,9 @@ struct AcpConnection {
     goose_mode: Arc<Mutex<GooseMode>>,
     mode_mapping: HashMap<GooseMode, Vec<String>>,
     model_config_option_id: Option<String>,
-    applied_model: Option<String>,
+    applied_model: Arc<Mutex<Option<String>>>,
+    model_setups_in_flight: Arc<ModelSetupsInFlight>,
+    handoff_context_sent: Arc<AtomicBool>,
     pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
     context_size: Arc<AtomicU64>,
     out_of_band_publisher: OutOfBandMessagePublisher,
@@ -653,6 +713,10 @@ struct AcpConnection {
     supports_llm_backends: bool,
     llm_backend: Option<LlmBackend>,
     spawn_backend: Option<LlmBackendKind>,
+    cancelled_scopes: Arc<Mutex<HashSet<u64>>>,
+    active_prompt_epoch: Arc<AtomicU64>,
+    cancel_notify: Arc<tokio::sync::Notify>,
+    agent_cx: Arc<OnceLock<ConnectionTo<Agent>>>,
     tx: mpsc::Sender<ClientRequest>,
     cancel_tx: oneshot::Sender<()>,
     loop_thread: JoinHandle<()>,
@@ -670,19 +734,27 @@ impl AcpConnection {
         let model_config_option_id = config.model_config_option_id.clone();
         let llm_backend = config.llm_backend.clone();
         let spawn_backend = config.spawn_backend;
-        let applied_model = config.model_config_option_id.as_ref().and_then(|id| {
-            config
-                .session_config_options
-                .iter()
-                .find(|(opt_id, _)| opt_id == id)
-                .map(|(_, value)| value.clone())
-        });
+        let applied_model = Arc::new(Mutex::new(config.model_config_option_id.as_ref().and_then(
+            |id| {
+                config
+                    .session_config_options
+                    .iter()
+                    .find(|(opt_id, _)| opt_id == id)
+                    .map(|(_, value)| value.clone())
+            },
+        )));
+        let model_setups_in_flight: Arc<ModelSetupsInFlight> = Arc::default();
         let goose_mode = Arc::new(Mutex::new(goose_mode));
         let pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>> =
             Arc::new(Mutex::new(HashMap::new()));
         let context_size = Arc::new(AtomicU64::new(0));
         let out_of_band_publisher = OutOfBandMessagePublisher::default();
         let effort = AcpEffortState::new();
+        let agent_cx: Arc<OnceLock<ConnectionTo<Agent>>> = Arc::new(OnceLock::new());
+        let cancelled_scopes: Arc<Mutex<HashSet<u64>>> = Arc::new(Mutex::new(HashSet::new()));
+        let active_prompt_epoch = Arc::new(AtomicU64::new(0));
+        let handoff_context_sent = Arc::new(AtomicBool::new(false));
+        let cancel_notify = Arc::new(tokio::sync::Notify::new());
         let client_loop = AcpClientLoop::new(
             config,
             goose_mode.clone(),
@@ -690,6 +762,13 @@ impl AcpConnection {
             context_size.clone(),
             out_of_band_publisher.clone(),
             effort.clone(),
+            agent_cx.clone(),
+            cancelled_scopes.clone(),
+            active_prompt_epoch.clone(),
+            handoff_context_sent.clone(),
+            cancel_notify.clone(),
+            applied_model.clone(),
+            model_setups_in_flight.clone(),
         );
         let (cancel_tx, cancel_rx) = oneshot::channel();
         let loop_thread = spawn_client_loop(run(client_loop, rx, init_tx, cancel_rx));
@@ -709,6 +788,8 @@ impl AcpConnection {
             mode_mapping,
             model_config_option_id,
             applied_model,
+            model_setups_in_flight,
+            handoff_context_sent,
             pending_tool_updates,
             context_size,
             out_of_band_publisher,
@@ -716,6 +797,10 @@ impl AcpConnection {
             supports_llm_backends,
             llm_backend,
             spawn_backend,
+            cancelled_scopes,
+            active_prompt_epoch,
+            cancel_notify,
+            agent_cx,
             tx: client_loop_guard.tx.take().unwrap(),
             cancel_tx: client_loop_guard.cancel_tx.take().unwrap(),
             loop_thread: client_loop_guard.thread.take().unwrap(),
@@ -773,16 +858,22 @@ impl AcpConnection {
             session: Arc::new(Mutex::new(session)),
             pending_confirmations: Arc::new(TokioMutex::new(HashMap::new())),
             pending_tool_updates: self.pending_tool_updates,
-            handoff_context_sent: Arc::new(AtomicBool::new(false)),
+            handoff_context_sent: self.handoff_context_sent,
             context_size: self.context_size,
             session_exhausted: Arc::new(AtomicBool::new(false)),
             out_of_band_publisher: self.out_of_band_publisher,
             model_config_option_id: self.model_config_option_id,
-            applied_model: Arc::new(Mutex::new(self.applied_model)),
+            applied_model: self.applied_model,
+            model_setups_in_flight: self.model_setups_in_flight,
             effort: self.effort,
             supports_llm_backends: self.supports_llm_backends,
             llm_backend: Mutex::new(self.llm_backend),
             spawn_backend: self.spawn_backend,
+            cancel_epoch: Arc::new(AtomicU64::new(1)),
+            cancelled_scopes: self.cancelled_scopes,
+            active_prompt_epoch: self.active_prompt_epoch,
+            cancel_notify: self.cancel_notify,
+            agent_cx: self.agent_cx,
             tx: Some(self.tx),
             cancel_tx: Some(self.cancel_tx),
             loop_thread: Some(self.loop_thread),
@@ -1039,16 +1130,23 @@ impl AcpProvider {
         config_id: String,
         value: String,
     ) -> Result<()> {
-        match self.request_set_config_option(config_id, value).await? {
+        match self
+            .request_set_config_option(config_id, value, None)
+            .await?
+        {
             SetConfigOptionOutcome::Applied => Ok(()),
             SetConfigOptionOutcome::Rejected(error) => Err(error),
         }
     }
 
+    /// `cancel_epoch` ties the request to a reply's cancel scope, so the
+    /// client loop can skip or stop awaiting it once that reply is cancelled.
+    /// `None` for out-of-band updates, which always run.
     async fn request_set_config_option(
         &self,
         config_id: String,
         value: String,
+        cancel_epoch: Option<u64>,
     ) -> Result<SetConfigOptionOutcome> {
         let session_id = self.acp_session_id();
         let (response_tx, response_rx) = oneshot::channel();
@@ -1059,6 +1157,7 @@ impl AcpProvider {
                 session_id,
                 config_id,
                 value,
+                cancel_epoch,
                 response_tx,
             })
             .await
@@ -1085,6 +1184,26 @@ impl AcpProvider {
         let Some(config_id) = self.model_config_option_id.clone() else {
             return Ok(Some(model_name.to_string()));
         };
+        // A setup abandoned by an earlier cancel is still on the wire, and the
+        // ACP server applies config options in spawned tasks, so it could land
+        // after this selection and leave the backend on the abandoned model
+        // while this reply prompts. Let it settle first — it invalidates the
+        // memo below as it does — so the selection this prompt runs under is
+        // applied last. The wait is on the calling reply, not the serial
+        // client loop, and ends early if that reply is itself cancelled.
+        //
+        // This precedes the sentinel return below: a prompt that keeps the
+        // backend's current model is just as exposed to an abandoned setup
+        // landing mid-turn, and has no selection of its own to overwrite it.
+        let scope = self.cancel_epoch.load(Ordering::SeqCst);
+        tokio::select! {
+            biased;
+            () = await_cancelled_scope(&self.cancel_notify, &self.cancelled_scopes, scope) => {
+                return Err(anyhow::anyhow!(REPLY_CANCELLED));
+            }
+            () = self.model_setups_in_flight.await_settled() => {}
+        }
+
         if model_name == ACP_CURRENT_MODEL {
             return Ok(Some(model_name.to_string()));
         }
@@ -1098,17 +1217,46 @@ impl AcpProvider {
             return Ok(Some(model_name.to_string()));
         }
 
+        // The request reaches the backend before it is known to have settled,
+        // so no value is trustworthy until it answers: clear the memo first
+        // and only record the new model once it does. An attempt abandoned by
+        // a cancel therefore leaves the next reply re-applying its model.
+        {
+            let mut applied = self
+                .applied_model
+                .lock()
+                .map_err(|_| anyhow::anyhow!("applied_model lock poisoned"))?;
+            *applied = None;
+        }
+
+        // Applied in this reply's cancel scope: a cancel that lands while the
+        // backend is still handling it frees the client loop instead of
+        // stalling the next prompt behind it.
         match self
-            .request_set_config_option(config_id, model_name.to_string())
+            .request_set_config_option(config_id, model_name.to_string(), Some(scope))
             .await?
         {
             SetConfigOptionOutcome::Applied => {}
             SetConfigOptionOutcome::Rejected(error) => {
+                // A cancel-abandoned attempt is a failed reply, not a model
+                // the agent declined: propagate it, leaving the memo cleared
+                // so the next reply re-applies its model.
+                if error.to_string().contains(REPLY_CANCELLED) {
+                    return Err(error);
+                }
                 tracing::warn!(
                     model = model_name,
                     error = %error,
                     "ACP agent rejected model config option; continuing with current model"
                 );
+                // A rejection means the backend kept its model, so the memo
+                // cleared above can be restored — otherwise every later reply
+                // would re-send (and re-warn about) the same rejected option.
+                let mut applied = self
+                    .applied_model
+                    .lock()
+                    .map_err(|_| anyhow::anyhow!("applied_model lock poisoned"))?;
+                *applied = applied_model.clone();
                 return Ok(applied_model);
             }
         }
@@ -1180,6 +1328,7 @@ impl AcpProvider {
         &self,
         session_id: SessionId,
         content: Vec<ContentBlock>,
+        claimed_handoff: bool,
     ) -> Result<mpsc::Receiver<AcpUpdate>> {
         let (response_tx, response_rx) = mpsc::channel(64);
         self.tx
@@ -1188,6 +1337,8 @@ impl AcpProvider {
             .send(ClientRequest::Prompt {
                 session_id,
                 content,
+                cancel_epoch: self.cancel_epoch.load(Ordering::SeqCst),
+                claimed_handoff,
                 response_tx,
             })
             .await
@@ -1397,6 +1548,45 @@ impl Provider for AcpProvider {
         self.out_of_band_publisher.set_callback(callback);
     }
 
+    async fn cancel(&self, _session_id: &str, scope: u64) {
+        // Record first: if the prompt has not reached the wire yet, the
+        // notification below targets no active run and the backend ignores
+        // it, so the client loop must observe this around the prompt send to
+        // suppress or re-cancel the turn. Recording the caller's scope — not
+        // the current epoch — keeps a forwarder that fires late, after a newer
+        // reply bumped the epoch, from suppressing that newer reply's prompts.
+        if let Ok(mut scopes) = self.cancelled_scopes.lock() {
+            scopes.insert(scope);
+        }
+        self.cancel_notify.notify_waiters();
+        // Only notify the backend when the prompt currently in flight belongs
+        // to the scope being cancelled: `session/cancel` is session-scoped, so
+        // sending it for any other scope would abort a run the caller did not
+        // cancel — a stale forwarder from a finished reply hitting a newer
+        // reply's prompt, or a newer reply cancelled while its own prompt is
+        // still queued behind an older one. With nothing in flight the
+        // notification targets no active run anyway. In every one of those
+        // cases the latch above is what suppresses (or re-cancels) that
+        // scope's prompt in the client loop.
+        if self.active_prompt_epoch.load(Ordering::SeqCst) != scope {
+            return;
+        }
+        let Some(cx) = self.agent_cx.get() else {
+            return;
+        };
+        if let Err(e) = cx.send_notification(CancelNotification::new(self.acp_session_id())) {
+            tracing::warn!(error = %e, "failed to send ACP session/cancel");
+        }
+    }
+
+    fn begin_cancel_scope(&self) -> u64 {
+        // Bump the epoch instead of clearing the latch: prompts from a
+        // cancelled reply may still sit in the client-loop queue and must
+        // stay cancelled, while the new reply's prompts capture the fresh
+        // epoch and are unaffected.
+        self.cancel_epoch.fetch_add(1, Ordering::SeqCst) + 1
+    }
+
     async fn handle_permission_confirmation(
         &self,
         request_id: &str,
@@ -1475,7 +1665,10 @@ impl Provider for AcpProvider {
             buffer.clear();
         }
         self.out_of_band_publisher.end_run();
-        let mut rx = match self.prompt(session_id.clone(), prompt_blocks).await {
+        let mut rx = match self
+            .prompt(session_id.clone(), prompt_blocks, claim.first_prompt)
+            .await
+        {
             Ok(rx) => rx,
             Err(e) => match bare_retry_blocks.take() {
                 Some(blocks) => {
@@ -1483,7 +1676,9 @@ impl Provider for AcpProvider {
                     // attempt added, so rebuilding it next time would reproduce the same
                     // rejection and leave the session permanently unresumable.
                     handoff_claim_guard.commit();
-                    self.prompt(session_id.clone(), blocks)
+                    // The claim was just committed, so the bare retry carries
+                    // no handoff claim of its own to roll back on suppression.
+                    self.prompt(session_id.clone(), blocks, false)
                         .await
                         .map_err(|retry_error| {
                             ProviderError::RequestFailed(format!(
@@ -1500,6 +1695,9 @@ impl Provider for AcpProvider {
                 }
             },
         };
+        // The mid-stream bare retry below re-sends within this same reply, so
+        // it stays in this reply's cancel scope.
+        let prompt_cancel_epoch = self.cancel_epoch.load(Ordering::SeqCst);
         let bare_retry =
             bare_retry_blocks.map(|blocks| (self.tx.as_ref().unwrap().clone(), session_id, blocks));
 
@@ -1696,6 +1894,8 @@ impl Provider for AcpProvider {
                                 let request = ClientRequest::Prompt {
                                     session_id,
                                     content: blocks,
+                                    cancel_epoch: prompt_cancel_epoch,
+                                    claimed_handoff: false,
                                     response_tx,
                                 };
                                 if tx.send(request).await.is_ok() {
@@ -1832,9 +2032,17 @@ struct AcpClientLoop {
     /// leaves a superseded session that may still emit trailing usage and mode
     /// updates; without this those would overwrite the fresh session's state.
     active_session: Arc<Mutex<Option<SessionId>>>,
+    agent_cx: Arc<OnceLock<ConnectionTo<Agent>>>,
+    cancelled_scopes: Arc<Mutex<HashSet<u64>>>,
+    active_prompt_epoch: Arc<AtomicU64>,
+    cancel_notify: Arc<tokio::sync::Notify>,
+    handoff_context_sent: Arc<AtomicBool>,
+    applied_model: Arc<Mutex<Option<String>>>,
+    model_setups_in_flight: Arc<ModelSetupsInFlight>,
 }
 
 impl AcpClientLoop {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         config: AcpProviderConfig,
         goose_mode: Arc<Mutex<GooseMode>>,
@@ -1842,6 +2050,13 @@ impl AcpClientLoop {
         context_size: Arc<AtomicU64>,
         out_of_band_publisher: OutOfBandMessagePublisher,
         effort: AcpEffortState,
+        agent_cx: Arc<OnceLock<ConnectionTo<Agent>>>,
+        cancelled_scopes: Arc<Mutex<HashSet<u64>>>,
+        active_prompt_epoch: Arc<AtomicU64>,
+        handoff_context_sent: Arc<AtomicBool>,
+        cancel_notify: Arc<tokio::sync::Notify>,
+        applied_model: Arc<Mutex<Option<String>>>,
+        model_setups_in_flight: Arc<ModelSetupsInFlight>,
     ) -> Self {
         Self {
             config,
@@ -1852,6 +2067,13 @@ impl AcpClientLoop {
             out_of_band_publisher,
             effort,
             active_session: Arc::new(Mutex::new(None)),
+            agent_cx,
+            cancelled_scopes,
+            active_prompt_epoch,
+            handoff_context_sent,
+            cancel_notify,
+            applied_model,
+            model_setups_in_flight,
         }
     }
 
@@ -1909,6 +2131,13 @@ impl AcpClientLoop {
             out_of_band_publisher,
             effort,
             active_session,
+            agent_cx,
+            cancelled_scopes,
+            active_prompt_epoch,
+            cancel_notify,
+            handoff_context_sent,
+            applied_model,
+            model_setups_in_flight,
         } = self;
         let notification_callback = config.notification_callback.clone();
         let reverse_modes = reverse_mode_mapping(&config.mode_mapping);
@@ -2199,6 +2428,7 @@ impl AcpClientLoop {
                 agent_client_protocol::on_receive_request!(),
             )
             .connect_with(transport, async move |cx: ConnectionTo<Agent>| {
+                let _ = agent_cx.set(cx.clone());
                 handle_requests(
                     config,
                     goose_mode,
@@ -2207,6 +2437,12 @@ impl AcpClientLoop {
                     prompt_response_tx,
                     session_state,
                     active_session,
+                    cancelled_scopes,
+                    active_prompt_epoch,
+                    cancel_notify,
+                    handoff_context_sent,
+                    applied_model,
+                    model_setups_in_flight,
                     init_tx,
                 )
                 .await
@@ -2295,6 +2531,73 @@ async fn spawn_acp_process(config: &AcpProviderConfig) -> Result<Child> {
     cmd.spawn().context("failed to spawn ACP process")
 }
 
+/// Model setups the client loop has taken off its queue. ACP has no way to
+/// retract a request, so one a cancel abandons stays on the wire and the
+/// backend may apply it at any point; until every setup has settled, no later
+/// selection can be known to be the one the backend ends up on.
+///
+/// A setup is counted from the moment the loop picks it up rather than from
+/// the moment the loop notices its reply was cancelled. The reply is released
+/// by observing the cancel itself, on a task of its own, so it can race ahead
+/// of the loop: counting at cancel time would leave the next selection seeing
+/// nothing in flight while an abandoned request was already on the wire.
+/// Anything not yet counted has not reached the backend either — the loop
+/// drops a request whose scope is already cancelled before sending it.
+#[derive(Default)]
+struct ModelSetupsInFlight {
+    count: AtomicU64,
+    settled: tokio::sync::Notify,
+}
+
+impl ModelSetupsInFlight {
+    fn enter(&self) {
+        self.count.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn leave(&self) {
+        if self.count.fetch_sub(1, Ordering::SeqCst) == 1 {
+            self.settled.notify_waiters();
+        }
+    }
+
+    /// Resolves once no setup is in flight. Registering with `Notify` before
+    /// re-reading the count keeps a settlement that lands between the two from
+    /// being missed.
+    async fn await_settled(&self) {
+        loop {
+            let settled = self.settled.notified();
+            if self.count.load(Ordering::SeqCst) == 0 {
+                return;
+            }
+            settled.await;
+        }
+    }
+}
+
+/// Whether `cancel()` has fired for this exact scope.
+fn scope_cancelled(cancelled_scopes: &Mutex<HashSet<u64>>, scope: u64) -> bool {
+    cancelled_scopes
+        .lock()
+        .is_ok_and(|scopes| scopes.contains(&scope))
+}
+
+/// Resolves once a cancel has been recorded for `scope`. Registering with
+/// `Notify` before re-reading the set keeps a cancel that lands between the
+/// two from being missed.
+async fn await_cancelled_scope(
+    cancel_notify: &tokio::sync::Notify,
+    cancelled_scopes: &Mutex<HashSet<u64>>,
+    scope: u64,
+) {
+    loop {
+        let notified = cancel_notify.notified();
+        if scope_cancelled(cancelled_scopes, scope) {
+            return;
+        }
+        notified.await;
+    }
+}
+
 fn log_undelivered<E: std::fmt::Debug>(result: Result<(), E>, method: &str) {
     if let Err(e) = result {
         tracing::debug!(method, error = ?e, "response not delivered");
@@ -2306,6 +2609,7 @@ fn acp_method_error(method: &str, error: agent_client_protocol::Error) -> anyhow
     anyhow::Error::new(error).context(message)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn handle_requests(
     config: AcpProviderConfig,
     goose_mode: Arc<Mutex<GooseMode>>,
@@ -2314,6 +2618,12 @@ async fn handle_requests(
     prompt_response_tx: Arc<Mutex<Option<mpsc::Sender<AcpUpdate>>>>,
     session_state: AcpSessionState,
     active_session: Arc<Mutex<Option<SessionId>>>,
+    cancelled_scopes: Arc<Mutex<HashSet<u64>>>,
+    active_prompt_epoch: Arc<AtomicU64>,
+    cancel_notify: Arc<tokio::sync::Notify>,
+    handoff_context_sent: Arc<AtomicBool>,
+    applied_model: Arc<Mutex<Option<String>>>,
+    model_setups_in_flight: Arc<ModelSetupsInFlight>,
     init_tx: oneshot::Sender<Result<InitializeResponse>>,
 ) -> Result<(), agent_client_protocol::Error> {
     let mut init_tx = Some(init_tx);
@@ -2525,20 +2835,70 @@ async fn handle_requests(
                 session_id,
                 config_id,
                 value,
+                cancel_epoch,
                 response_tx,
             } => {
+                // Counted before the scope check so that every request this
+                // arm can put on the wire is already in flight by the time it
+                // is sent, even if its reply is released by a cancel first.
+                model_setups_in_flight.enter();
+                let cancelled = |epoch| scope_cancelled(&cancelled_scopes, epoch);
+                if cancel_epoch.is_some_and(cancelled) {
+                    model_setups_in_flight.leave();
+                    log_undelivered(
+                        response_tx.send(Err(anyhow::anyhow!(REPLY_CANCELLED))),
+                        AGENT_METHOD_NAMES.session_set_config_option,
+                    );
+                    continue;
+                }
+
                 let value_id = agent_client_protocol::schema::v1::SessionConfigValueId::new(value);
                 let req = SetSessionConfigOptionRequest::new(session_id, config_id, value_id);
+                let mut request = Box::pin(cx.send_request(req).block_task());
+                // Stop awaiting a cancelled reply's setup request so the next
+                // prompt is not queued behind a backend that may never answer.
+                // The request itself stays on the wire — ACP has no way to
+                // retract it — but the serial loop is free again.
+                let settled = match cancel_epoch {
+                    Some(epoch) => tokio::select! {
+                        biased;
+                        () = await_cancelled_scope(&cancel_notify, &cancelled_scopes, epoch) => None,
+                        response = &mut request => Some(response),
+                    },
+                    None => Some(request.as_mut().await),
+                };
                 // The agent rebuilds per-model effort levels in this response,
                 // so it is the freshest source after a goose-initiated switch.
-                let result: Result<()> = cx
-                    .send_request(req)
-                    .block_task()
-                    .await
-                    .map(|response| {
-                        publish_effort_state(&session_state.effort, &response.config_options)
-                    })
-                    .map_err(anyhow::Error::from);
+                let result: Result<()> = match settled {
+                    Some(response) => {
+                        model_setups_in_flight.leave();
+                        response
+                            .map(|response| {
+                                publish_effort_state(
+                                    &session_state.effort,
+                                    &response.config_options,
+                                )
+                            })
+                            .map_err(anyhow::Error::from)
+                    }
+                    None => {
+                        // An abandoned option can still reach the backend after
+                        // a later one has been applied, so keep watching it off
+                        // the serial loop: the next selection waits for it to
+                        // settle, and its settlement marks the applied model
+                        // unknown so that selection is re-sent afterwards.
+                        let applied_model = applied_model.clone();
+                        let model_setups_in_flight = model_setups_in_flight.clone();
+                        tokio::spawn(async move {
+                            let _ = request.await;
+                            if let Ok(mut applied) = applied_model.lock() {
+                                *applied = None;
+                            }
+                            model_setups_in_flight.leave();
+                        });
+                        Err(anyhow::anyhow!(REPLY_CANCELLED))
+                    }
+                };
                 log_undelivered(
                     response_tx.send(result),
                     AGENT_METHOD_NAMES.session_set_config_option,
@@ -2547,14 +2907,43 @@ async fn handle_requests(
             ClientRequest::Prompt {
                 session_id,
                 content,
+                cancel_epoch,
+                claimed_handoff,
                 response_tx,
             } => {
+                // The turn's cancel already fired; a prompt sent now would be
+                // its backend's only run and nothing would ever cancel it.
+                if scope_cancelled(&cancelled_scopes, cancel_epoch) {
+                    // The backend never received this prompt, so give the
+                    // one-shot handoff-context claim back to the next prompt.
+                    if claimed_handoff {
+                        handoff_context_sent.store(false, Ordering::Release);
+                    }
+                    log_undelivered(
+                        response_tx.try_send(AcpUpdate::Complete(StopReason::Cancelled, None)),
+                        AGENT_METHOD_NAMES.session_prompt,
+                    );
+                    continue;
+                }
+
                 *prompt_response_tx.lock().unwrap() = Some(response_tx.clone());
 
-                let response: Result<PromptResponse, _> = cx
-                    .send_request(PromptRequest::new(session_id, content))
-                    .block_task()
-                    .await;
+                // Mark this epoch's prompt as the active run before it can
+                // reach the wire, so `cancel()` for this scope notifies the
+                // backend while a stale scope's cancel does not.
+                active_prompt_epoch.store(cancel_epoch, Ordering::SeqCst);
+                let request = cx.send_request(PromptRequest::new(session_id.clone(), content));
+                // send_request queues the message before returning, so a
+                // cancel observed here raced the enqueue and its notification
+                // may sit ahead of the prompt on the wire, where the backend
+                // ignores it. Re-send it so one lands after the prompt.
+                if scope_cancelled(&cancelled_scopes, cancel_epoch) {
+                    if let Err(e) = cx.send_notification(CancelNotification::new(session_id)) {
+                        tracing::warn!(error = %e, "failed to re-send ACP session/cancel");
+                    }
+                }
+                let response: Result<PromptResponse, _> = request.block_task().await;
+                active_prompt_epoch.store(0, Ordering::SeqCst);
 
                 match response {
                     Ok(r) => {
@@ -3544,9 +3933,15 @@ mod tests {
                 supports_llm_backends: false,
                 llm_backend: Mutex::new(None),
                 spawn_backend: None,
+                model_setups_in_flight: Arc::default(),
+                cancel_epoch: Arc::new(AtomicU64::new(1)),
+                cancelled_scopes: Arc::new(Mutex::new(HashSet::new())),
+                active_prompt_epoch: Arc::new(AtomicU64::new(0)),
+                cancel_notify: Arc::new(tokio::sync::Notify::new()),
                 tx,
                 cancel_tx: None,
                 loop_thread: None,
+                agent_cx: Arc::new(OnceLock::new()),
             },
             ModelConfig::new("test-model"),
         )
@@ -3646,6 +4041,9 @@ mod tests {
 
     #[tokio::test]
     async fn messages_to_prompt_keeps_latest_user_images_after_handoff_memo() {
+        // The handoff memo budget reads GOOSE_CONTEXT_LIMIT, so hold it unset
+        // against tests that set it under the same lock.
+        let _guard = env_lock::lock_env([("GOOSE_CONTEXT_LIMIT", None::<&str>)]);
         let messages = vec![
             Message::assistant().with_text("prior answer"),
             Message::user()
@@ -4117,6 +4515,9 @@ mod tests {
     /// goose prompts; republishing those would duplicate the conversation.
     #[tokio::test]
     async fn updates_arriving_before_any_turn_are_not_published() {
+        // The handoff memo budget reads GOOSE_CONTEXT_LIMIT, so hold it unset
+        // against tests that set it under the same lock.
+        let _guard = env_lock::lock_env([("GOOSE_CONTEXT_LIMIT", None::<&str>)]);
         let publisher = OutOfBandMessagePublisher::default();
         let published = collect_published(&publisher);
 
@@ -4186,6 +4587,9 @@ mod tests {
 
     #[tokio::test]
     async fn resume_replaces_session_and_skips_handoff() {
+        // The handoff memo budget reads GOOSE_CONTEXT_LIMIT, so hold it unset
+        // against tests that set it under the same lock.
+        let _guard = env_lock::lock_env([("GOOSE_CONTEXT_LIMIT", None::<&str>)]);
         let (tx, mut rx) = mpsc::channel(2);
         let (provider, _) = test_provider_with_tx(Some(tx));
 
@@ -4230,6 +4634,9 @@ mod tests {
 
     #[tokio::test]
     async fn context_exhausted_error_replaces_session_and_rearms_handoff() {
+        // The handoff memo budget reads GOOSE_CONTEXT_LIMIT, so hold it unset
+        // against tests that set it under the same lock.
+        let _guard = env_lock::lock_env([("GOOSE_CONTEXT_LIMIT", None::<&str>)]);
         use futures::StreamExt;
 
         let (tx, mut rx) = mpsc::channel(4);
@@ -4404,6 +4811,9 @@ mod tests {
 
     #[tokio::test]
     async fn streamed_error_after_bare_retry_consumes_handoff_context() {
+        // The handoff memo budget reads GOOSE_CONTEXT_LIMIT, so hold it unset
+        // against tests that set it under the same lock.
+        let _guard = env_lock::lock_env([("GOOSE_CONTEXT_LIMIT", None::<&str>)]);
         use futures::StreamExt;
 
         let (tx, mut rx) = mpsc::channel(1);
@@ -4460,6 +4870,9 @@ mod tests {
 
     #[tokio::test]
     async fn cancelled_first_prompt_rolls_back_handoff_context_claim() {
+        // The handoff memo budget reads GOOSE_CONTEXT_LIMIT, so hold it unset
+        // against tests that set it under the same lock.
+        let _guard = env_lock::lock_env([("GOOSE_CONTEXT_LIMIT", None::<&str>)]);
         use futures::StreamExt;
 
         let (tx, mut rx) = mpsc::channel(1);
@@ -4486,6 +4899,9 @@ mod tests {
 
     #[tokio::test]
     async fn refused_first_prompt_rolls_back_handoff_context_claim() {
+        // The handoff memo budget reads GOOSE_CONTEXT_LIMIT, so hold it unset
+        // against tests that set it under the same lock.
+        let _guard = env_lock::lock_env([("GOOSE_CONTEXT_LIMIT", None::<&str>)]);
         use futures::StreamExt;
 
         let (tx, mut rx) = mpsc::channel(1);
@@ -4512,6 +4928,9 @@ mod tests {
 
     #[tokio::test]
     async fn completed_first_prompt_commits_handoff_context_claim() {
+        // The handoff memo budget reads GOOSE_CONTEXT_LIMIT, so hold it unset
+        // against tests that set it under the same lock.
+        let _guard = env_lock::lock_env([("GOOSE_CONTEXT_LIMIT", None::<&str>)]);
         use futures::StreamExt;
 
         let (tx, mut rx) = mpsc::channel(1);
@@ -4538,6 +4957,9 @@ mod tests {
 
     #[tokio::test]
     async fn dropped_first_prompt_stream_rolls_back_handoff_context_claim() {
+        // The handoff memo budget reads GOOSE_CONTEXT_LIMIT, so hold it unset
+        // against tests that set it under the same lock.
+        let _guard = env_lock::lock_env([("GOOSE_CONTEXT_LIMIT", None::<&str>)]);
         let (tx, mut rx) = mpsc::channel(1);
         let (provider, model) = test_provider_with_tx(Some(tx));
         let messages = vec![
@@ -4602,6 +5024,9 @@ mod tests {
 
     #[tokio::test]
     async fn rejected_handoff_prompt_retries_once_without_the_memo() {
+        // The handoff memo budget reads GOOSE_CONTEXT_LIMIT, so hold it unset
+        // against tests that set it under the same lock.
+        let _guard = env_lock::lock_env([("GOOSE_CONTEXT_LIMIT", None::<&str>)]);
         use futures::StreamExt;
 
         let (tx, mut rx) = mpsc::channel(2);
@@ -4643,6 +5068,9 @@ mod tests {
 
     #[tokio::test]
     async fn rejected_retry_surfaces_the_error() {
+        // The handoff memo budget reads GOOSE_CONTEXT_LIMIT, so hold it unset
+        // against tests that set it under the same lock.
+        let _guard = env_lock::lock_env([("GOOSE_CONTEXT_LIMIT", None::<&str>)]);
         use futures::StreamExt;
 
         let (tx, mut rx) = mpsc::channel(2);
@@ -4681,6 +5109,9 @@ mod tests {
 
     #[tokio::test]
     async fn auth_failure_surfaces_instead_of_retrying_without_the_memo() {
+        // The handoff memo budget reads GOOSE_CONTEXT_LIMIT, so hold it unset
+        // against tests that set it under the same lock.
+        let _guard = env_lock::lock_env([("GOOSE_CONTEXT_LIMIT", None::<&str>)]);
         use futures::StreamExt;
 
         let (tx, mut rx) = mpsc::channel(2);
@@ -4721,6 +5152,9 @@ mod tests {
 
     #[tokio::test]
     async fn a_budget_too_small_for_a_memo_keeps_the_claim() {
+        // The handoff memo budget reads GOOSE_CONTEXT_LIMIT, so hold it unset
+        // against tests that set it under the same lock.
+        let _guard = env_lock::lock_env([("GOOSE_CONTEXT_LIMIT", None::<&str>)]);
         use futures::StreamExt;
 
         let (tx, mut rx) = mpsc::channel(1);
@@ -4759,6 +5193,9 @@ mod tests {
 
     #[tokio::test]
     async fn exhausted_credits_surface_without_spending_the_handoff() {
+        // The handoff memo budget reads GOOSE_CONTEXT_LIMIT, so hold it unset
+        // against tests that set it under the same lock.
+        let _guard = env_lock::lock_env([("GOOSE_CONTEXT_LIMIT", None::<&str>)]);
         use futures::StreamExt;
 
         let (tx, mut rx) = mpsc::channel(2);
@@ -4945,6 +5382,50 @@ mod tests {
                 .contains("did not answer session/set_config_option"),
             "unexpected error: {error}"
         );
+    }
+
+    /// A failed attempt — a cancel abandoning it, say — has already reached
+    /// the backend, so the previously applied model can no longer be trusted
+    /// and the next attempt must re-send even for that same model.
+    #[tokio::test]
+    async fn apply_model_if_changed_reapplies_after_a_failed_attempt() {
+        let (tx, mut rx) = mpsc::channel(1);
+        let provider = test_provider_with_model_option(tx, Some("old-model".to_string()));
+
+        let fail = async {
+            match rx.recv().await.expect("expected a SetConfigOption request") {
+                ClientRequest::SetConfigOption { response_tx, .. } => {
+                    let _ = response_tx.send(Err(anyhow::anyhow!(REPLY_CANCELLED)));
+                }
+                _ => panic!("unexpected request kind"),
+            }
+        };
+        let (result, ()) =
+            futures::future::join(provider.apply_model_if_changed("new-model"), fail).await;
+        assert!(result.is_err());
+
+        let reapply = async {
+            match rx
+                .recv()
+                .await
+                .expect("expected a re-applied SetConfigOption")
+            {
+                ClientRequest::SetConfigOption {
+                    value, response_tx, ..
+                } => {
+                    assert_eq!(value, "old-model");
+                    let _ = response_tx.send(Ok(()));
+                }
+                _ => panic!("unexpected request kind"),
+            }
+        };
+        let (result, ()) = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            futures::future::join(provider.apply_model_if_changed("old-model"), reapply),
+        )
+        .await
+        .expect("a failed attempt must leave the applied model unknown");
+        result.unwrap();
     }
 
     #[tokio::test]
@@ -5624,6 +6105,654 @@ mod tests {
         })
         .await
         .unwrap();
+    }
+
+    /// In-process ACP agent that records prompts, config options and cancels
+    /// it receives.
+    struct FakeAcpAgent {
+        prompts: Arc<Mutex<Vec<String>>>,
+        cancels: Arc<Mutex<u32>>,
+        /// Config option values in the order the requests arrived, recorded
+        /// before `config_option_gate` is awaited.
+        config_options: Arc<Mutex<Vec<String>>>,
+        /// When set, `session/set_config_option` waits on this gate instead of
+        /// answering, mimicking a backend that hangs applying an option.
+        config_option_gate: Option<Arc<tokio::sync::Notify>>,
+    }
+
+    impl agent_client_protocol::ConnectTo<Client> for FakeAcpAgent {
+        async fn connect_to(
+            self,
+            client: impl agent_client_protocol::ConnectTo<Agent>,
+        ) -> std::result::Result<(), agent_client_protocol::Error> {
+            let prompts = self.prompts;
+            let cancels = self.cancels;
+            let config_options = self.config_options;
+            let config_option_gate = self.config_option_gate;
+            Agent
+                .builder()
+                .on_receive_request(
+                    async move |req: SetSessionConfigOptionRequest, responder, cx| {
+                        if let Some(value) = req.value.as_value_id() {
+                            config_options.lock().unwrap().push(value.0.to_string());
+                        }
+                        // Mirror the real server, which applies config options
+                        // in spawned tasks: dispatch keeps serving requests
+                        // while one is still being applied.
+                        let gate = config_option_gate.clone();
+                        cx.spawn(async move {
+                            if let Some(gate) = gate.as_ref() {
+                                gate.notified().await;
+                            }
+                            responder.respond(
+                                agent_client_protocol::schema::v1::SetSessionConfigOptionResponse::new(
+                                    vec![],
+                                ),
+                            )?;
+                            Ok(())
+                        })?;
+                        Ok(())
+                    },
+                    agent_client_protocol::on_receive_request!(),
+                )
+                .on_receive_request(
+                    async move |_req: InitializeRequest, responder, _cx| {
+                        responder.respond(InitializeResponse::new(ProtocolVersion::V1))
+                    },
+                    agent_client_protocol::on_receive_request!(),
+                )
+                .on_receive_request(
+                    async move |_req: NewSessionRequest, responder, _cx| {
+                        responder.respond(NewSessionResponse::new("fake-session"))
+                    },
+                    agent_client_protocol::on_receive_request!(),
+                )
+                .on_receive_request(
+                    {
+                        let prompts = prompts.clone();
+                        async move |req: PromptRequest, responder, _cx| {
+                            let text = req
+                                .prompt
+                                .iter()
+                                .filter_map(|block| match block {
+                                    ContentBlock::Text(text) => Some(text.text.as_str()),
+                                    _ => None,
+                                })
+                                .collect::<Vec<_>>()
+                                .join("\n");
+                            prompts.lock().unwrap().push(text);
+                            responder.respond(PromptResponse::new(StopReason::EndTurn))
+                        }
+                    },
+                    agent_client_protocol::on_receive_request!(),
+                )
+                .on_receive_notification(
+                    {
+                        let cancels = cancels.clone();
+                        async move |_n: CancelNotification, _cx| {
+                            *cancels.lock().unwrap() += 1;
+                            Ok(())
+                        }
+                    },
+                    agent_client_protocol::on_receive_notification!(),
+                )
+                .connect_to(client)
+                .await
+        }
+    }
+
+    async fn fake_connected_provider() -> (AcpProvider, Arc<Mutex<Vec<String>>>, Arc<Mutex<u32>>) {
+        let prompts = Arc::new(Mutex::new(Vec::new()));
+        let cancels = Arc::new(Mutex::new(0));
+        let provider = AcpProvider::connect_with_transport(
+            "acp-test".to_string(),
+            GooseMode::Auto,
+            test_acp_config(HashMap::new(), None),
+            FakeAcpAgent {
+                prompts: prompts.clone(),
+                cancels: cancels.clone(),
+                config_options: Arc::new(Mutex::new(Vec::new())),
+                config_option_gate: None,
+            },
+            None,
+        )
+        .await
+        .unwrap();
+        (provider, prompts, cancels)
+    }
+
+    /// A cancel landing while the backend is still applying a pre-prompt
+    /// config option must free the serial client loop: it stops awaiting the
+    /// request instead of leaving later prompts queued behind a backend that
+    /// may never answer.
+    #[tokio::test]
+    async fn cancel_during_pre_prompt_config_option_unblocks_the_client_loop() {
+        let gate = Arc::new(tokio::sync::Notify::new());
+        let mut config = test_acp_config(HashMap::new(), None);
+        config.model_config_option_id = Some("model".to_string());
+        let provider = AcpProvider::connect_with_transport(
+            "acp-test".to_string(),
+            GooseMode::Auto,
+            config,
+            FakeAcpAgent {
+                prompts: Arc::new(Mutex::new(Vec::new())),
+                cancels: Arc::new(Mutex::new(0)),
+                config_options: Arc::new(Mutex::new(Vec::new())),
+                config_option_gate: Some(gate.clone()),
+            },
+            None,
+        )
+        .await
+        .unwrap();
+        let model = ModelConfig::new("some-model");
+        let messages = vec![Message::user().with_text("hello")];
+
+        // The reply stalls in apply_model_if_changed with the client loop
+        // awaiting the backend. Cancelling it must end that await, which the
+        // caller observes as the request failing rather than hanging.
+        let scope = provider.begin_cancel_scope();
+        let stalled = provider.stream(&model, "", &messages, &[]);
+        let cancel = async {
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            provider.cancel("goose-session", scope).await;
+        };
+        let joined = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            futures::future::join(stalled, cancel),
+        )
+        .await;
+        // Release the backend before asserting so a failure reports cleanly
+        // instead of deadlocking the provider's drop on the client loop.
+        gate.notify_one();
+
+        let (result, ()) =
+            joined.expect("client loop stayed blocked on the cancelled reply's config option");
+        assert!(matches!(result, Err(ProviderError::RequestFailed(_))));
+    }
+
+    /// The abandoned request stays on the wire, so it can reach the backend
+    /// after a later reply has applied a different model. Once it settles, the
+    /// applied-model memo is dropped so the next reply re-applies its own
+    /// model instead of leaving the backend on the abandoned one.
+    #[tokio::test]
+    async fn settled_abandoned_model_setup_invalidates_the_applied_model() {
+        let gate = Arc::new(tokio::sync::Notify::new());
+        let mut config = test_acp_config(HashMap::new(), None);
+        config.model_config_option_id = Some("model".to_string());
+        let provider = AcpProvider::connect_with_transport(
+            "acp-test".to_string(),
+            GooseMode::Auto,
+            config,
+            FakeAcpAgent {
+                prompts: Arc::new(Mutex::new(Vec::new())),
+                cancels: Arc::new(Mutex::new(0)),
+                config_options: Arc::new(Mutex::new(Vec::new())),
+                config_option_gate: Some(gate.clone()),
+            },
+            None,
+        )
+        .await
+        .unwrap();
+        let model = ModelConfig::new("model-a");
+        let messages = vec![Message::user().with_text("hello")];
+
+        let scope = provider.begin_cancel_scope();
+        let stalled = provider.stream(&model, "", &messages, &[]);
+        let cancel = async {
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            provider.cancel("goose-session", scope).await;
+        };
+        let (result, ()) = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            futures::future::join(stalled, cancel),
+        )
+        .await
+        .expect("client loop stayed blocked on the cancelled reply's config option");
+        assert!(matches!(result, Err(ProviderError::RequestFailed(_))));
+
+        // Stand in for a later reply having applied model B while the
+        // abandoned model-a request was still outstanding.
+        *provider.applied_model.lock().unwrap() = Some("model-b".to_string());
+
+        gate.notify_one();
+
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while provider.applied_model.lock().unwrap().is_some() {
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("a settled abandoned model setup must invalidate the applied model");
+    }
+
+    /// The abandoned setup can still be applied by the backend at any time, so
+    /// a later reply must not select its model — or prompt — until that
+    /// request has settled, or the backend could flip back under the prompt.
+    #[tokio::test]
+    async fn a_new_selection_waits_for_an_abandoned_model_setup_to_settle() {
+        use futures::StreamExt;
+
+        let gate = Arc::new(tokio::sync::Notify::new());
+        let prompts = Arc::new(Mutex::new(Vec::new()));
+        let config_options = Arc::new(Mutex::new(Vec::new()));
+        let mut config = test_acp_config(HashMap::new(), None);
+        config.model_config_option_id = Some("model".to_string());
+        let provider = AcpProvider::connect_with_transport(
+            "acp-test".to_string(),
+            GooseMode::Auto,
+            config,
+            FakeAcpAgent {
+                prompts: prompts.clone(),
+                cancels: Arc::new(Mutex::new(0)),
+                config_options: config_options.clone(),
+                config_option_gate: Some(gate.clone()),
+            },
+            None,
+        )
+        .await
+        .unwrap();
+        let messages = vec![Message::user().with_text("hello")];
+
+        // Model A's setup is abandoned mid-request and stays on the wire.
+        let model_a = ModelConfig::new("model-a");
+        let model_b = ModelConfig::new("model-b");
+        let scope = provider.begin_cancel_scope();
+        let cancelled = provider.stream(&model_a, "", &messages, &[]);
+        let cancel = async {
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            provider.cancel("goose-session", scope).await;
+        };
+        let (result, ()) = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            futures::future::join(cancelled, cancel),
+        )
+        .await
+        .expect("client loop stayed blocked on the cancelled reply's config option");
+        assert!(matches!(result, Err(ProviderError::RequestFailed(_))));
+
+        // The next reply selects model B while A is still outstanding: it must
+        // wait rather than prompt under a backend A could still flip.
+        provider.begin_cancel_scope();
+        let mut pending = Box::pin(provider.stream(&model_b, "", &messages, &[]));
+        let proceeded_early = tokio::select! {
+            _ = &mut pending => true,
+            () = tokio::time::sleep(std::time::Duration::from_millis(300)) => false,
+        };
+        let selected_while_outstanding = config_options.lock().unwrap().clone();
+        let prompted_while_outstanding = prompts.lock().unwrap().len();
+
+        // Release the backend before asserting so a failure reports cleanly
+        // instead of deadlocking the provider's drop on the client loop. The
+        // abandoned request settles here, after which the new selection is
+        // applied and its prompt goes out.
+        let _releaser = tokio::spawn({
+            let gate = gate.clone();
+            async move {
+                loop {
+                    gate.notify_one();
+                    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                }
+            }
+        });
+        if !proceeded_early {
+            let mut stream = tokio::time::timeout(std::time::Duration::from_secs(5), pending)
+                .await
+                .expect("the new selection never proceeded after the abandoned setup settled")
+                .unwrap();
+            while stream.next().await.is_some() {}
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+        assert!(
+            !proceeded_early,
+            "model-b was applied before the abandoned setup settled"
+        );
+        assert_eq!(
+            selected_while_outstanding.as_slice(),
+            ["model-a"],
+            "model-b must not be selected while the abandoned setup is outstanding"
+        );
+        assert_eq!(
+            prompted_while_outstanding, 0,
+            "no prompt may be sent while an abandoned model setup is outstanding"
+        );
+        assert_eq!(
+            config_options.lock().unwrap().as_slice(),
+            ["model-a", "model-b"],
+            "the new selection must be applied after the abandoned setup settled"
+        );
+        assert_eq!(prompts.lock().unwrap().len(), 1);
+    }
+
+    /// A turn that keeps the backend's current model sends no selection of its
+    /// own, so an abandoned setup landing mid-turn would decide the model it
+    /// runs under. It has to wait for that request to settle just the same.
+    #[tokio::test]
+    async fn a_current_model_prompt_waits_for_an_abandoned_model_setup_to_settle() {
+        use futures::StreamExt;
+
+        let gate = Arc::new(tokio::sync::Notify::new());
+        let prompts = Arc::new(Mutex::new(Vec::new()));
+        let mut config = test_acp_config(HashMap::new(), None);
+        config.model_config_option_id = Some("model".to_string());
+        let provider = AcpProvider::connect_with_transport(
+            "acp-test".to_string(),
+            GooseMode::Auto,
+            config,
+            FakeAcpAgent {
+                prompts: prompts.clone(),
+                cancels: Arc::new(Mutex::new(0)),
+                config_options: Arc::new(Mutex::new(Vec::new())),
+                config_option_gate: Some(gate.clone()),
+            },
+            None,
+        )
+        .await
+        .unwrap();
+        let messages = vec![Message::user().with_text("hello")];
+
+        let scope = provider.begin_cancel_scope();
+        let model_a = ModelConfig::new("model-a");
+        let cancelled = provider.stream(&model_a, "", &messages, &[]);
+        let cancel = async {
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            provider.cancel("goose-session", scope).await;
+        };
+        let (result, ()) = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            futures::future::join(cancelled, cancel),
+        )
+        .await
+        .expect("client loop stayed blocked on the cancelled reply's config option");
+        assert!(matches!(result, Err(ProviderError::RequestFailed(_))));
+
+        provider.begin_cancel_scope();
+        let current = ModelConfig::new(ACP_CURRENT_MODEL);
+        let mut pending = Box::pin(provider.stream(&current, "", &messages, &[]));
+        let proceeded_early = tokio::select! {
+            _ = &mut pending => true,
+            () = tokio::time::sleep(std::time::Duration::from_millis(300)) => false,
+        };
+        let prompted_while_outstanding = prompts.lock().unwrap().len();
+
+        // Release the backend before asserting so a failure reports cleanly
+        // instead of deadlocking the provider's drop on the client loop.
+        let _releaser = tokio::spawn({
+            let gate = gate.clone();
+            async move {
+                loop {
+                    gate.notify_one();
+                    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                }
+            }
+        });
+        if !proceeded_early {
+            let mut stream = tokio::time::timeout(std::time::Duration::from_secs(5), pending)
+                .await
+                .expect("the current-model prompt never proceeded after the setup settled")
+                .unwrap();
+            while stream.next().await.is_some() {}
+        }
+
+        assert!(
+            !proceeded_early,
+            "a current-model prompt went out before the abandoned setup settled"
+        );
+        assert_eq!(
+            prompted_while_outstanding, 0,
+            "no prompt may be sent while an abandoned model setup is outstanding"
+        );
+        assert_eq!(prompts.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn cancel_before_prompt_send_suppresses_prompt_until_new_scope() {
+        use futures::StreamExt;
+
+        let (provider, prompts, cancels) = fake_connected_provider().await;
+        let model = ModelConfig::new("test-model");
+        let messages = vec![Message::user().with_text("hello")];
+
+        // Cancel fires before the prompt reaches the wire: with no active run
+        // the backend would ignore a notification (and none is sent), so the
+        // prompt must be suppressed instead of starting a turn nothing can
+        // cancel.
+        let scope = provider.begin_cancel_scope();
+        provider.cancel("goose-session", scope).await;
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        assert!(stream.next().await.is_none());
+        assert_eq!(
+            prompts.lock().unwrap().len(),
+            0,
+            "prompt must not start after its only cancel already fired"
+        );
+
+        // A new reply opens a fresh scope, so prompting works again.
+        provider.begin_cancel_scope();
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        while stream.next().await.is_some() {}
+        assert_eq!(
+            prompts.lock().unwrap().len(),
+            1,
+            "prompt in a fresh cancel scope must reach the backend"
+        );
+        assert_eq!(
+            *cancels.lock().unwrap(),
+            0,
+            "no session/cancel should reach the backend when nothing was in flight"
+        );
+    }
+
+    #[tokio::test]
+    async fn late_cancel_from_previous_reply_does_not_suppress_new_prompt() {
+        use futures::StreamExt;
+
+        let (provider, prompts, _cancels) = fake_connected_provider().await;
+        let model = ModelConfig::new("test-model");
+        let messages = vec![Message::user().with_text("hello")];
+
+        // Reply N's forwarder fires only after reply N+1 already began: the
+        // cancel must be attributed to reply N's scope, not the current one.
+        let stale_scope = provider.begin_cancel_scope();
+        provider.begin_cancel_scope();
+        provider.cancel("goose-session", stale_scope).await;
+
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        while stream.next().await.is_some() {}
+        assert_eq!(
+            prompts.lock().unwrap().len(),
+            1,
+            "a stale cancel must not suppress the newer reply's prompt"
+        );
+    }
+
+    #[tokio::test]
+    async fn stale_cancel_notification_is_not_sent_while_newer_prompt_active() {
+        use futures::StreamExt;
+
+        let (provider, prompts, cancels) = fake_connected_provider().await;
+        let model = ModelConfig::new("test-model");
+        let messages = vec![Message::user().with_text("hello")];
+
+        // Turn N's forwarder fires while turn N+1's prompt is the active run:
+        // the latch records N, but no session/cancel may reach the backend.
+        let stale_scope = provider.begin_cancel_scope();
+        let fresh_scope = provider.begin_cancel_scope();
+        provider
+            .active_prompt_epoch
+            .store(fresh_scope, Ordering::SeqCst);
+        provider.cancel("goose-session", stale_scope).await;
+        provider.active_prompt_epoch.store(0, Ordering::SeqCst);
+
+        // Round-trip a prompt so any (wrongly) sent notification would have
+        // been processed by the fake agent before the count is checked.
+        provider.begin_cancel_scope();
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        while stream.next().await.is_some() {}
+        assert_eq!(prompts.lock().unwrap().len(), 1);
+        assert_eq!(
+            *cancels.lock().unwrap(),
+            0,
+            "a stale cancel must not cancel the newer reply's active run"
+        );
+
+        // A cancel matching the in-flight prompt's scope still notifies.
+        let scope = provider.begin_cancel_scope();
+        provider.active_prompt_epoch.store(scope, Ordering::SeqCst);
+        provider.cancel("goose-session", scope).await;
+        provider.active_prompt_epoch.store(0, Ordering::SeqCst);
+        provider.begin_cancel_scope();
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        while stream.next().await.is_some() {}
+        assert_eq!(
+            *cancels.lock().unwrap(),
+            1,
+            "a cancel for the active prompt's own scope must reach the backend"
+        );
+    }
+
+    /// `session/cancel` is session-scoped, so cancelling a newer reply whose
+    /// prompt is still queued behind an older in-flight one must not reach the
+    /// backend: it would abort the older run. The latch alone covers the
+    /// queued prompt.
+    #[tokio::test]
+    async fn cancelling_a_queued_reply_does_not_abort_the_active_prompt() {
+        use futures::StreamExt;
+
+        let (provider, prompts, cancels) = fake_connected_provider().await;
+        let model = ModelConfig::new("test-model");
+        let messages = vec![Message::user().with_text("hello")];
+
+        // Turn N is the active run while turn N+1 is cancelled before its own
+        // prompt reaches the wire.
+        let active_scope = provider.begin_cancel_scope();
+        let queued_scope = provider.begin_cancel_scope();
+        provider
+            .active_prompt_epoch
+            .store(active_scope, Ordering::SeqCst);
+        provider.cancel("goose-session", queued_scope).await;
+        provider.active_prompt_epoch.store(0, Ordering::SeqCst);
+
+        // Round-trip a prompt so any (wrongly) sent notification would have
+        // been processed by the fake agent before the count is checked.
+        provider.begin_cancel_scope();
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        while stream.next().await.is_some() {}
+        assert_eq!(prompts.lock().unwrap().len(), 1);
+        assert_eq!(
+            *cancels.lock().unwrap(),
+            0,
+            "cancelling a queued reply must not cancel the older active run"
+        );
+    }
+
+    /// Two prompts can be queued before the client loop handles either, so the
+    /// handoff memo must ride along with each rather than being baked into
+    /// whichever was built first: the prompt that is actually sent carries it.
+    #[tokio::test]
+    async fn suppressed_first_prompt_rolls_back_handoff_claim() {
+        // The handoff memo budget reads GOOSE_CONTEXT_LIMIT, so hold it unset
+        // against tests that set it under the same lock.
+        let _guard = env_lock::lock_env([("GOOSE_CONTEXT_LIMIT", None::<&str>)]);
+        use futures::StreamExt;
+
+        let (provider, prompts, _cancels) = fake_connected_provider().await;
+        let model = ModelConfig::new("test-model");
+        let messages = vec![
+            Message::assistant().with_text("prior answer"),
+            Message::user().with_text("current request"),
+        ];
+
+        // The first prompt claims the one-shot handoff context, but its
+        // cancel fires before the client loop sends it: the backend never
+        // sees the context, so the claim must be rolled back.
+        let scope = provider.begin_cancel_scope();
+        provider.cancel("goose-session", scope).await;
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        assert!(stream.next().await.is_none());
+        assert_eq!(prompts.lock().unwrap().len(), 0);
+
+        // The next reply's prompt must carry the handoff context.
+        provider.begin_cancel_scope();
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        while stream.next().await.is_some() {}
+        let prompts = prompts.lock().unwrap();
+        assert_eq!(prompts.len(), 1);
+        assert!(
+            prompts[0].contains("Conversation context from goose"),
+            "prompt after a suppressed first prompt must include the handoff memo, got: {}",
+            prompts[0]
+        );
+    }
+
+    #[tokio::test]
+    async fn stale_queued_prompt_stays_cancelled_after_new_reply_starts() {
+        let (tx, mut rx) = mpsc::channel(4);
+        let (provider, model) = test_provider_with_tx(Some(tx));
+        let messages = vec![Message::user().with_text("hello")];
+
+        // Reply N enqueues its prompt; the client loop has not handled it yet.
+        let scope_n = provider.begin_cancel_scope();
+        let _stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        let stale_epoch = match rx.recv().await.expect("expected ACP prompt request") {
+            ClientRequest::Prompt { cancel_epoch, .. } => cancel_epoch,
+            _ => panic!("expected ACP prompt request"),
+        };
+
+        // Reply N is cancelled, then reply N+1 begins.
+        provider.cancel("goose-session", scope_n).await;
+        provider.begin_cancel_scope();
+        let _stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        let fresh_epoch = match rx.recv().await.expect("expected ACP prompt request") {
+            ClientRequest::Prompt { cancel_epoch, .. } => cancel_epoch,
+            _ => panic!("expected ACP prompt request"),
+        };
+
+        // The stale prompt must still be seen as cancelled by the client
+        // loop, while the new reply's prompt must not be.
+        assert!(
+            scope_cancelled(&provider.cancelled_scopes, stale_epoch),
+            "stale queued prompt must stay cancelled (stale={stale_epoch})"
+        );
+        assert!(
+            !scope_cancelled(&provider.cancelled_scopes, fresh_epoch),
+            "new reply's prompt must not be suppressed (fresh={fresh_epoch})"
+        );
+    }
+
+    /// Prompts from different replies can sit in the client-loop queue at the
+    /// same time, so cancelling a later reply must not suppress an earlier,
+    /// still-live one — a high-water mark would sweep it up.
+    #[tokio::test]
+    async fn cancelling_a_later_reply_leaves_an_earlier_queued_prompt_live() {
+        let (tx, mut rx) = mpsc::channel(4);
+        let (provider, model) = test_provider_with_tx(Some(tx));
+        let messages = vec![Message::user().with_text("hello")];
+
+        // Reply N's prompt is queued, then reply N+1 queues its own behind it.
+        provider.begin_cancel_scope();
+        let _stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        let earlier_epoch = match rx.recv().await.expect("expected ACP prompt request") {
+            ClientRequest::Prompt { cancel_epoch, .. } => cancel_epoch,
+            _ => panic!("expected ACP prompt request"),
+        };
+        let scope_n_plus_1 = provider.begin_cancel_scope();
+        let _stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        let later_epoch = match rx.recv().await.expect("expected ACP prompt request") {
+            ClientRequest::Prompt { cancel_epoch, .. } => cancel_epoch,
+            _ => panic!("expected ACP prompt request"),
+        };
+
+        provider.cancel("goose-session", scope_n_plus_1).await;
+
+        assert!(
+            scope_cancelled(&provider.cancelled_scopes, later_epoch),
+            "the cancelled reply's prompt must be suppressed (later={later_epoch})"
+        );
+        assert!(
+            !scope_cancelled(&provider.cancelled_scopes, earlier_epoch),
+            "an earlier reply that was not cancelled must still reach the backend (earlier={earlier_epoch})"
+        );
     }
 
     #[test_case(GooseMode::Auto)]

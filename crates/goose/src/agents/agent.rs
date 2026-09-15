@@ -87,6 +87,57 @@ use tokio::sync::{mpsc, Mutex};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, instrument, warn};
 
+/// Resolves when the token is cancelled; stays pending forever when there is
+/// no token, so it can be raced against a stream in `tokio::select!` without
+/// affecting the no-token path.
+async fn await_cancellation(cancel_token: &Option<CancellationToken>) {
+    match cancel_token {
+        Some(token) => token.cancelled().await,
+        None => std::future::pending().await,
+    }
+}
+
+/// Forwards a cancellation to the provider from a detached task, so a
+/// remote-backed turn (e.g. an ACP agent) still receives `session/cancel` even
+/// when the reply-stream consumer drops the stream on cancel instead of polling
+/// it to completion (the CLI Ctrl-C path does exactly this). The task fires as
+/// soon as the token is cancelled, independent of stream lifecycle.
+///
+/// The guard lives inside the reply stream: dropping the stream aborts the
+/// forwarder unless cancellation is already in flight, so a turn that ends
+/// normally does not leave a task waiting on a token that never fires.
+struct CancelForwarder {
+    handle: tokio::task::JoinHandle<()>,
+    token: CancellationToken,
+}
+
+impl CancelForwarder {
+    fn spawn(
+        token: CancellationToken,
+        provider: Arc<dyn crate::providers::base::Provider>,
+        session_id: String,
+        cancel_scope: u64,
+    ) -> Self {
+        let watch_token = token.clone();
+        let handle = tokio::spawn(async move {
+            watch_token.cancelled().await;
+            // The scope captured at spawn keeps a forwarder that fires late —
+            // after a newer reply has begun — from being attributed to that
+            // newer reply's prompts.
+            provider.cancel(&session_id, cancel_scope).await;
+        });
+        Self { handle, token }
+    }
+}
+
+impl Drop for CancelForwarder {
+    fn drop(&mut self) {
+        if !self.token.is_cancelled() {
+            self.handle.abort();
+        }
+    }
+}
+
 const DEFAULT_MAX_TURNS: u32 = 1000;
 const DEFAULT_STOP_HOOK_BLOCK_CAP: u32 = 8;
 const COMPACTION_PROGRESS_TEXT: &str = "goose is compacting the conversation...";
@@ -2563,7 +2614,26 @@ impl Agent {
                 );
             }
         }
+        // A cancel latched by the provider during a previous reply must not
+        // suppress this reply's prompts; opening a fresh scope here, before
+        // this reply's forwarder exists, ties every cancel to the reply it
+        // was actually issued for.
+        let cancel_scope = provider.begin_cancel_scope();
+        let cancel_forwarder = cancel_token.as_ref().map(|token| {
+            CancelForwarder::spawn(
+                token.clone(),
+                provider.clone(),
+                session_config.id.clone(),
+                cancel_scope,
+            )
+        });
         let inner = Box::pin(async_stream::try_stream! {
+            // Kept alive for the stream's lifetime; dropping the stream (e.g. a
+            // consumer that drops us on cancel) tears the forwarder down. It is
+            // rebound below whenever the session provider is swapped mid-reply,
+            // so it always points at the provider running the current turn.
+            let mut _cancel_forwarder = cancel_forwarder;
+            let mut forwarder_provider = provider.clone();
             let mut turns_taken = 0u32;
             let max_turns = session_config.max_turns.unwrap_or_else(|| {
                 Config::global()
@@ -2701,15 +2771,44 @@ impl Agent {
                     break;
                 }
 
-                let mut stream = crate::agents::reply_parts::stream_response_from_provider(
-                    self.provider().await?,
-                    model_config.clone(),
-                    &session_config.id,
-                    &system_prompt,
-                    conversation.messages(),
-                    &tools,
-                    &toolshim_tools,
-                ).await?;
+                // Race cancellation against stream creation too: a provider that
+                // talks to a remote backend (ACP) can block here before the
+                // response stream exists — e.g. applying a model config option —
+                // and the cancel forwarder has no in-flight prompt to interrupt,
+                // so awaiting this alone would leave the reply (and the UI) stuck.
+                let turn_provider = self.provider().await?;
+                // The session provider can be swapped between turns (an ACP
+                // `set_config_option` provider change is handled without
+                // waiting for the active prompt). Rebind the cancel scope and
+                // forwarder to whichever provider streams this turn, or a
+                // cancel would be delivered to a provider that is no longer
+                // running while the new one keeps the session busy.
+                if !Arc::ptr_eq(&turn_provider, &forwarder_provider) {
+                    let turn_cancel_scope = turn_provider.begin_cancel_scope();
+                    _cancel_forwarder = cancel_token.as_ref().map(|token| {
+                        CancelForwarder::spawn(
+                            token.clone(),
+                            turn_provider.clone(),
+                            session_config.id.clone(),
+                            turn_cancel_scope,
+                        )
+                    });
+                    forwarder_provider = turn_provider.clone();
+                }
+                let stream = tokio::select! {
+                    biased;
+                    () = await_cancellation(&cancel_token) => break,
+                    stream = crate::agents::reply_parts::stream_response_from_provider(
+                        turn_provider,
+                        model_config.clone(),
+                        &session_config.id,
+                        &system_prompt,
+                        conversation.messages(),
+                        &tools,
+                        &toolshim_tools,
+                    ) => stream,
+                };
+                let mut stream = stream?;
                 last_assistant_text.clear();
 
                 let current_turn_tool_count = conversation.messages().iter()
@@ -2749,20 +2848,22 @@ impl Agent {
                 let mut surfaced_thinking_in_turn = false;
 
                 loop {
-                    let next = if let Some(cancel_token) = &cancel_token {
-                        tokio::select! {
-                            biased;
-                            _ = cancel_token.cancelled() => break,
-                            next = stream.next() => next,
-                        }
-                    } else {
-                        stream.next().await
+                    // Race the provider stream against cancellation. A provider
+                    // that drives a remote turn (ACP) may go silent for minutes
+                    // mid-turn, so waiting on `stream.next()` alone would leave
+                    // the reply future — and the UI — stuck until the backend
+                    // finishes on its own. Stop polling promptly on cancel; the
+                    // detached `CancelForwarder` delivers `session/cancel` to the
+                    // provider so it runs regardless of who drops the stream.
+                    let next = tokio::select! {
+                        biased;
+                        () = await_cancellation(&cancel_token) => break,
+                        item = stream.next() => item,
                     };
                     let Some(next) = next else {
                         break;
                     };
-
-                    if exit_chat {
+                    if is_token_cancelled(&cancel_token) || exit_chat {
                         break;
                     }
 
@@ -3371,6 +3472,24 @@ impl Agent {
                         }
                     }
                 }
+                // Cancelled mid-turn: end the reply immediately, before any
+                // post-stream work runs. When cancellation wins the select!
+                // above, the inner loop breaks and falls through to recipe
+                // retry checks / on_failure shell commands, final-output and
+                // goal/grind handling, tool-pair summarization, message
+                // persistence, and the exit-path stop hooks — several of which
+                // spawn shell commands with their own timeouts and can mutate
+                // history. Guarding here, immediately after the provider-stream
+                // loop and before that handling, keeps a cancelled (e.g. quiet
+                // ACP) turn from blocking the UI on that work. Mirrors the outer
+                // loop's top-of-iteration cancel check, a turn earlier.
+                if is_token_cancelled(&cancel_token) {
+                    if let Some(ref task) = tool_pair_summarization_task {
+                        task.abort();
+                    }
+                    break;
+                }
+
                 can_drain_pending_steers = true;
 
                 if tools_updated {
@@ -3546,12 +3665,6 @@ impl Agent {
                     }
                 }
 
-                if is_token_cancelled(&cancel_token) {
-                    if let Some(ref task) = tool_pair_summarization_task {
-                        task.abort();
-                    }
-                }
-
                 if let Some(task) = tool_pair_summarization_task {
                     tool_pair_summarization_done = true;
                     if let Ok(summaries) = task.await {
@@ -3671,7 +3784,10 @@ impl Agent {
             gen_ai_telemetry::record_usage(&tracing::Span::current(), &turn_total_usage);
             gen_ai_telemetry::record_usage(&reply_span, &turn_total_usage);
 
-            if !stop_hook_handled_for_exit {
+            // A cancelled turn skips Stop hooks: they mark the agent finishing
+            // a response, and their commands could otherwise block a cancelled
+            // (e.g. quiet ACP) turn until they finish or time out.
+            if !stop_hook_handled_for_exit && !is_token_cancelled(&cancel_token) {
                 self.emit_stop_hook(&session_config.id, &last_assistant_text, &session.working_dir.to_string_lossy()).await;
             }
         }.instrument(reply_stream_span));
@@ -5485,6 +5601,436 @@ echo start >> "$PLUGIN_ROOT/hook.log"
         let emitted_refusal_id =
             emitted_refusal_id.expect("refusal message should be emitted with an ID");
         assert!(emitted_refusal_id.starts_with("msg_"));
+        Ok(())
+    }
+
+    /// Provider whose stream never yields and never ends, mimicking an ACP
+    /// backend that goes silent mid-turn. Signals when its stream is polled and
+    /// records `cancel` calls.
+    struct HangingProvider {
+        stream_entered: Arc<tokio::sync::Notify>,
+        cancel_called: Arc<tokio::sync::Notify>,
+        cancel_calls: AtomicUsize,
+        cancelled_session: std::sync::Mutex<Option<String>>,
+        /// Hang inside `stream()` instead of returning a silent stream,
+        /// mimicking an ACP backend stuck applying a session config option
+        /// before the prompt is established.
+        stall_before_stream: bool,
+    }
+
+    impl HangingProvider {
+        fn new() -> Self {
+            Self {
+                stream_entered: Arc::new(tokio::sync::Notify::new()),
+                cancel_called: Arc::new(tokio::sync::Notify::new()),
+                cancel_calls: AtomicUsize::new(0),
+                cancelled_session: std::sync::Mutex::new(None),
+                stall_before_stream: false,
+            }
+        }
+
+        fn stalling_before_stream() -> Self {
+            Self {
+                stall_before_stream: true,
+                ..Self::new()
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl crate::providers::base::Provider for HangingProvider {
+        async fn stream(
+            &self,
+            _model_config: &goose_providers::model::ModelConfig,
+            _system_prompt: &str,
+            _messages: &[Message],
+            _tools: &[Tool],
+        ) -> Result<MessageStream, ProviderError> {
+            self.stream_entered.notify_one();
+            if self.stall_before_stream {
+                std::future::pending::<()>().await;
+            }
+            Ok(Box::pin(futures::stream::pending::<
+                Result<(Option<Message>, Option<ProviderUsage>), ProviderError>,
+            >()))
+        }
+
+        fn get_name(&self) -> &str {
+            "hanging"
+        }
+
+        async fn cancel(&self, session_id: &str, _scope: u64) {
+            self.cancel_calls.fetch_add(1, Ordering::SeqCst);
+            *self.cancelled_session.lock().unwrap() = Some(session_id.to_string());
+            self.cancel_called.notify_one();
+        }
+    }
+
+    fn stalled_reply_session_config(session_id: &str) -> SessionConfig {
+        SessionConfig {
+            id: session_id.to_string(),
+            schedule_id: None,
+            max_turns: Some(10),
+            retry_config: None,
+        }
+    }
+
+    /// Cancels `token` once the provider stream has actually been polled, so
+    /// tests exercise the mid-stream cancel path rather than the top-of-loop
+    /// cancel check.
+    fn cancel_once_stream_is_stalled(
+        token: CancellationToken,
+        stream_entered: Arc<tokio::sync::Notify>,
+    ) -> tokio::task::JoinHandle<()> {
+        tokio::spawn(async move {
+            let _ =
+                tokio::time::timeout(std::time::Duration::from_secs(5), stream_entered.notified())
+                    .await;
+            token.cancel();
+        })
+    }
+
+    #[tokio::test]
+    async fn cancellation_interrupts_a_stalled_provider_stream() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let provider = Arc::new(HangingProvider::new());
+        let hook_manager = crate::hooks::HookManager::from_plugins_for_test(vec![]);
+        let (agent, session_id) =
+            create_test_agent(temp_dir.path().join("data"), hook_manager, provider.clone()).await?;
+
+        let cancel_token = CancellationToken::new();
+        let canceller =
+            cancel_once_stream_is_stalled(cancel_token.clone(), provider.stream_entered.clone());
+
+        let reply_stream = agent
+            .reply(
+                Message::user().with_text("hi"),
+                stalled_reply_session_config(&session_id),
+                Some(cancel_token),
+            )
+            .await?;
+        tokio::pin!(reply_stream);
+
+        // A consumer that polls to completion (e.g. the ACP server) must see the
+        // reply end promptly on cancel rather than blocking on the silent stream.
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while let Some(event) = reply_stream.next().await {
+                let _ = event;
+            }
+        })
+        .await
+        .expect("reply did not stop promptly after cancellation");
+
+        canceller.await.expect("canceller task panicked");
+
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            provider.cancel_called.notified(),
+        )
+        .await
+        .expect("cancellation was not forwarded to the provider");
+        assert_eq!(provider.cancel_calls.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            provider.cancelled_session.lock().unwrap().as_deref(),
+            Some(session_id.as_str()),
+            "provider cancel must receive the active session id"
+        );
+        Ok(())
+    }
+
+    /// A cancel landing while the provider is still *creating* its stream (an
+    /// ACP agent stuck applying a model config option before the prompt exists)
+    /// must end the reply, not wait for the backend to return a stream.
+    #[tokio::test]
+    async fn cancellation_interrupts_provider_stream_creation() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let provider = Arc::new(HangingProvider::stalling_before_stream());
+        let hook_manager = crate::hooks::HookManager::from_plugins_for_test(vec![]);
+        let (agent, session_id) =
+            create_test_agent(temp_dir.path().join("data"), hook_manager, provider.clone()).await?;
+
+        let cancel_token = CancellationToken::new();
+        let canceller =
+            cancel_once_stream_is_stalled(cancel_token.clone(), provider.stream_entered.clone());
+
+        let reply_stream = agent
+            .reply(
+                Message::user().with_text("hi"),
+                stalled_reply_session_config(&session_id),
+                Some(cancel_token),
+            )
+            .await?;
+        tokio::pin!(reply_stream);
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while let Some(event) = reply_stream.next().await {
+                let _ = event;
+            }
+        })
+        .await
+        .expect("reply did not stop promptly after cancellation during stream creation");
+        canceller.await.expect("canceller task panicked");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn cancellation_forwards_to_provider_even_when_stream_is_dropped() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let provider = Arc::new(HangingProvider::new());
+        let hook_manager = crate::hooks::HookManager::from_plugins_for_test(vec![]);
+        let (agent, session_id) =
+            create_test_agent(temp_dir.path().join("data"), hook_manager, provider.clone()).await?;
+
+        let cancel_token = CancellationToken::new();
+        let canceller =
+            cancel_once_stream_is_stalled(cancel_token.clone(), provider.stream_entered.clone());
+
+        let reply_stream = agent
+            .reply(
+                Message::user().with_text("hi"),
+                stalled_reply_session_config(&session_id),
+                Some(cancel_token.clone()),
+            )
+            .await?;
+
+        // Mimic the CLI Ctrl-C path: the consumer drops the reply stream on
+        // cancel instead of polling it to completion. The detached forwarder
+        // must still deliver the cancellation to the provider.
+        let mut reply_stream = reply_stream;
+        tokio::select! {
+            _ = cancel_token.cancelled() => {}
+            _ = async {
+                while let Some(event) = reply_stream.next().await {
+                    let _ = event;
+                }
+            } => {}
+        }
+        drop(reply_stream);
+
+        canceller.await.expect("canceller task panicked");
+
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            provider.cancel_called.notified(),
+        )
+        .await
+        .expect("cancellation was not forwarded after the stream was dropped");
+        assert_eq!(provider.cancel_calls.load(Ordering::SeqCst), 1);
+        Ok(())
+    }
+
+    /// Streams a single tool call so the reply loop takes another turn, giving
+    /// the test a suspension point at which to swap the session provider.
+    struct ToolCallProvider {
+        cancel_calls: AtomicUsize,
+    }
+
+    #[async_trait::async_trait]
+    impl crate::providers::base::Provider for ToolCallProvider {
+        async fn stream(
+            &self,
+            _model_config: &goose_providers::model::ModelConfig,
+            _system_prompt: &str,
+            _messages: &[Message],
+            _tools: &[Tool],
+        ) -> Result<MessageStream, ProviderError> {
+            let message = Message::assistant().with_tool_request(
+                "call_1",
+                Ok(rmcp::model::CallToolRequestParams::new("missing__tool")),
+            );
+            Ok(Box::pin(futures::stream::once(async move {
+                Ok((Some(message), None))
+            })))
+        }
+
+        fn get_name(&self) -> &str {
+            "tool-call"
+        }
+
+        async fn cancel(&self, _session_id: &str, _scope: u64) {
+            self.cancel_calls.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    /// Swapping the session provider between turns of a live reply (an ACP
+    /// `set_config_option` provider change, which is handled without waiting for
+    /// the active prompt) must move the cancel forwarder onto the provider that
+    /// actually streams the next turn. Cancelling the replaced one would leave
+    /// the new backend running and the session stuck.
+    #[tokio::test]
+    async fn cancellation_follows_a_provider_swapped_mid_reply() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let original = Arc::new(ToolCallProvider {
+            cancel_calls: AtomicUsize::new(0),
+        });
+        let replacement = Arc::new(HangingProvider::new());
+        let hook_manager = crate::hooks::HookManager::from_plugins_for_test(vec![]);
+        let (agent, session_id) =
+            create_test_agent(temp_dir.path().join("data"), hook_manager, original.clone()).await?;
+
+        let cancel_token = CancellationToken::new();
+        let reply_stream = agent
+            .reply(
+                Message::user().with_text("hi"),
+                stalled_reply_session_config(&session_id),
+                Some(cancel_token.clone()),
+            )
+            .await?;
+        tokio::pin!(reply_stream);
+
+        // Drain up to the first turn's tool request. The reply stream is
+        // unbuffered, so the producer is parked on that yield and has not yet
+        // resolved the provider for the second turn.
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while let Some(event) = reply_stream.next().await {
+                if let Ok(AgentEvent::Message(message)) = event {
+                    if message
+                        .content
+                        .iter()
+                        .any(|c| matches!(c, MessageContent::ToolRequest(_)))
+                    {
+                        break;
+                    }
+                }
+            }
+        })
+        .await
+        .expect("first turn did not produce a tool request");
+
+        agent
+            .update_provider(
+                replacement.clone(),
+                goose_providers::model::ModelConfig::new("mock-model"),
+                &session_id,
+            )
+            .await?;
+        let canceller =
+            cancel_once_stream_is_stalled(cancel_token, replacement.stream_entered.clone());
+
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while let Some(event) = reply_stream.next().await {
+                let _ = event;
+            }
+        })
+        .await
+        .expect("reply did not stop promptly after cancellation");
+        canceller.await.expect("canceller task panicked");
+
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            replacement.cancel_called.notified(),
+        )
+        .await
+        .expect("cancellation was not forwarded to the swapped-in provider");
+        assert_eq!(replacement.cancel_calls.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            original.cancel_calls.load(Ordering::SeqCst),
+            0,
+            "the replaced provider no longer runs the turn and must not be cancelled"
+        );
+        Ok(())
+    }
+
+    /// A cancel that lands while the provider stream is quiet must skip the
+    /// post-stream turn handling — including recipe retry success checks, which
+    /// run shell commands with their own timeouts. Regression guard for the
+    /// cancel-guard placement: the check sits immediately after the
+    /// provider-stream loop, before `handle_retry_logic`, so a cancelled turn
+    /// never executes the check. (Before the fix the guard sat after the retry
+    /// call, so the check ran during a cancelled turn.)
+    #[tokio::test]
+    async fn cancellation_skips_recipe_retry_success_checks() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let sentinel = temp_dir.path().join("retry_check_ran");
+        let provider = Arc::new(HangingProvider::new());
+        let hook_manager = crate::hooks::HookManager::from_plugins_for_test(vec![]);
+        let (agent, session_id) =
+            create_test_agent(temp_dir.path().join("data"), hook_manager, provider.clone()).await?;
+
+        // A recipe retry whose success check touches a sentinel file. If the
+        // cancelled turn reached handle_retry_logic, the file would appear.
+        let session_config = SessionConfig {
+            id: session_id.clone(),
+            schedule_id: None,
+            max_turns: Some(10),
+            retry_config: Some(crate::agents::types::RetryConfig {
+                max_retries: 3,
+                checks: vec![crate::agents::types::SuccessCheck::Shell {
+                    command: format!("touch '{}'", sentinel.display()),
+                }],
+                on_failure: None,
+                timeout_seconds: None,
+                on_failure_timeout_seconds: None,
+            }),
+        };
+
+        let cancel_token = CancellationToken::new();
+        let canceller =
+            cancel_once_stream_is_stalled(cancel_token.clone(), provider.stream_entered.clone());
+
+        let reply_stream = agent
+            .reply(
+                Message::user().with_text("hi"),
+                session_config,
+                Some(cancel_token),
+            )
+            .await?;
+        tokio::pin!(reply_stream);
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while let Some(event) = reply_stream.next().await {
+                let _ = event;
+            }
+        })
+        .await
+        .expect("reply did not stop promptly after cancellation");
+        canceller.await.expect("canceller task panicked");
+
+        assert!(
+            !sentinel.exists(),
+            "recipe retry success check ran during a cancelled turn"
+        );
+        Ok(())
+    }
+
+    /// A cancelled turn must not run Stop hooks: they mark the agent finishing
+    /// a response, and their commands could otherwise block the cancelled
+    /// reply until they finish or time out.
+    #[tokio::test]
+    async fn cancellation_skips_stop_hooks() -> Result<()> {
+        const COUNT_STOP_SCRIPT: &str = r#"#!/bin/sh
+echo ran >> "$PLUGIN_ROOT/hook.log"
+exit 0
+"#;
+        let env = StopHookTestEnv::new(COUNT_STOP_SCRIPT)?;
+        let provider = Arc::new(HangingProvider::new());
+        let (agent, session_id) =
+            create_test_agent(env.data_dir(), env.hook_manager(), provider.clone()).await?;
+
+        let cancel_token = CancellationToken::new();
+        let canceller =
+            cancel_once_stream_is_stalled(cancel_token.clone(), provider.stream_entered.clone());
+
+        let reply_stream = agent
+            .reply(
+                Message::user().with_text("hi"),
+                stalled_reply_session_config(&session_id),
+                Some(cancel_token),
+            )
+            .await?;
+        tokio::pin!(reply_stream);
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while let Some(event) = reply_stream.next().await {
+                let _ = event;
+            }
+        })
+        .await
+        .expect("reply did not stop promptly after cancellation");
+        canceller.await.expect("canceller task panicked");
+
+        assert_eq!(
+            env.hook_invocations(),
+            0,
+            "Stop hook ran during a cancelled turn"
+        );
         Ok(())
     }
 
