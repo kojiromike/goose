@@ -44,7 +44,7 @@ fn compaction_part(
 
     Some(format!(
         "<compaction>~{}k tokens remaining</compaction>",
-        compaction_at.saturating_sub(total_tokens) / 1000
+        compaction_at.saturating_sub(total_tokens).max(0) / 1000
     ))
 }
 
@@ -363,5 +363,22 @@ impl Operation<Session, GooseEffect> for CompactionOperation {
                 yielded()
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compaction_part_clamps_at_zero_past_threshold() {
+        assert_eq!(
+            compaction_part(Some(100_000), 200_000, 0.8).as_deref(),
+            Some("<compaction>~60k tokens remaining</compaction>")
+        );
+        assert_eq!(
+            compaction_part(Some(2_500_000), 200_000, 0.8).as_deref(),
+            Some("<compaction>~0k tokens remaining</compaction>")
+        );
     }
 }
