@@ -150,6 +150,23 @@ describe('handleAcpSessionNotification', () => {
     expect(dispatchEvent).not.toHaveBeenCalled();
   });
 
+  it('dispatches SESSION_CREATED for a session this window has never seen', async () => {
+    const dispatchEvent = vi.spyOn(window, 'dispatchEvent');
+    vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValueOnce(undefined);
+
+    await handleAcpSessionNotification({
+      sessionId: SESSION_ID,
+      update: {
+        sessionUpdate: 'user_message_chunk',
+        content: { type: 'text', text: 'Take this over' },
+      },
+    });
+
+    expect(dispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: AppEvents.SESSION_CREATED })
+    );
+  });
+
   it('dispatches SESSION_RENAMED from the notification title when the session is not loaded', async () => {
     const dispatchEvent = vi.spyOn(window, 'dispatchEvent');
     vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValueOnce(snapshotWithoutSession());

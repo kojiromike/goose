@@ -10,14 +10,20 @@ import { acpChatSessionActions, acpChatSessionStore } from './chatSessionStore';
 import { publishLiveVoiceInteractionEnded } from './liveVoiceNotifications';
 
 export function handleAcpSessionNotification(notification: SessionNotification): Promise<void> {
-  const sessionNameBeforeNotification = acpChatSessionStore.getSnapshot(notification.sessionId)
-    ?.session?.name;
+  const snapshotBeforeNotification = acpChatSessionStore.getSnapshot(notification.sessionId);
+  const sessionNameBeforeNotification = snapshotBeforeNotification?.session?.name;
   const updatedName =
     notification.update.sessionUpdate === 'session_info_update'
       ? notification.update.title
       : undefined;
   acpChatSessionActions.applyAcpSessionNotification(notification);
   maybeHandleLivePlatformEvent(notification);
+
+  // A session this window has never seen was started by the backend (an agent
+  // orchestrating other sessions), so the sidebar has no entry for it yet.
+  if (!snapshotBeforeNotification) {
+    window.dispatchEvent(new CustomEvent(AppEvents.SESSION_CREATED));
+  }
 
   if (updatedName && updatedName !== sessionNameBeforeNotification) {
     window.dispatchEvent(
