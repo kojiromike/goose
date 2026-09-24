@@ -45,6 +45,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 default_enabled: true,
                 unprefixed_tools: true,
                 hidden: false,
+                acp_bridged: false,
                 client_factory: |ctx| Some(Box::new(analyze::AnalyzeClient::new(ctx).unwrap())),
             },
         );
@@ -59,6 +60,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 default_enabled: false,
                 unprefixed_tools: false,
                 hidden: false,
+                acp_bridged: false,
                 client_factory: |ctx| Some(Box::new(todo::TodoClient::new(ctx).unwrap())),
             },
         );
@@ -74,6 +76,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 default_enabled: true,
                 unprefixed_tools: false,
                 hidden: false,
+                acp_bridged: false,
                 client_factory: |ctx| Some(Box::new(apps::AppsManagerClient::new(ctx).unwrap())),
             },
         );
@@ -89,6 +92,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 default_enabled: false,
                 unprefixed_tools: false,
                 hidden: false,
+                acp_bridged: true,
                 client_factory: |ctx| {
                     Some(Box::new(chatrecall::ChatRecallClient::new(ctx).unwrap()))
                 },
@@ -105,6 +109,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 default_enabled: true,
                 unprefixed_tools: false,
                 hidden: false,
+                acp_bridged: false,
                 client_factory: |ctx| Some(Box::new(ext_manager::ExtensionManagerClient::new(ctx).unwrap())),
             },
         );
@@ -119,6 +124,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 default_enabled: true,
                 unprefixed_tools: false,
                 hidden: true,
+                acp_bridged: false,
                 client_factory: |ctx| {
                     scheduler::SchedulerClient::new(ctx).map(|client| Box::new(client) as _)
                 },
@@ -134,6 +140,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 default_enabled: true,
                 unprefixed_tools: true,
                 hidden: false,
+                acp_bridged: false,
                 client_factory: |ctx| Some(Box::new(summon::SummonClient::new(ctx).unwrap())),
             },
         );
@@ -147,6 +154,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 default_enabled: false,
                 unprefixed_tools: false,
                 hidden: false,
+                acp_bridged: false,
                 client_factory: |ctx| Some(Box::new(summarize::SummarizeClient::new(ctx).unwrap())),
             },
         );
@@ -162,6 +170,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 default_enabled: false,
                 unprefixed_tools: true,
                 hidden: false,
+                acp_bridged: false,
                 client_factory: |ctx| {
                     Some(Box::new(
                         code_execution::CodeExecutionClient::new(
@@ -183,6 +192,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 default_enabled: true,
                 unprefixed_tools: true,
                 hidden: false,
+                acp_bridged: false,
                 client_factory: |ctx| Some(Box::new(developer::DeveloperClient::new(ctx).unwrap())),
             },
         );
@@ -197,6 +207,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 default_enabled: false,
                 unprefixed_tools: false,
                 hidden: true,
+                acp_bridged: true,
                 client_factory: |ctx| Some(Box::new(orchestrator::OrchestratorClient::new(ctx).unwrap())),
             },
         );
@@ -211,6 +222,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 default_enabled: true,
                 unprefixed_tools: false,
                 hidden: false,
+                acp_bridged: false,
                 client_factory: |ctx| Some(Box::new(tom::TomClient::new(ctx).unwrap())),
             },
         );
@@ -224,6 +236,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 default_enabled: true,
                 unprefixed_tools: true,
                 hidden: false,
+                acp_bridged: false,
                 client_factory: |ctx| {
                     Some(Box::new(crate::skills::SkillsClient::new(ctx).unwrap()))
                 },
@@ -310,5 +323,9 @@ pub struct PlatformExtensionDef {
     pub unprefixed_tools: bool,
     /// If true, the extension is not shown in the UI or discoverable via search_available_extensions.
     pub hidden: bool,
+    /// If true, ACP agents (which run their own tool loop and never see goose's tools)
+    /// get this extension as an MCP server served by goose. Leave false for extensions
+    /// that duplicate what an ACP agent already has, such as shell or file editing.
+    pub acp_bridged: bool,
     pub client_factory: fn(PlatformExtensionContext) -> Option<Box<dyn McpClientTrait>>,
 }

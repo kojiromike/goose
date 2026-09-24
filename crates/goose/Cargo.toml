@@ -117,10 +117,12 @@ workspace = true
 lru = { workspace = true }
 rmcp = { workspace = true, features = [
     "client",
+    "server",
     "transport-child-process",
     "transport-streamable-http-client",
     "transport-streamable-http-client-reqwest",
     "transport-streamable-http-client-unix-socket",
+    "transport-streamable-http-server",
 ] }
 oauth2 = { version = "5.0", default-features = false }
 arboard = { workspace = true }

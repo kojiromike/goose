@@ -3679,6 +3679,13 @@ impl Agent {
             Some(&session.extension_data),
             Config::global(),
         );
+        let extensions = crate::acp::bridge_platform_extensions(
+            provider_name,
+            session_id,
+            extensions,
+            &self.extension_manager,
+        )
+        .await;
 
         let provider = crate::providers::create_with_working_dir(
             provider_name,
@@ -3789,6 +3796,13 @@ impl Agent {
                 .await
                 .is_ok()
             {
+                let extensions = crate::acp::bridge_platform_extensions(
+                    &provider_name,
+                    &session.id,
+                    extensions,
+                    &self.extension_manager,
+                )
+                .await;
                 let p = crate::providers::create_with_working_dir(
                     &provider_name,
                     extensions,
@@ -3826,6 +3840,13 @@ impl Agent {
                     anyhow!("Could not configure fallback provider: invalid model {}", e)
                 })?;
 
+                let extensions = crate::acp::bridge_platform_extensions(
+                    &fallback_provider_name,
+                    &session.id,
+                    extensions,
+                    &self.extension_manager,
+                )
+                .await;
                 let fallback_provider = crate::providers::create_with_working_dir(
                     &fallback_provider_name,
                     extensions,
