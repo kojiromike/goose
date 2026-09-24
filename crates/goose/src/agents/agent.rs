@@ -289,6 +289,7 @@ pub struct AgentConfig {
     pub out_of_band_message_tx: Option<mpsc::UnboundedSender<OutOfBandMessage>>,
     pub use_login_shell_path: Option<bool>,
     pub is_subagent: bool,
+    pub session_driver: Option<Arc<dyn crate::agents::platform_extensions::SessionDriver>>,
 }
 
 impl AgentConfig {
@@ -314,6 +315,7 @@ impl AgentConfig {
             out_of_band_message_tx: None,
             use_login_shell_path: None,
             is_subagent: false,
+            session_driver: None,
         }
     }
 
@@ -525,18 +527,22 @@ impl Agent {
         let permission_manager = Arc::clone(&config.permission_manager);
         let use_login_shell_path = config.resolve_use_login_shell_path();
         let is_subagent = config.is_subagent;
+        let session_driver = config.session_driver.clone();
         Self {
             provider: provider.clone(),
             config,
             current_goose_mode: Mutex::new(initial_mode),
-            extension_manager: Arc::new(ExtensionManager::new(
-                provider.clone(),
-                session_manager,
-                scheduler,
-                client_name,
-                capabilities,
-                use_login_shell_path,
-            )),
+            extension_manager: Arc::new(
+                ExtensionManager::new(
+                    provider.clone(),
+                    session_manager,
+                    scheduler,
+                    client_name,
+                    capabilities,
+                    use_login_shell_path,
+                )
+                .with_session_driver(session_driver),
+            ),
             final_output_tool: Arc::new(Mutex::new(None)),
             prompt_manager: Mutex::new(PromptManager::new()),
             tool_confirmation_router: ToolConfirmationRouter::new(),

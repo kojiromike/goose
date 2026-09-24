@@ -23,6 +23,7 @@ pub struct RuntimeContext {
     pub use_login_shell_path: Option<bool>,
     pub session_name_update_tx: Option<mpsc::UnboundedSender<SessionNameUpdate>>,
     pub out_of_band_message_tx: Option<mpsc::UnboundedSender<OutOfBandMessage>>,
+    pub session_driver: Option<Arc<dyn crate::agents::platform_extensions::SessionDriver>>,
 }
 
 pub struct AgentManagerGetResult {
@@ -202,6 +203,7 @@ impl AgentManager {
         config.use_login_shell_path = runtime_context.use_login_shell_path;
         config.session_name_update_tx = runtime_context.session_name_update_tx;
         config.out_of_band_message_tx = runtime_context.out_of_band_message_tx;
+        config.session_driver = runtime_context.session_driver;
         let agent = Arc::new(Agent::with_config(config));
         let mut extension_results = Vec::new();
 
