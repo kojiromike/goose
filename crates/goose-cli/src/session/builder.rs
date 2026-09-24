@@ -703,7 +703,18 @@ pub async fn build_session(session_config: SessionBuilderConfig) -> CliSession {
         };
 
     let (new_provider, effective_provider_name, effective_model_name, effective_model_config) =
-        match create(&resolved.provider_name, extensions_for_provider.clone()).await {
+        match create(
+            &resolved.provider_name,
+            goose::acp::bridge_platform_extensions(
+                &resolved.provider_name,
+                &session_id,
+                extensions_for_provider.clone(),
+                &agent.extension_manager,
+            )
+            .await,
+        )
+        .await
+        {
             Ok(provider) => (
                 provider,
                 resolved.provider_name.clone(),
@@ -744,7 +755,18 @@ pub async fn build_session(session_config: SessionBuilderConfig) -> CliSession {
                 if !session_config.interactive {
                     fallback_model_config = fallback_model_config.with_cache_ttl_clamped();
                 }
-                match create(&fallback_provider, extensions_for_provider.clone()).await {
+                match create(
+                    &fallback_provider,
+                    goose::acp::bridge_platform_extensions(
+                        &fallback_provider,
+                        &session_id,
+                        extensions_for_provider.clone(),
+                        &agent.extension_manager,
+                    )
+                    .await,
+                )
+                .await
+                {
                     Ok(provider) => (
                         provider,
                         fallback_provider,
