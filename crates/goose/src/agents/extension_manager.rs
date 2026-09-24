@@ -2591,6 +2591,10 @@ impl ExtensionManager {
         Ok(vec![ContentBlock::text(output_parts.join("\n"))])
     }
 
+    pub async fn extension_instructions(&self, name: &str) -> Option<String> {
+        self.get_server_client(name).await?.get_instructions()
+    }
+
     async fn get_server_client(&self, name: impl Into<String>) -> Option<McpClientBox> {
         let normalized = name_to_key(&name.into());
         self.extensions
