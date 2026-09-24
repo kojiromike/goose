@@ -1,5 +1,6 @@
 use crate::agents::extension::PlatformExtensionContext;
 use crate::agents::mcp_client::{Error, McpClientTrait};
+use crate::agents::platform_extensions::SessionDriver;
 use crate::agents::tool_execution::ToolCallContext;
 use crate::agents::{AgentEvent, SessionConfig};
 use crate::config::{Config, ExtensionConfig, GooseMode};
@@ -84,6 +85,9 @@ struct StartAgentParams {
     working_dir: String,
     /// Human-readable name for the session
     name: Option<String>,
+    /// First message for the new session. It starts working on it right away, and
+    /// start_agent returns without waiting for the reply.
+    prompt: Option<String>,
     // TODO: add a "model_tier" parameter (e.g. "fast" vs "normal") to let the orchestrator
     // choose between a fast/cheap model and the default one. For now we inherit the
     // orchestrator's own provider and model.
@@ -95,6 +99,9 @@ struct SendMessageParams {
     session_id: String,
     /// The message text to send
     message: String,
+    /// Return as soon as the message is delivered instead of waiting for the reply.
+    #[serde(default)]
+    background: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -119,6 +126,17 @@ impl OrchestratorClient {
             );
 
         Ok(Self { info, context })
+    }
+
+    /// Present when a client owns this session (the ACP server). Sessions this
+    /// extension starts or messages then run through that client, so the user sees
+    /// them, instead of on a process-wide agent nobody is watching.
+    fn session_driver(&self) -> Option<Arc<dyn SessionDriver>> {
+        self.context
+            .extension_manager
+            .as_ref()?
+            .upgrade()?
+            .session_driver()
     }
 
     async fn get_agent_manager(&self) -> Result<Arc<AgentManager>, String> {
@@ -416,6 +434,11 @@ impl OrchestratorClient {
             return Err(format!("'{}' is not a directory", working_dir));
         }
 
+        let prompt = args
+            .get("prompt")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+
         let mode = GooseMode::default();
 
         let session = self
@@ -424,6 +447,31 @@ impl OrchestratorClient {
             .create_session(path, name.clone(), SessionType::User, mode)
             .await
             .map_err(|e| format!("Failed to create session: {}", e))?;
+
+        if let Some(driver) = self.session_driver() {
+            // The client activates the session from what is saved, so save the
+            // provider, model, and extensions this session runs with.
+            let parent_provider = self.get_provider().await?;
+            let model_config = self.parent_model_config(parent_provider.get_name()).await?;
+            let caller = self.caller_session(session_id).await?;
+            self.context
+                .session_manager
+                .update(&session.id)
+                .provider_name(parent_provider.get_name())
+                .model_config(model_config)
+                .extension_data(caller.extension_data)
+                .apply()
+                .await
+                .map_err(|e| format!("Failed to configure session: {}", e))?;
+            driver.announce_session(&session.id).await;
+            if let Some(prompt) = prompt {
+                prompt_in_background(driver, session.id.clone(), prompt);
+            }
+            return Ok(CallToolResult::success(vec![ContentBlock::text(format!(
+                "Started agent session '{}' with ID: {}. It appears in the user's session list.\n\nUse send_message with this session_id to interact with it.",
+                name, session.id
+            ))]));
+        }
 
         let manager = self.get_agent_manager().await?;
         let agent = manager
@@ -511,6 +559,24 @@ impl OrchestratorClient {
 
         self.authorize_send_message(parent_session_id, &session_id)
             .await?;
+
+        if let Some(driver) = self.session_driver() {
+            let background = args
+                .get("background")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            if background {
+                prompt_in_background(driver, session_id.clone(), message_text);
+                return Ok(CallToolResult::success(vec![ContentBlock::text(format!(
+                    "Sent to session {}. It is working on the message; use view_session to check on it.",
+                    session_id
+                ))]));
+            }
+            let reply = driver
+                .prompt(&session_id, &message_text, parent_cancel.clone())
+                .await?;
+            return Ok(reply_result(&session_id, reply));
+        }
 
         let manager = self.get_agent_manager().await?;
 
@@ -602,17 +668,7 @@ impl OrchestratorClient {
             return Err("Cancelled by parent session".into());
         }
 
-        if response_parts.is_empty() {
-            Ok(CallToolResult::success(vec![ContentBlock::text(
-                "Agent completed without producing text output.",
-            )]))
-        } else {
-            Ok(CallToolResult::success(vec![ContentBlock::text(format!(
-                "## Response from session {}\n\n{}",
-                session_id,
-                response_parts.join("\n\n")
-            ))]))
-        }
+        Ok(reply_result(&session_id, response_parts.join("\n\n")))
     }
 
     async fn handle_interrupt_agent(
@@ -634,6 +690,26 @@ impl OrchestratorClient {
             session_id
         ))]))
     }
+}
+
+fn reply_result(session_id: &str, reply: String) -> CallToolResult {
+    let text = if reply.is_empty() {
+        "Agent completed without producing text output.".to_string()
+    } else {
+        format!("## Response from session {}\n\n{}", session_id, reply)
+    };
+    CallToolResult::success(vec![ContentBlock::text(text)])
+}
+
+fn prompt_in_background(driver: Arc<dyn SessionDriver>, session_id: String, message: String) {
+    tokio::spawn(async move {
+        if let Err(error) = driver
+            .prompt(&session_id, &message, CancellationToken::new())
+            .await
+        {
+            tracing::warn!(session_id, error, "Background orchestrator message failed");
+        }
+    });
 }
 
 fn agent_visible_session_messages(conversation: &Conversation) -> Vec<Message> {

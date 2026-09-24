@@ -77,7 +77,7 @@ use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use tokio::sync::{mpsc, Mutex, OnceCell};
 use tokio_util::compat::{TokioAsyncReadCompatExt as _, TokioAsyncWriteCompatExt as _};
 use tokio_util::sync::CancellationToken;
@@ -123,6 +123,7 @@ mod providers;
 mod recipe;
 mod resources;
 mod schedule;
+mod session_driver;
 mod slash_commands;
 mod sources;
 mod tool_calls;
@@ -334,6 +335,7 @@ pub struct GooseAcpAgent {
     client_requests_tool_call_label_enrichment: OnceCell<bool>,
     use_login_shell_path: OnceCell<bool>,
     client_cx: OnceCell<ConnectionTo<Client>>,
+    self_ref: OnceCell<Weak<GooseAcpAgent>>,
     thinking_effort_update_tx: mpsc::UnboundedSender<String>,
     thinking_effort_update_rx: Mutex<Option<mpsc::UnboundedReceiver<String>>>,
     config_dir: std::path::PathBuf,
@@ -983,6 +985,7 @@ impl GooseAcpAgent {
             client_requests_tool_call_label_enrichment: OnceCell::new(),
             use_login_shell_path: OnceCell::new(),
             client_cx: OnceCell::new(),
+            self_ref: OnceCell::new(),
             thinking_effort_update_tx,
             thinking_effort_update_rx: Mutex::new(Some(thinking_effort_update_rx)),
             config_dir: options.config_dir,
@@ -1071,6 +1074,10 @@ impl GooseAcpAgent {
                     use_login_shell_path: self.use_login_shell_path.get().copied(),
                     session_name_update_tx: (!self.disable_session_naming)
                         .then(|| spawn_session_name_update_notifier(cx.clone())),
+                    session_driver: self.self_ref.get().map(|server| {
+                        Arc::new(session_driver::AcpSessionDriver::new(server.clone()))
+                            as Arc<dyn crate::agents::platform_extensions::SessionDriver>
+                    }),
                 },
             )
             .await

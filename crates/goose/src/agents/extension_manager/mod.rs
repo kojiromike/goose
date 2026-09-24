@@ -26,6 +26,7 @@ use crate::action_required_manager::ActionRequiredManager;
 use crate::agents::mcp_client::{
     ConnectContext, GooseMcpClientCapabilities, GooseMcpHostInfo, McpClientTrait,
 };
+use crate::agents::platform_extensions::SessionDriver;
 use crate::agents::reply_parts::is_tool_visible_to_app;
 use crate::config::extensions::name_to_key;
 use crate::config::Config;
@@ -177,6 +178,7 @@ pub struct ExtensionManager {
     tools_cache_version: AtomicU64,
     client_name: String,
     capabilities: ExtensionManagerCapabilities,
+    session_driver: Option<Arc<dyn SessionDriver>>,
 }
 
 /// A flattened representation of a resource used by the agent to prepare inference
@@ -429,6 +431,7 @@ impl ExtensionManager {
             tools_cache_version: AtomicU64::new(0),
             client_name,
             capabilities,
+            session_driver: None,
         }
     }
 
@@ -447,6 +450,15 @@ impl ExtensionManager {
             },
             false,
         )
+    }
+
+    pub fn with_session_driver(mut self, session_driver: Option<Arc<dyn SessionDriver>>) -> Self {
+        self.session_driver = session_driver;
+        self
+    }
+
+    pub fn session_driver(&self) -> Option<Arc<dyn SessionDriver>> {
+        self.session_driver.clone()
     }
 
     pub fn get_context(&self) -> &PlatformExtensionContext {

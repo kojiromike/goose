@@ -21,6 +21,7 @@ use std::collections::HashMap;
 use crate::agents::mcp_client::McpClientTrait;
 use crate::session::Session;
 use once_cell::sync::Lazy;
+use tokio_util::sync::CancellationToken;
 
 pub use ext_manager::MANAGE_EXTENSIONS_TOOL_NAME_COMPLETE;
 
@@ -246,6 +247,23 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
         map
     },
 );
+
+/// Drives sessions through the client connection that owns them, so a turn a platform
+/// extension starts reaches that client the way a turn the user starts does.
+#[async_trait::async_trait]
+pub trait SessionDriver: Send + Sync {
+    /// Tell the client that `session_id` exists, so it can list the session.
+    async fn announce_session(&self, session_id: &str);
+
+    /// Run `message` as a user turn in `session_id` and return the reply text.
+    /// Cancelling `cancel` cancels the turn.
+    async fn prompt(
+        &self,
+        session_id: &str,
+        message: &str,
+        cancel: CancellationToken,
+    ) -> Result<String, String>;
+}
 
 #[derive(Clone)]
 pub struct PlatformExtensionContext {

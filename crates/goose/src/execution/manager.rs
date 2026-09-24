@@ -22,6 +22,7 @@ pub struct RuntimeContext {
     pub mcp_host_info: Option<GooseMcpHostInfo>,
     pub use_login_shell_path: Option<bool>,
     pub session_name_update_tx: Option<mpsc::UnboundedSender<SessionNameUpdate>>,
+    pub session_driver: Option<Arc<dyn crate::agents::platform_extensions::SessionDriver>>,
 }
 
 pub struct AgentManagerGetResult {
@@ -200,6 +201,7 @@ impl AgentManager {
         config.mcp_host_info = runtime_context.mcp_host_info;
         config.use_login_shell_path = runtime_context.use_login_shell_path;
         config.session_name_update_tx = runtime_context.session_name_update_tx;
+        config.session_driver = runtime_context.session_driver;
         let agent = Arc::new(Agent::with_config(config));
         let mut extension_results = Vec::new();
 
