@@ -582,6 +582,12 @@ impl McpClientTrait for CodeExecutionClient {
     }
 
     async fn get_moim(&self, session_id: &str) -> Option<String> {
+        // Agents that run their own tool loop (e.g. over ACP) never see execute_typescript.
+        let manager = self.context.extension_manager.as_ref()?.upgrade()?;
+        let provider = manager.get_provider().lock().await.clone();
+        if provider.is_some_and(|provider| !provider.supports_builtin_tools()) {
+            return None;
+        }
         let code_mode = self.get_code_mode(session_id).await.ok()?;
 
         let disclosure_style_moim = match self.disclosure {
@@ -676,6 +682,7 @@ mod tests {
     use crate::agents::extension_manager::ExtensionManager;
     use pctx_code_mode::model::FunctionId;
     use rmcp::model::{Annotations, EmbeddedResource, MetaObject, ResourceContents, TextContent};
+    use test_case::test_case;
 
     #[test]
     fn callback_result_ignores_hidden_structured_content_and_meta() {
@@ -1018,6 +1025,58 @@ mod tests {
         .expect("script should not time out");
 
         assert!(result.success, "callback should succeed: {}", result.stderr);
+    }
+
+    struct ContextProvider {
+        manages_own_context: bool,
+    }
+
+    #[async_trait]
+    impl crate::providers::base::Provider for ContextProvider {
+        fn get_name(&self) -> &str {
+            "context"
+        }
+
+        fn manages_own_context(&self) -> bool {
+            self.manages_own_context
+        }
+
+        async fn stream(
+            &self,
+            _model_config: &goose_providers::model::ModelConfig,
+            _system: &str,
+            _messages: &[crate::conversation::message::Message],
+            _tools: &[McpTool],
+        ) -> Result<crate::providers::base::MessageStream, goose_providers::errors::ProviderError>
+        {
+            unimplemented!("get_moim never streams")
+        }
+    }
+
+    #[test_case(None, true ; "no provider")]
+    #[test_case(Some(false), true ; "goose runs the tool loop")]
+    #[test_case(Some(true), false ; "provider runs its own tool loop")]
+    #[tokio::test]
+    async fn moim_is_only_for_providers_that_see_execute_typescript(
+        manages_own_context: Option<bool>,
+        expect_moim: bool,
+    ) {
+        let temp = tempfile::tempdir().unwrap();
+        let manager = Arc::new(ExtensionManager::new_without_provider(
+            temp.path().join("manager"),
+        ));
+        *manager.get_provider().lock().await = manages_own_context.map(|manages_own_context| {
+            Arc::new(ContextProvider {
+                manages_own_context,
+            }) as Arc<dyn crate::providers::base::Provider>
+        });
+        let mut context = manager.get_context().clone();
+        context.extension_manager = Some(Arc::downgrade(&manager));
+        let client = CodeExecutionClient::new(context, ToolDisclosure::Catalog).unwrap();
+
+        let moim = client.get_moim("test-session").await;
+
+        assert_eq!(moim.is_some(), expect_moim, "{moim:?}");
     }
 
     #[test]

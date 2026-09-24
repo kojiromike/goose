@@ -38,6 +38,10 @@ pub(super) async fn compute_compaction_info(
     session_id: &str,
     extension_manager: &ExtensionManager,
 ) -> Option<String> {
+    let provider = extension_manager.get_provider().lock().await.clone()?;
+    if provider.manages_own_context() {
+        return None;
+    }
     let session = extension_manager
         .get_context()
         .session_manager
@@ -48,15 +52,9 @@ pub(super) async fn compute_compaction_info(
         .as_ref()
         .and_then(|session| session.model_config.clone());
     let context_limit = if let Some(model_config) = session_model_config.as_ref() {
-        let provider = extension_manager.get_provider().lock().await.clone();
-        match provider {
-            Some(provider) => {
-                crate::context_limit::get_context_limit(provider.as_ref(), &model_config.model_name)
-                    .await
-                    .ok()
-            }
-            None => None,
-        }
+        crate::context_limit::get_context_limit(provider.as_ref(), &model_config.model_name)
+            .await
+            .ok()
     } else {
         None
     };
@@ -203,7 +201,7 @@ fn compaction_remaining_line(
 
     Some(format!(
         "~{}k tokens remaining",
-        compaction_at.saturating_sub(total_tokens) / 1000
+        compaction_at.saturating_sub(total_tokens).max(0) / 1000
     ))
 }
 
@@ -221,6 +219,7 @@ fn turn_budget_part(turns_taken: u32, max_turns: u32) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_case::test_case;
 
     async fn session_and_manager() -> (String, ExtensionManager, tempfile::TempDir) {
         let temp_dir = tempfile::tempdir().unwrap();
@@ -294,6 +293,73 @@ mod tests {
             chrono::Local::now(),
         )
         .is_none());
+    }
+
+    #[test]
+    fn compaction_remaining_line_clamps_at_zero_past_threshold() {
+        assert_eq!(
+            compaction_remaining_line(Some(100_000), Some(200_000), 0.8).as_deref(),
+            Some("~60k tokens remaining")
+        );
+        assert_eq!(
+            compaction_remaining_line(Some(2_500_000), Some(200_000), 0.8).as_deref(),
+            Some("~0k tokens remaining")
+        );
+    }
+
+    struct ContextProvider {
+        manages_own_context: bool,
+    }
+
+    #[async_trait::async_trait]
+    impl crate::providers::base::Provider for ContextProvider {
+        fn get_name(&self) -> &str {
+            "context"
+        }
+
+        fn manages_own_context(&self) -> bool {
+            self.manages_own_context
+        }
+
+        async fn stream(
+            &self,
+            _model_config: &goose_providers::model::ModelConfig,
+            _system: &str,
+            _messages: &[Message],
+            _tools: &[rmcp::model::Tool],
+        ) -> Result<crate::providers::base::MessageStream, goose_providers::errors::ProviderError>
+        {
+            unimplemented!("compaction info never streams")
+        }
+    }
+
+    #[test_case(false, true ; "goose manages context")]
+    #[test_case(true, false ; "provider manages its own context")]
+    #[tokio::test]
+    async fn compaction_info_is_only_for_goose_managed_context(
+        manages_own_context: bool,
+        expect_info: bool,
+    ) {
+        let (session_id, em, _tmp) = session_and_manager().await;
+        *em.get_provider().lock().await = Some(std::sync::Arc::new(ContextProvider {
+            manages_own_context,
+        }));
+        em.get_context()
+            .session_manager
+            .update(&session_id)
+            .model_config(goose_providers::model::ModelConfig::new("test-model"))
+            .usage(goose_providers::conversation::token_usage::Usage::new(
+                None,
+                None,
+                Some(10_000_000),
+            ))
+            .apply()
+            .await
+            .unwrap();
+
+        let info = compute_compaction_info(&session_id, &em).await;
+
+        assert_eq!(info.is_some(), expect_info, "{info:?}");
     }
 
     #[test]
