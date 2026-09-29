@@ -220,6 +220,28 @@ describe('acpChatSessionController.stop', () => {
     );
     expect(acpCancelPrompt).toHaveBeenCalledWith(SESSION_ID);
   });
+
+  it('cancels a backend-started run that this window never prompted', () => {
+    vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue({
+      ...snapshotWithActivePrompt(null),
+      chatState: ChatState.Streaming,
+      activeRunId: 'run-from-orchestrator',
+    });
+
+    acpChatSessionController.stop(SESSION_ID);
+
+    expect(acpCancelPrompt).toHaveBeenCalledWith(SESSION_ID);
+    expect(acpChatSessionActions.startPromptCancellation).not.toHaveBeenCalled();
+  });
+
+  it('does not send a cancel when nothing is running', () => {
+    vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue(snapshotWithActivePrompt(null));
+
+    acpChatSessionController.stop(SESSION_ID);
+
+    expect(acpCancelPrompt).not.toHaveBeenCalled();
+    expect(acpChatSessionActions.setChatState).toHaveBeenCalledWith(SESSION_ID, ChatState.Idle);
+  });
 });
 
 describe('acpChatSessionController.submitMessage', () => {
