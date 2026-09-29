@@ -242,6 +242,17 @@ function stop(sessionId: string): void {
     return;
   }
 
+  // A run this window did not start (an agent orchestrating this session sent the
+  // prompt) has no local attempt to cancel, but the backend still reports it as
+  // active, and only session/cancel stops it.
+  if (acpChatSessionStore.getSnapshot(sessionId)?.activeRunId) {
+    cancelAcpPermissionRequestsForSession(sessionId);
+    cancelAcpElicitationRequestsForSession(sessionId);
+    acpCancelPrompt(sessionId).catch((error) => {
+      console.warn('Failed to cancel ACP prompt:', error);
+    });
+  }
+
   acpChatSessionActions.setChatState(sessionId, ChatState.Idle);
 }
 
