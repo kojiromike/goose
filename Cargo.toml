@@ -126,6 +126,16 @@ cudaforge = { git = "https://github.com/jbg/cudaforge", rev = "e7c1967340e40673d
 # full debug info and stay fully debuggable; release builds are unaffected.
 [profile.dev.package."*"]
 debug = false
+# With debug info off, Cargo strips these by default. On macOS 27, stripping a proc-macro
+# dylib can leave its LINKEDIT string pool 4-byte aligned, which dyld refuses to load, so
+# rustc reports "can't find crate" (rust-lang/rust#157750). Host artifacts never ship.
+strip = "none"
+
+[profile.dev.build-override]
+strip = "none"
+
+[profile.release.build-override]
+strip = "none"
 
 [profile.lean]
 inherits = "release"
