@@ -12,6 +12,7 @@ use crate::providers;
 use crate::providers::base::Provider;
 use crate::session::extension_data::EnabledExtensionsState;
 use crate::session::session_manager::{Session, SessionType};
+use crate::session::{ExtensionState, StagedPromptState};
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -88,6 +89,10 @@ struct StartAgentParams {
     /// First message for the new session. It starts working on it right away, and
     /// start_agent returns without waiting for the reply.
     prompt: Option<String>,
+    /// Stage the prompt instead of running it: the session appears in the user's session
+    /// list with the prompt waiting in its input, and nothing runs until the user sends it.
+    #[serde(default)]
+    stage: bool,
     // TODO: add a "model_tier" parameter (e.g. "fast" vs "normal") to let the orchestrator
     // choose between a fast/cheap model and the default one. For now we inherit the
     // orchestrator's own provider and model.
@@ -438,6 +443,10 @@ impl OrchestratorClient {
             .get("prompt")
             .and_then(|v| v.as_str())
             .map(str::to_string);
+        let stage = args.get("stage").and_then(|v| v.as_bool()).unwrap_or(false);
+        if stage && prompt.is_none() {
+            return Err("stage needs a prompt to stage".to_string());
+        }
 
         let mode = GooseMode::default();
 
@@ -453,17 +462,40 @@ impl OrchestratorClient {
             // provider, model, and extensions this session runs with.
             let parent_provider = self.get_provider().await?;
             let model_config = self.parent_model_config(parent_provider.get_name()).await?;
+            // Copy only the caller's extension set. The rest of its extension data is
+            // per-session state (todos, the provider's resumable session id) that
+            // belongs to the caller alone.
             let caller = self.caller_session(session_id).await?;
+            let mut extension_data = session.extension_data.clone();
+            if let Some(enabled) =
+                EnabledExtensionsState::from_extension_data(&caller.extension_data)
+            {
+                enabled
+                    .to_extension_data(&mut extension_data)
+                    .map_err(|e| format!("Failed to copy extensions: {}", e))?;
+            }
+            let staged = prompt.as_ref().filter(|_| stage);
+            if let Some(text) = staged {
+                StagedPromptState { text: text.clone() }
+                    .to_extension_data(&mut extension_data)
+                    .map_err(|e| format!("Failed to stage prompt: {}", e))?;
+            }
             self.context
                 .session_manager
                 .update(&session.id)
                 .provider_name(parent_provider.get_name())
                 .model_config(model_config)
-                .extension_data(caller.extension_data)
+                .extension_data(extension_data)
                 .apply()
                 .await
                 .map_err(|e| format!("Failed to configure session: {}", e))?;
             driver.announce_session(&session.id).await;
+            if staged.is_some() {
+                return Ok(CallToolResult::success(vec![ContentBlock::text(format!(
+                    "Staged session '{}' with ID: {}. It appears in the user's session list with the prompt waiting in its input; nothing runs until the user sends it.",
+                    name, session.id
+                ))]));
+            }
             if let Some(prompt) = prompt {
                 prompt_in_background(driver, session.id.clone(), prompt);
             }

@@ -39,6 +39,21 @@ describe('ACP sessions', () => {
     expect(session.session_type).toBe('scheduled');
   });
 
+  it('carries the staged prompt an agent drafted for the session', () => {
+    const staged = sessionInfoToSession(
+      sessionInfo({
+        _meta: {
+          createdAt: '2026-01-01T00:00:00Z',
+          messageCount: 0,
+          stagedPrompt: 'Review PR 718',
+        },
+      })
+    );
+
+    expect(staged.staged_prompt).toBe('Review PR 718');
+    expect(sessionInfoToSession(sessionInfo()).staged_prompt).toBeUndefined();
+  });
+
   it('does not synthesize a title when ACP omits one', () => {
     const session = sessionInfoToSession(sessionInfo({ title: undefined }));
 

@@ -30,6 +30,7 @@ interface GooseSessionInfoMeta {
   hasRecipe?: boolean;
   lastMessageSnippet?: string;
   activeRun?: boolean;
+  stagedPrompt?: string;
 }
 
 export interface SessionListItem {
@@ -118,6 +119,7 @@ export function sessionInfoToSession(s: SessionInfo, loadMeta: LoadSessionMeta =
     user_recipe_values: loadMeta.userRecipeValues,
     user_set_name: meta.userSetName,
     last_message_snippet: meta.lastMessageSnippet,
+    staged_prompt: meta.stagedPrompt,
   };
 }
 

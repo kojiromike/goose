@@ -2051,6 +2051,15 @@ impl SessionStorage {
             ));
         }
 
+        // A staged session has no messages yet but is waiting for the user, so it counts
+        // as having something to show.
+        if filters.only_sessions_with_messages {
+            having_clauses.push(
+                "(MAX(m.id) IS NOT NULL OR json_extract(s.extension_data, '$.\"staged_prompt.v0\"') IS NOT NULL)"
+                    .to_string(),
+            );
+        }
+
         let where_clause = if where_clauses.is_empty() {
             String::new()
         } else {
@@ -2061,11 +2070,7 @@ impl SessionStorage {
         } else {
             format!("HAVING {}", having_clauses.join(" AND "))
         };
-        let message_join = if filters.only_sessions_with_messages {
-            "JOIN messages m ON s.id = m.session_id"
-        } else {
-            "LEFT JOIN messages m ON s.id = m.session_id"
-        };
+        let message_join = "LEFT JOIN messages m ON s.id = m.session_id";
         let order_by = "ORDER BY sort_timestamp DESC, s.id DESC";
         let limit_clause = if query.limit.is_some() { "LIMIT ?" } else { "" };
 
@@ -3902,6 +3907,50 @@ mod tests {
         assert_eq!(page.sessions[0].id, hidden_only);
         assert_eq!(page.sessions[0].message_count, 0);
         assert!(page.sessions[0].last_message_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_session_list_paged_includes_staged_session_without_messages() {
+        use crate::session::{ExtensionData, ExtensionState, StagedPromptState};
+
+        let temp_dir = TempDir::new().unwrap();
+        let sm = SessionManager::new(temp_dir.path().to_path_buf());
+        let staged = create_session_for_list(&sm, "/tmp/session-list", false).await;
+        let mut extension_data = ExtensionData::default();
+        StagedPromptState {
+            text: "review PR 718".to_string(),
+        }
+        .to_extension_data(&mut extension_data)
+        .unwrap();
+        sm.update(&staged)
+            .extension_data(extension_data)
+            .apply()
+            .await
+            .unwrap();
+        create_session_for_list(&sm, "/tmp/session-list", false).await;
+
+        let types = [SessionType::User];
+        let page = sm
+            .list_sessions_paged(SessionListPageQuery {
+                filters: SessionListFilters {
+                    types: Some(&types),
+                    only_sessions_with_messages: true,
+                    ..Default::default()
+                },
+                cursor: None,
+                page_size: 10,
+                include_last_message_snippet: false,
+            })
+            .await
+            .unwrap();
+
+        let ids: Vec<_> = page.sessions.iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(ids, [staged.as_str()]);
+        assert_eq!(
+            StagedPromptState::from_extension_data(&page.sessions[0].extension_data)
+                .map(|s| s.text),
+            Some("review PR 718".to_string())
+        );
     }
 
     #[tokio::test]

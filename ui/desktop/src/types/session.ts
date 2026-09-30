@@ -25,13 +25,7 @@ export type Usage = {
 };
 
 export type SessionType =
-  | 'user'
-  | 'scheduled'
-  | 'sub_agent'
-  | 'hidden'
-  | 'terminal'
-  | 'gateway'
-  | 'acp';
+  'user' | 'scheduled' | 'sub_agent' | 'hidden' | 'terminal' | 'gateway' | 'acp';
 
 export type Session = {
   accumulated_cost?: number | null;
@@ -44,6 +38,8 @@ export type Session = {
   id: string;
   last_message_at?: string | null;
   last_message_snippet?: string | null;
+  // A first prompt an agent drafted for this session; it waits in the input until the user sends it.
+  staged_prompt?: string;
   message_count: number;
   model_config?: ModelConfig | null;
   name: string;

@@ -3,6 +3,7 @@ use crate::config::{Config, GooseMode};
 use crate::providers::inventory::{ProviderInventoryEntry, ProviderInventoryService};
 use crate::session::session_manager::SessionUsageTotals;
 use crate::session::Session;
+use crate::session::{ExtensionState, StagedPromptState};
 use crate::slash_commands::types::{SlashCommandEntry, SlashCommandSource};
 use agent_client_protocol::schema::v1::{
     AvailableCommand, AvailableCommandInput, AvailableCommandsUpdate, SessionConfigOption,
@@ -49,6 +50,8 @@ struct SessionMeta<'a> {
     /// session, so clients can restore "working" indicators after a reload.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     active_run: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    staged_prompt: Option<String>,
 }
 
 impl<'a> From<&'a Session> for SessionMeta<'a> {
@@ -69,6 +72,8 @@ impl<'a> From<&'a Session> for SessionMeta<'a> {
                 .map(|mc| mc.model_name.as_str()),
             last_message_snippet: session.last_message_snippet.as_deref(),
             active_run: false,
+            staged_prompt: StagedPromptState::from_extension_data(&session.extension_data)
+                .map(|staged| staged.text),
         }
     }
 }
