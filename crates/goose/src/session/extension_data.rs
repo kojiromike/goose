@@ -98,6 +98,27 @@ impl TodoState {
     }
 }
 
+/// A first prompt drafted for a session that has not run yet, kept on the session so a
+/// client can show the session and prefill its input for the user to review and send.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StagedPromptState {
+    pub text: String,
+}
+
+impl ExtensionState for StagedPromptState {
+    const EXTENSION_NAME: &'static str = "staged_prompt";
+    const VERSION: &'static str = "v0";
+}
+
+impl StagedPromptState {
+    pub fn remove_from(extension_data: &mut ExtensionData) -> bool {
+        extension_data
+            .extension_states
+            .remove(&format!("{}.{}", Self::EXTENSION_NAME, Self::VERSION))
+            .is_some()
+    }
+}
+
 /// Enabled extensions state implementation for storing which extensions are active
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnabledExtensionsState {

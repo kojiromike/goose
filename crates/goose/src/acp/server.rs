@@ -40,6 +40,7 @@ use crate::scheduler_trait::SchedulerTrait;
 use crate::session::session_manager::SessionUsageTotals;
 use crate::session::{
     EnabledExtensionsState, ExtensionData, ExtensionState, Session, SessionManager, SessionType,
+    StagedPromptState,
 };
 use crate::source_roots::SourceRoot;
 use crate::utils::sanitize_unicode_tags;
@@ -2266,6 +2267,27 @@ impl GooseAcpAgent {
         self.handle_load_session(cx, args).await
     }
 
+    /// A staged session's draft is spent once the session gets its first prompt,
+    /// whether the user sent the draft, edited it, or wrote something else.
+    async fn clear_staged_prompt(&self, session_id: &str) {
+        let Ok(session) = self.session_manager.get_session(session_id, false).await else {
+            return;
+        };
+        let mut extension_data = session.extension_data;
+        if !StagedPromptState::remove_from(&mut extension_data) {
+            return;
+        }
+        if let Err(error) = self
+            .session_manager
+            .update(session_id)
+            .extension_data(extension_data)
+            .apply()
+            .await
+        {
+            warn!(session_id, %error, "Failed to clear staged prompt");
+        }
+    }
+
     async fn on_prompt(
         &self,
         cx: &ConnectionTo<Client>,
@@ -2318,6 +2340,8 @@ impl GooseAcpAgent {
             let _ = Self::send_active_run_update(cx, &args.session_id, None);
             return Err(error);
         }
+
+        self.clear_staged_prompt(&session_id).await;
 
         let user_message = Self::convert_acp_prompt_to_message(&args.prompt);
         let use_state_machine = use_state_machine_from_meta(args.meta.as_ref());

@@ -6,7 +6,11 @@ import {
   type NewSessionRequest,
   type SessionInfo,
 } from '@agentclientprotocol/sdk';
-import type { GooseExtension, SessionExportFormat, SessionImportSource } from '@aaif/goose-acp-client';
+import type {
+  GooseExtension,
+  SessionExportFormat,
+  SessionImportSource,
+} from '@aaif/goose-acp-client';
 import { getAcpClient } from './acpConnection';
 import type { ExtensionLoadResult } from '../types/extensions';
 import type { Session } from '../types/session';
@@ -24,6 +28,7 @@ interface GooseSessionInfoMeta {
   userSetName?: boolean;
   hasRecipe?: boolean;
   lastMessageSnippet?: string;
+  stagedPrompt?: string;
 }
 
 export interface SessionListItem {
@@ -110,6 +115,7 @@ export function sessionInfoToSession(s: SessionInfo, loadMeta: LoadSessionMeta =
     user_recipe_values: loadMeta.userRecipeValues,
     user_set_name: meta.userSetName,
     last_message_snippet: meta.lastMessageSnippet,
+    staged_prompt: meta.stagedPrompt,
   };
 }
 

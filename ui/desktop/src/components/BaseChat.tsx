@@ -422,10 +422,11 @@ export default function BaseChat({
       : recipe.prompt;
   }
 
+  const stagedPrompt = messages.length === 0 ? session?.staged_prompt : undefined;
   const initialPrompt =
     noAutoSubmit && messages.length === 0 && resolvedInitialMessage?.msg
       ? resolvedInitialMessage.msg
-      : recipePrompt;
+      : stagedPrompt || recipePrompt;
 
   if (sessionLoadError) {
     return (
