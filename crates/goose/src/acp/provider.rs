@@ -55,6 +55,9 @@ pub const ACP_CURRENT_MODEL: &str = "current";
 /// without categorizing it as `thought_level`.
 const EFFORT_CONFIG_OPTION_ID: &str = "effort";
 
+/// Tool meta naming the subagent (Agent/Task) tool call that made a call.
+const TOOL_META_ACP_PARENT_TOOL_CALL_KEY: &str = "goose.acp.parent_tool_call_id";
+
 /// Session request param holding the selected thinking effort.
 pub(super) const THINKING_EFFORT_PARAM: &str = "thinking_effort";
 
@@ -147,12 +150,14 @@ enum AcpUpdate {
         name: String,
         kind: ToolKind,
         raw_input: Option<serde_json::Value>,
+        parent_tool_call_id: Option<String>,
     },
     ToolCallComplete {
         id: String,
         raw_output: Option<serde_json::Value>,
         content: Option<Vec<ToolCallContent>>,
         is_error: bool,
+        parent_tool_call_id: Option<String>,
     },
     PermissionRequest {
         request: Box<RequestPermissionRequest>,
@@ -193,6 +198,26 @@ fn provider_error_from_acp(error: agent_client_protocol::Error) -> ProviderError
 struct AccumulatedToolCall {
     raw_output: Option<serde_json::Value>,
     content: Vec<ToolCallContent>,
+    /// Remembered from the call's announcement so its result stays attributed
+    /// even if a later update omits the meta.
+    parent_tool_call_id: Option<String>,
+}
+
+/// The Agent/Task tool call of the subagent that made this call, if any.
+///
+/// claude-agent-acp reports a subagent's tool calls on the parent session and
+/// marks each one with `_meta.claudeCode.parentToolUseId`. A background
+/// subagent keeps making them while the main agent streams its reply, so they
+/// must not be read as the main turn moving on to a tool.
+fn subagent_parent_tool_call_id(
+    meta: Option<&agent_client_protocol::schema::v1::Meta>,
+) -> Option<String> {
+    meta?
+        .get("claudeCode")?
+        .get("parentToolUseId")?
+        .as_str()
+        .filter(|id| !id.is_empty())
+        .map(str::to_string)
 }
 
 /// The single ACP session backing this provider instance.
@@ -940,11 +965,18 @@ impl Provider for AcpProvider {
                             .with_id(id);
                         yield (Some(message), None);
                     }
-                    AcpUpdate::ToolCallStart { id, name, kind, raw_input } => {
-                        text_run = None;
-                        thought_run = None;
+                    AcpUpdate::ToolCallStart { id, name, kind, raw_input, parent_tool_call_id } => {
+                        // A subagent's call runs beside the main reply rather than
+                        // interrupting it, so the reply keeps its message and the
+                        // chunks after the call join the bubble before it.
+                        if parent_tool_call_id.is_none() {
+                            text_run = None;
+                            thought_run = None;
+                        }
                         if reject_all_tools {
-                            suppress_text = true;
+                            if parent_tool_call_id.is_none() {
+                                suppress_text = true;
+                            }
                             rejected_tool_calls.insert(id);
                         } else {
                             let mut params = CallToolRequestParams::new(name);
@@ -955,10 +987,15 @@ impl Provider for AcpProvider {
                             // call. goose.acp.kind preserves ACP's stable categorization for
                             // downstream consumers (metrics, observability, icon selection)
                             // independent of the display title we put in `name`.
-                            let tool_meta = Some(serde_json::json!({
+                            let mut tool_meta = serde_json::json!({
                                 TOOL_META_EXTERNAL_DISPATCH_KEY: true,
                                 "goose.acp.kind": kind,
-                            }));
+                            });
+                            if let Some(parent) = parent_tool_call_id {
+                                tool_meta[TOOL_META_ACP_PARENT_TOOL_CALL_KEY] =
+                                    serde_json::Value::String(parent);
+                            }
+                            let tool_meta = Some(tool_meta);
                             let message = Message::assistant().with_tool_request_with_metadata(
                                 id,
                                 Ok(params),
@@ -973,9 +1010,12 @@ impl Provider for AcpProvider {
                         raw_output,
                         content,
                         is_error,
+                        parent_tool_call_id,
                     } => {
-                        text_run = None;
-                        thought_run = None;
+                        if parent_tool_call_id.is_none() {
+                            text_run = None;
+                            thought_run = None;
+                        }
                         if rejected_tool_calls.remove(&id) {
                             // In chat mode no tool_request was emitted (suppressed at
                             // ToolCallStart), so surface a plain text message. In other
@@ -1286,6 +1326,8 @@ impl AcpClientLoop {
                                         initial_status,
                                         ToolCallStatus::Completed | ToolCallStatus::Failed
                                     );
+                                    let parent_tool_call_id =
+                                        subagent_parent_tool_call_id(tool_call.meta.as_ref());
                                     // Seed the buffer; drain immediately if the call is
                                     // already terminal (synchronous tool, no follow-up).
                                     let synchronous_accumulated =
@@ -1295,6 +1337,7 @@ impl AcpClientLoop {
                                                 entry.raw_output = Some(raw_output);
                                             }
                                             entry.content.extend(tool_call.content.clone());
+                                            entry.parent_tool_call_id = parent_tool_call_id.clone();
                                             if synchronous_terminal {
                                                 buffer.remove(&id)
                                             } else {
@@ -1314,6 +1357,7 @@ impl AcpClientLoop {
                                         name: tool_call.title.clone(),
                                         kind: tool_call.kind,
                                         raw_input: tool_call.raw_input.clone(),
+                                        parent_tool_call_id,
                                     });
                                     if let Some(accumulated) = synchronous_accumulated {
                                         let content = if accumulated.content.is_empty() {
@@ -1329,6 +1373,7 @@ impl AcpClientLoop {
                                                 initial_status,
                                                 ToolCallStatus::Failed
                                             ),
+                                            parent_tool_call_id: accumulated.parent_tool_call_id,
                                         });
                                     }
                                 }
@@ -1351,6 +1396,10 @@ impl AcpClientLoop {
                                         if let Some(content) = update.fields.content.clone() {
                                             entry.content.extend(content);
                                         }
+                                        if entry.parent_tool_call_id.is_none() {
+                                            entry.parent_tool_call_id =
+                                                subagent_parent_tool_call_id(update.meta.as_ref());
+                                        }
                                         if terminal_status.is_some() {
                                             buffer.remove(&id)
                                         } else {
@@ -1372,6 +1421,7 @@ impl AcpClientLoop {
                                             raw_output: accumulated.raw_output,
                                             content,
                                             is_error: matches!(status, ToolCallStatus::Failed),
+                                            parent_tool_call_id: accumulated.parent_tool_call_id,
                                         });
                                     }
                                 }
@@ -2753,6 +2803,7 @@ mod tests {
                     name: "read_file".to_string(),
                     kind: ToolKind::Read,
                     raw_input: None,
+                    parent_tool_call_id: None,
                 })
                 .await
                 .unwrap();
@@ -2762,6 +2813,7 @@ mod tests {
                     raw_output: None,
                     content: None,
                     is_error: false,
+                    parent_tool_call_id: None,
                 })
                 .await
                 .unwrap();
@@ -2796,6 +2848,108 @@ mod tests {
         assert!(first_id.starts_with("msg_"));
         assert!(second_id.starts_with("msg_"));
         assert_ne!(first_id, second_id);
+    }
+
+    /// A background subagent's tool calls land in the middle of the main
+    /// agent's reply. They must not split the reply into several bubbles, and
+    /// they keep their attribution so a client can tell them apart.
+    #[tokio::test]
+    async fn subagent_tool_calls_do_not_split_the_main_reply() {
+        use futures::StreamExt;
+
+        let (tx, mut rx) = mpsc::channel(1);
+        let (provider, model) = test_provider_with_tx(Some(tx));
+        let messages = vec![Message::user().with_text("write it up")];
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        let response_tx = match rx.recv().await.expect("expected ACP prompt request") {
+            ClientRequest::Prompt { response_tx, .. } => response_tx,
+            _ => panic!("expected ACP prompt request"),
+        };
+
+        let subagent = Some("toolu_agent".to_string());
+        let updates = vec![
+            AcpUpdate::Text(TextContent::new("and it mat")),
+            AcpUpdate::ToolCallStart {
+                id: "sub-call".to_string(),
+                name: "git grep".to_string(),
+                kind: ToolKind::Execute,
+                raw_input: None,
+                parent_tool_call_id: subagent.clone(),
+            },
+            AcpUpdate::ToolCallComplete {
+                id: "sub-call".to_string(),
+                raw_output: None,
+                content: None,
+                is_error: false,
+                parent_tool_call_id: subagent,
+            },
+            AcpUpdate::Text(TextContent::new("ters: a lot")),
+            AcpUpdate::ToolCallStart {
+                id: "own-call".to_string(),
+                name: "ls".to_string(),
+                kind: ToolKind::Execute,
+                raw_input: None,
+                parent_tool_call_id: None,
+            },
+            AcpUpdate::Text(TextContent::new("after my own call")),
+            AcpUpdate::Complete(StopReason::EndTurn, None),
+        ];
+        for update in updates {
+            response_tx.send(update).await.unwrap();
+        }
+
+        let mut yielded = Vec::new();
+        while let Some(item) = stream.next().await {
+            if let (Some(message), _) = item.unwrap() {
+                yielded.push(message);
+            }
+        }
+
+        let text_ids: Vec<(String, String)> = yielded
+            .iter()
+            .filter(|m| !m.as_concat_text().is_empty())
+            .map(|m| (m.as_concat_text(), m.id.clone().unwrap()))
+            .collect();
+        assert_eq!(text_ids.len(), 3);
+        assert_eq!(
+            text_ids[0].1, text_ids[1].1,
+            "text around a subagent call must stay in one message"
+        );
+        assert_ne!(
+            text_ids[1].1, text_ids[2].1,
+            "the main agent's own tool call still starts a new message"
+        );
+
+        let sub_request = yielded
+            .iter()
+            .flat_map(|m| m.content.iter())
+            .find_map(|content| match content {
+                MessageContent::ToolRequest(request) if request.id == "sub-call" => Some(request),
+                _ => None,
+            })
+            .expect("the subagent call is still shown");
+        assert_eq!(
+            sub_request.tool_meta.as_ref().unwrap()[TOOL_META_ACP_PARENT_TOOL_CALL_KEY],
+            "toolu_agent"
+        );
+    }
+
+    #[test]
+    fn subagent_parent_is_read_from_claude_code_meta() {
+        let meta: agent_client_protocol::schema::v1::Meta = serde_json::from_value(
+            serde_json::json!({ "claudeCode": { "parentToolUseId": "toolu_1", "toolName": "Bash" } }),
+        )
+        .unwrap();
+        assert_eq!(
+            subagent_parent_tool_call_id(Some(&meta)).as_deref(),
+            Some("toolu_1")
+        );
+
+        let own: agent_client_protocol::schema::v1::Meta =
+            serde_json::from_value(serde_json::json!({ "claudeCode": { "toolName": "Bash" } }))
+                .unwrap();
+        assert_eq!(subagent_parent_tool_call_id(Some(&own)), None);
+        assert_eq!(subagent_parent_tool_call_id(None), None);
     }
 
     #[test]
