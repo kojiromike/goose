@@ -1,3 +1,4 @@
+mod activity;
 mod common;
 pub(crate) mod fs;
 mod handoff;

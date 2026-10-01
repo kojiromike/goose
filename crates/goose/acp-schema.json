@@ -592,6 +592,51 @@
             "string",
             "null"
           ]
+        },
+        "awaitingInput": {
+          "type": "boolean",
+          "description": "The agent is waiting on the user to answer a permission request.",
+          "default": false
+        },
+        "lastActivityAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Unix milliseconds of the agent's last update of any kind."
+        },
+        "lastUnpromptedActivityAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Unix milliseconds of the agent's last update while no prompt was in\nflight, i.e. it resumed on its own."
+        },
+        "agentExited": {
+          "type": "boolean",
+          "description": "The agent process behind the session is gone.",
+          "default": false
+        },
+        "backgroundTasksStartedAt": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "Unix milliseconds at which each background command the agent launched,\nand is not known to have finished, started.",
+          "default": []
+        },
+        "lastTurnError": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Why the latest turn failed, if it did."
+        },
+        "consecutiveFailedTurns": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Turns that failed in a row, counting the latest.",
+          "default": 0
         }
       },
       "required": [

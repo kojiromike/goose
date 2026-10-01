@@ -32,6 +32,7 @@ use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, oneshot, watch, Mutex as TokioMutex};
 use tokio_util::compat::{TokioAsyncReadCompatExt as _, TokioAsyncWriteCompatExt as _};
 
+use crate::acp::activity::{now_ms, AcpActivity};
 use crate::acp::handoff::{build_handoff_context_memo, memo_token_budget, prompt_token_cost};
 use crate::acp::{map_permission_response, PermissionDecision};
 use crate::config::{Config, ExtensionConfig, GooseMode};
@@ -260,13 +261,15 @@ impl AcpEffortState {
 struct AcpSessionState {
     active_id: Arc<Mutex<Option<SessionId>>>,
     effort: AcpEffortState,
+    activity: AcpActivity,
 }
 
 impl AcpSessionState {
-    fn new(effort: AcpEffortState) -> Self {
+    fn new(effort: AcpEffortState, activity: AcpActivity) -> Self {
         Self {
             active_id: Arc::new(Mutex::new(None)),
             effort,
+            activity,
         }
     }
 }
@@ -301,6 +304,9 @@ pub struct AcpProvider {
     /// value, it tracks the agent resetting its own effort (e.g. on a model
     /// switch), so the persisted value is re-applied when that happens.
     effort: AcpEffortState,
+
+    /// What the agent's own updates say about its progress; see [`AcpActivity`].
+    activity: AcpActivity,
 
     tx: Option<mpsc::Sender<ClientRequest>>,
     cancel_tx: Option<oneshot::Sender<()>>,
@@ -398,12 +404,14 @@ impl AcpProvider {
             Arc::new(Mutex::new(HashMap::new()));
         let context_size = Arc::new(AtomicU64::new(0));
         let effort = AcpEffortState::new();
+        let activity = AcpActivity::default();
         let client_loop = AcpClientLoop::new(
             config,
             goose_mode_shared.clone(),
             pending_tool_updates.clone(),
             context_size.clone(),
             effort.clone(),
+            activity.clone(),
         );
         let (cancel_tx, cancel_rx) = oneshot::channel();
         let loop_thread = spawn_client_loop(run(client_loop, rx, init_tx, cancel_rx));
@@ -449,6 +457,7 @@ impl AcpProvider {
             model_config_option_id,
             applied_model: Arc::new(Mutex::new(applied_model)),
             effort,
+            activity,
             tx: client_loop_guard.tx.take(),
             cancel_tx: client_loop_guard.cancel_tx.take(),
             loop_thread: client_loop_guard.thread.take(),
@@ -675,6 +684,10 @@ fn fresh_text_run() -> (String, i64) {
 
 #[async_trait::async_trait]
 impl Provider for AcpProvider {
+    fn activity(&self) -> Option<goose_providers::base::ProviderActivity> {
+        Some(self.activity.snapshot())
+    }
+
     fn get_name(&self) -> &str {
         &self.name
     }
@@ -825,18 +838,25 @@ impl Provider for AcpProvider {
         _tools: &[Tool],
     ) -> Result<MessageStream, ProviderError> {
         let session_id = self.acp_session_id();
+        let activity = self.activity.clone();
+        let failed_before_prompt = |error: ProviderError| {
+            activity.turn_failed_before_prompt(error.to_string(), now_ms());
+            error
+        };
 
         self.apply_model_if_changed(&model_config.model_name)
             .await
             .map_err(|e| {
                 ProviderError::RequestFailed(format!("Failed to set ACP model option: {e}"))
-            })?;
+            })
+            .map_err(failed_before_prompt)?;
 
         self.apply_effort_if_changed(model_config)
             .await
             .map_err(|e| {
                 ProviderError::RequestFailed(format!("Failed to set ACP effort option: {e}"))
-            })?;
+            })
+            .map_err(failed_before_prompt)?;
 
         let current_prompt_blocks = messages_to_prompt(messages, None);
         if current_prompt_blocks.is_empty() {
@@ -1024,6 +1044,7 @@ impl Provider for AcpProvider {
                             .await
                             .insert(request_id.clone(), tx);
 
+                        activity.permission_requested(now_ms());
                         if let Some(action_required) = build_action_required_message(&request) {
                             yield (Some(action_required), None);
                         }
@@ -1034,6 +1055,7 @@ impl Provider for AcpProvider {
                         });
 
                         pending_confirmations.lock().await.remove(&request_id);
+                        activity.permission_resolved(now_ms());
 
                         let decision = PermissionDecision::from(confirmation.permission);
                         if decision.should_record_rejection() {
@@ -1125,6 +1147,7 @@ struct AcpClientLoop {
     pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
     context_size: Arc<AtomicU64>,
     effort: AcpEffortState,
+    activity: AcpActivity,
 }
 
 impl AcpClientLoop {
@@ -1134,6 +1157,7 @@ impl AcpClientLoop {
         pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
         context_size: Arc<AtomicU64>,
         effort: AcpEffortState,
+        activity: AcpActivity,
     ) -> Self {
         Self {
             config,
@@ -1142,6 +1166,7 @@ impl AcpClientLoop {
             pending_tool_updates,
             context_size,
             effort,
+            activity,
         }
     }
 
@@ -1155,6 +1180,7 @@ impl AcpClientLoop {
             Err(e) => {
                 let _ = init_tx.send(Err(anyhow::anyhow!("{e}")));
                 tracing::error!("failed to spawn ACP process: {e}");
+                self.activity.mark_exited();
                 return;
             }
         };
@@ -1178,7 +1204,10 @@ impl AcpClientLoop {
         }
         let transport =
             agent_client_protocol::ByteStreams::new(stdin.compat_write(), stdout.compat());
+        let activity = self.activity.clone();
         let result = self.run(transport, rx, init_tx).await;
+        // The connection ends when the agent process does, whichever went first.
+        activity.mark_exited();
         let _ = child.kill().await;
         let _ = child.wait().await;
         result
@@ -1197,10 +1226,11 @@ impl AcpClientLoop {
             pending_tool_updates,
             context_size,
             effort,
+            activity,
         } = self;
         let notification_callback = config.notification_callback.clone();
         let reverse_modes = reverse_mode_mapping(&config.mode_mapping);
-        let session_state = AcpSessionState::new(effort);
+        let session_state = AcpSessionState::new(effort, activity.clone());
 
         Client
             .builder()
@@ -1222,6 +1252,9 @@ impl AcpClientLoop {
                         if !is_active_session {
                             return Ok(());
                         }
+                        session_state
+                            .activity
+                            .record_update(&notification.update, now_ms());
                         if let Some(ref cb) = notification_callback {
                             cb(notification.clone());
                         }
@@ -1700,11 +1733,15 @@ async fn handle_requests(
                 response_tx,
             } => {
                 *prompt_response_tx.lock().unwrap() = Some(response_tx.clone());
+                session_state.activity.turn_started(now_ms());
 
                 let response: Result<PromptResponse, _> = cx
                     .send_request(PromptRequest::new(session_id, content))
                     .block_task()
                     .await;
+                session_state
+                    .activity
+                    .turn_finished(response.as_ref().err().map(ToString::to_string), now_ms());
 
                 match response {
                     Ok(r) => {
@@ -2518,6 +2555,7 @@ mod tests {
                 model_config_option_id: None,
                 applied_model: Arc::new(Mutex::new(None)),
                 effort: AcpEffortState::new(),
+                activity: AcpActivity::default(),
                 tx,
                 cancel_tx: None,
                 loop_thread: None,

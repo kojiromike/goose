@@ -13,7 +13,7 @@ import {
 } from '../../hooks/useNavigationItems';
 import { AppEvents } from '../../constants/events';
 import { InlineEditText } from '../common/InlineEditText';
-import { SessionIndicators } from '../SessionIndicators';
+import { describeSessionActivity, SessionIndicators } from '../SessionIndicators';
 import { acpCloseSession, acpRenameSession, type SessionListItem } from '../../acp/sessions';
 import type { LiveSession } from '../../acp/liveSessions';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/Tooltip';
@@ -21,8 +21,9 @@ import { formatMessageTimestamp } from '../../utils/timeUtils';
 import { cn } from '../../utils';
 import type { ProjectGroup } from '../../utils/projectSessions';
 import { defineMessages, useIntl } from '../../i18n';
+import { deriveSessionActivity, type LocalStreamState } from '../../utils/sessionActivity';
 
-type StreamState = 'idle' | 'loading' | 'streaming' | 'error';
+type StreamState = LocalStreamState;
 
 const LIVE_REFRESH_INTERVAL_MS = 5000;
 
@@ -63,26 +64,6 @@ const i18n = defineMessages({
   metaUpdated: {
     id: 'navigationPanel.metaUpdated',
     defaultMessage: 'Updated',
-  },
-  statusStreaming: {
-    id: 'navigationPanel.statusStreaming',
-    defaultMessage: 'Streaming',
-  },
-  statusError: {
-    id: 'navigationPanel.statusError',
-    defaultMessage: 'Error',
-  },
-  statusUnread: {
-    id: 'navigationPanel.statusUnread',
-    defaultMessage: 'Unread activity',
-  },
-  statusIdle: {
-    id: 'navigationPanel.statusIdle',
-    defaultMessage: 'Idle',
-  },
-  statusLive: {
-    id: 'navigationPanel.statusLive',
-    defaultMessage: 'Loaded',
   },
   endSession: {
     id: 'navigationPanel.endSession',
@@ -191,19 +172,17 @@ const SessionRow: React.FC<SessionRowProps> = ({
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const isStreaming = live?.runningTurn ?? false;
-  const hasError = status?.streamState === 'error';
-  const hasUnread = status?.hasUnreadActivity ?? false;
   const isLive = live !== undefined;
-
-  const statusLabel = isStreaming
-    ? intl.formatMessage(i18n.statusStreaming)
-    : hasError
-      ? intl.formatMessage(i18n.statusError)
-      : hasUnread
-        ? intl.formatMessage(i18n.statusUnread)
-        : isLive
-          ? intl.formatMessage(i18n.statusLive)
-          : intl.formatMessage(i18n.statusIdle);
+  // The panel re-renders on every live-session poll, which keeps `now` fresh
+  // enough for the stall and background-age thresholds.
+  const now = Date.now();
+  const activity = deriveSessionActivity({
+    live,
+    localStreamState: status?.streamState,
+    hasUnread: status?.hasUnreadActivity ?? false,
+    now,
+  });
+  const statusLabel = describeSessionActivity(intl, activity, now);
 
   const handleEnd = async (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -257,12 +236,7 @@ const SessionRow: React.FC<SessionRowProps> = ({
               <Power className="w-3.5 h-3.5" />
             </button>
           )}
-          <SessionIndicators
-            isStreaming={isStreaming}
-            hasUnread={hasUnread}
-            hasError={hasError}
-            isLive={isLive}
-          />
+          <SessionIndicators activity={activity} now={now} />
         </div>
       </TooltipTrigger>
       <TooltipContent side="right" align="start" className="max-w-xs text-left">
