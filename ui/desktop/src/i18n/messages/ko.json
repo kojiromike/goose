@@ -2483,21 +2483,6 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "세션 작업"
   },
-  "navigationPanel.statusError": {
-    "defaultMessage": "오류"
-  },
-  "navigationPanel.statusIdle": {
-    "defaultMessage": "유휴"
-  },
-  "navigationPanel.statusLive": {
-    "defaultMessage": "로드됨"
-  },
-  "navigationPanel.statusStreaming": {
-    "defaultMessage": "스트리밍"
-  },
-  "navigationPanel.statusUnread": {
-    "defaultMessage": "읽지 않은 활동"
-  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "제목 없는 세션"
   },
@@ -3920,17 +3905,38 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "최근 모델 상호작용 보기"
   },
-  "sessionIndicators.error": {
-    "defaultMessage": "세션에 오류가 발생했습니다."
+  "sessionIndicators.working": {
+    "defaultMessage": "작업 중"
   },
-  "sessionIndicators.live": {
-    "defaultMessage": "로드됨 — 에이전트를 열어 둔 상태"
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {백그라운드에서 작업 중} one {백그라운드에서 작업 중(백그라운드 명령 #개)} other {백그라운드에서 작업 중(백그라운드 명령 #개)}}"
   },
-  "sessionIndicators.newActivity": {
-    "defaultMessage": "새로운 활동 있음"
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "승인이 필요합니다"
   },
-  "sessionIndicators.streaming": {
-    "defaultMessage": "스트리밍"
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "입력을 기다리는 중"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "입력을 기다리는 중(새 답변)"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "멈춤: {minutes, plural, one {# 분 동안 진행 없음} other {# 분 동안 진행 없음}}"
+  },
+  "sessionIndicators.exited": {
+    "defaultMessage": "멈춤: 에이전트 프로세스가 종료됨"
+  },
+  "sessionIndicators.failed": {
+    "defaultMessage": "마지막 턴이 실패했습니다"
+  },
+  "sessionIndicators.failing": {
+    "defaultMessage": "멈춤: {count}번 연속으로 턴이 실패함"
+  },
+  "sessionIndicators.withError": {
+    "defaultMessage": "{label}: {error}"
+  },
+  "sessionIndicators.idle": {
+    "defaultMessage": "유휴"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

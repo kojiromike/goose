@@ -2483,21 +2483,6 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "会话操作"
   },
-  "navigationPanel.statusError": {
-    "defaultMessage": "错误"
-  },
-  "navigationPanel.statusIdle": {
-    "defaultMessage": "空闲"
-  },
-  "navigationPanel.statusLive": {
-    "defaultMessage": "已加载"
-  },
-  "navigationPanel.statusStreaming": {
-    "defaultMessage": "流式传输"
-  },
-  "navigationPanel.statusUnread": {
-    "defaultMessage": "未读活动"
-  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "未命名会话"
   },
@@ -3920,17 +3905,38 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.error": {
-    "defaultMessage": "会话发生错误"
+  "sessionIndicators.working": {
+    "defaultMessage": "工作中"
   },
-  "sessionIndicators.live": {
-    "defaultMessage": "已加载 — 正保持一个 agent 打开"
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {正在后台工作} one {正在后台工作（# 个后台命令）} other {正在后台工作（# 个后台命令）}}"
   },
-  "sessionIndicators.newActivity": {
-    "defaultMessage": "有新活动"
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "需要你批准"
   },
-  "sessionIndicators.streaming": {
-    "defaultMessage": "流式传输中"
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "等待你的回复"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "等待你的回复（有新回复）"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "卡住：已 {minutes, plural, one {# 分钟没有进展} other {# 分钟没有进展}}"
+  },
+  "sessionIndicators.exited": {
+    "defaultMessage": "卡住：代理进程已退出"
+  },
+  "sessionIndicators.failed": {
+    "defaultMessage": "上一轮失败"
+  },
+  "sessionIndicators.failing": {
+    "defaultMessage": "卡住：连续 {count} 轮失败"
+  },
+  "sessionIndicators.withError": {
+    "defaultMessage": "{label}：{error}"
+  },
+  "sessionIndicators.idle": {
+    "defaultMessage": "空闲"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

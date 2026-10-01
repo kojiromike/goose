@@ -2483,21 +2483,6 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "Tindakan sesi"
   },
-  "navigationPanel.statusError": {
-    "defaultMessage": "Ralat"
-  },
-  "navigationPanel.statusIdle": {
-    "defaultMessage": "Terbiar"
-  },
-  "navigationPanel.statusLive": {
-    "defaultMessage": "Dimuatkan"
-  },
-  "navigationPanel.statusStreaming": {
-    "defaultMessage": "Penstriman"
-  },
-  "navigationPanel.statusUnread": {
-    "defaultMessage": "Aktiviti belum dibaca"
-  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Sesi tanpa tajuk"
   },
@@ -3920,17 +3905,38 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.error": {
-    "defaultMessage": "Sesi mengalami ralat"
+  "sessionIndicators.working": {
+    "defaultMessage": "Sedang bekerja"
   },
-  "sessionIndicators.live": {
-    "defaultMessage": "Dimuatkan — mengekalkan ejen terbuka"
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {Bekerja di latar belakang} one {Bekerja di latar belakang (# arahan latar belakang)} other {Bekerja di latar belakang (# arahan latar belakang)}}"
   },
-  "sessionIndicators.newActivity": {
-    "defaultMessage": "Mempunyai aktiviti baharu"
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Memerlukan kelulusan anda"
   },
-  "sessionIndicators.streaming": {
-    "defaultMessage": "Penstriman"
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Menunggu anda"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Menunggu anda (balasan baharu)"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Tersekat: tiada kemajuan selama {minutes, plural, one {# minit} other {# minit}}"
+  },
+  "sessionIndicators.exited": {
+    "defaultMessage": "Tersekat: proses ejen telah tamat"
+  },
+  "sessionIndicators.failed": {
+    "defaultMessage": "Giliran terakhir gagal"
+  },
+  "sessionIndicators.failing": {
+    "defaultMessage": "Tersekat: {count} giliran gagal berturut-turut"
+  },
+  "sessionIndicators.withError": {
+    "defaultMessage": "{label}: {error}"
+  },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Melahu"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

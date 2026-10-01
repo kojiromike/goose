@@ -2483,21 +2483,6 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "Azioni sessione"
   },
-  "navigationPanel.statusError": {
-    "defaultMessage": "Errore"
-  },
-  "navigationPanel.statusIdle": {
-    "defaultMessage": "Inattivo"
-  },
-  "navigationPanel.statusLive": {
-    "defaultMessage": "Caricata"
-  },
-  "navigationPanel.statusStreaming": {
-    "defaultMessage": "In streaming"
-  },
-  "navigationPanel.statusUnread": {
-    "defaultMessage": "Attività non letta"
-  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Sessione senza titolo"
   },
@@ -3920,17 +3905,38 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.error": {
-    "defaultMessage": "La sessione ha riscontrato un errore"
+  "sessionIndicators.working": {
+    "defaultMessage": "Al lavoro"
   },
-  "sessionIndicators.live": {
-    "defaultMessage": "Caricata — mantiene un agente aperto"
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {Al lavoro in background} one {Al lavoro in background (# comando in background)} other {Al lavoro in background (# comandi in background)}}"
   },
-  "sessionIndicators.newActivity": {
-    "defaultMessage": "Ha nuova attività"
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Richiede la tua approvazione"
   },
-  "sessionIndicators.streaming": {
-    "defaultMessage": "Streaming"
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "In attesa di te"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "In attesa di te (nuova risposta)"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Bloccata: nessun progresso da {minutes, plural, one {# minuto} other {# minuti}}"
+  },
+  "sessionIndicators.exited": {
+    "defaultMessage": "Bloccata: il processo dell'agente è terminato"
+  },
+  "sessionIndicators.failed": {
+    "defaultMessage": "L'ultimo turno non è riuscito"
+  },
+  "sessionIndicators.failing": {
+    "defaultMessage": "Bloccata: {count} turni falliti di fila"
+  },
+  "sessionIndicators.withError": {
+    "defaultMessage": "{label}: {error}"
+  },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Inattiva"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

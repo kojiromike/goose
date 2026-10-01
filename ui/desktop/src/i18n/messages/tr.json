@@ -2483,21 +2483,6 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "Oturum işlemleri"
   },
-  "navigationPanel.statusError": {
-    "defaultMessage": "Hata"
-  },
-  "navigationPanel.statusIdle": {
-    "defaultMessage": "Boşta"
-  },
-  "navigationPanel.statusLive": {
-    "defaultMessage": "Yüklü"
-  },
-  "navigationPanel.statusStreaming": {
-    "defaultMessage": "Akış"
-  },
-  "navigationPanel.statusUnread": {
-    "defaultMessage": "Okunmamış etkinlik"
-  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Başlıksız oturum"
   },
@@ -3920,17 +3905,38 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.error": {
-    "defaultMessage": "Oturum bir hatayla karşılaştı"
+  "sessionIndicators.working": {
+    "defaultMessage": "Çalışıyor"
   },
-  "sessionIndicators.live": {
-    "defaultMessage": "Yüklü — bir aracıyı açık tutuyor"
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {Arka planda çalışıyor} one {Arka planda çalışıyor (# arka plan komutu)} other {Arka planda çalışıyor (# arka plan komutu)}}"
   },
-  "sessionIndicators.newActivity": {
-    "defaultMessage": "Yeni aktivite var"
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Onayınızı bekliyor"
   },
-  "sessionIndicators.streaming": {
-    "defaultMessage": "Akış"
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Sizi bekliyor"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Sizi bekliyor (yeni yanıt)"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Takıldı: {minutes, plural, one {# dakikadır ilerleme yok} other {# dakikadır ilerleme yok}}"
+  },
+  "sessionIndicators.exited": {
+    "defaultMessage": "Takıldı: ajan süreci sonlandı"
+  },
+  "sessionIndicators.failed": {
+    "defaultMessage": "Son tur başarısız oldu"
+  },
+  "sessionIndicators.failing": {
+    "defaultMessage": "Takıldı: art arda {count} tur başarısız oldu"
+  },
+  "sessionIndicators.withError": {
+    "defaultMessage": "{label}: {error}"
+  },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Boşta"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

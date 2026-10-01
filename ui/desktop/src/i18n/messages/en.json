@@ -2489,21 +2489,6 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "Session actions"
   },
-  "navigationPanel.statusError": {
-    "defaultMessage": "Error"
-  },
-  "navigationPanel.statusIdle": {
-    "defaultMessage": "Idle"
-  },
-  "navigationPanel.statusLive": {
-    "defaultMessage": "Loaded"
-  },
-  "navigationPanel.statusStreaming": {
-    "defaultMessage": "Streaming"
-  },
-  "navigationPanel.statusUnread": {
-    "defaultMessage": "Unread activity"
-  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Untitled session"
   },
@@ -3926,17 +3911,38 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.error": {
-    "defaultMessage": "Session encountered an error"
+  "sessionIndicators.exited": {
+    "defaultMessage": "Stuck: the agent process exited"
   },
-  "sessionIndicators.live": {
-    "defaultMessage": "Loaded — holding an agent open"
+  "sessionIndicators.failed": {
+    "defaultMessage": "Last turn failed"
   },
-  "sessionIndicators.newActivity": {
-    "defaultMessage": "Has new activity"
+  "sessionIndicators.failing": {
+    "defaultMessage": "Stuck: {count} turns failed in a row"
   },
-  "sessionIndicators.streaming": {
-    "defaultMessage": "Streaming"
+  "sessionIndicators.idle": {
+    "defaultMessage": "Idle"
+  },
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Needs your approval"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "{minutes,plural,one{Stuck: no progress for # minute} other{Stuck: no progress for # minutes}}"
+  },
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Waiting for you"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Waiting for you (new reply)"
+  },
+  "sessionIndicators.withError": {
+    "defaultMessage": "{label}: {error}"
+  },
+  "sessionIndicators.working": {
+    "defaultMessage": "Working"
+  },
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count,plural,=0{Working in the background} one{Working in the background (# background command)} other{Working in the background (# background commands)}}"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

@@ -2483,21 +2483,6 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "Tác vụ phiên"
   },
-  "navigationPanel.statusError": {
-    "defaultMessage": "Lỗi"
-  },
-  "navigationPanel.statusIdle": {
-    "defaultMessage": "Nhàn rỗi"
-  },
-  "navigationPanel.statusLive": {
-    "defaultMessage": "Đã tải"
-  },
-  "navigationPanel.statusStreaming": {
-    "defaultMessage": "Đang truyền"
-  },
-  "navigationPanel.statusUnread": {
-    "defaultMessage": "Hoạt động chưa đọc"
-  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Phiên chưa đặt tên"
   },
@@ -3920,17 +3905,38 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.error": {
-    "defaultMessage": "Phiên gặp lỗi"
+  "sessionIndicators.working": {
+    "defaultMessage": "Đang làm việc"
   },
-  "sessionIndicators.live": {
-    "defaultMessage": "Đã tải — đang giữ một agent mở"
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {Đang làm việc trong nền} one {Đang làm việc trong nền (# lệnh chạy nền)} other {Đang làm việc trong nền (# lệnh chạy nền)}}"
   },
-  "sessionIndicators.newActivity": {
-    "defaultMessage": "Có hoạt động mới"
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Cần bạn phê duyệt"
   },
-  "sessionIndicators.streaming": {
-    "defaultMessage": "Đang truyền phát"
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Đang chờ bạn"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Đang chờ bạn (có trả lời mới)"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Bị kẹt: không có tiến triển trong {minutes, plural, one {# phút} other {# phút}}"
+  },
+  "sessionIndicators.exited": {
+    "defaultMessage": "Bị kẹt: tiến trình tác tử đã thoát"
+  },
+  "sessionIndicators.failed": {
+    "defaultMessage": "Lượt gần nhất thất bại"
+  },
+  "sessionIndicators.failing": {
+    "defaultMessage": "Bị kẹt: {count} lượt thất bại liên tiếp"
+  },
+  "sessionIndicators.withError": {
+    "defaultMessage": "{label}: {error}"
+  },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Nhàn rỗi"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

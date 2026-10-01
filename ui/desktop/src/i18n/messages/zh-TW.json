@@ -2483,21 +2483,6 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "工作階段動作"
   },
-  "navigationPanel.statusError": {
-    "defaultMessage": "錯誤"
-  },
-  "navigationPanel.statusIdle": {
-    "defaultMessage": "閒置"
-  },
-  "navigationPanel.statusLive": {
-    "defaultMessage": "已載入"
-  },
-  "navigationPanel.statusStreaming": {
-    "defaultMessage": "串流"
-  },
-  "navigationPanel.statusUnread": {
-    "defaultMessage": "未讀活動"
-  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "未命名工作階段"
   },
@@ -3920,17 +3905,38 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.error": {
-    "defaultMessage": "工作階段發生錯誤"
+  "sessionIndicators.working": {
+    "defaultMessage": "工作中"
   },
-  "sessionIndicators.live": {
-    "defaultMessage": "已載入 — 正保持一個 agent 開啟"
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {正在背景工作} one {正在背景工作（# 個背景命令）} other {正在背景工作（# 個背景命令）}}"
   },
-  "sessionIndicators.newActivity": {
-    "defaultMessage": "有新活動"
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "需要你核准"
   },
-  "sessionIndicators.streaming": {
-    "defaultMessage": "串流中"
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "等待你的回覆"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "等待你的回覆（有新回覆）"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "卡住：已 {minutes, plural, one {# 分鐘沒有進展} other {# 分鐘沒有進展}}"
+  },
+  "sessionIndicators.exited": {
+    "defaultMessage": "卡住：代理程式行程已結束"
+  },
+  "sessionIndicators.failed": {
+    "defaultMessage": "上一輪失敗"
+  },
+  "sessionIndicators.failing": {
+    "defaultMessage": "卡住：連續 {count} 輪失敗"
+  },
+  "sessionIndicators.withError": {
+    "defaultMessage": "{label}：{error}"
+  },
+  "sessionIndicators.idle": {
+    "defaultMessage": "閒置"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

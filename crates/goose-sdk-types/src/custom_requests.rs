@@ -2337,6 +2337,29 @@ pub struct LiveSessionDto {
     pub running_turn: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provider_id: Option<String>,
+    /// The agent is waiting on the user to answer a permission request.
+    #[serde(default)]
+    pub awaiting_input: bool,
+    /// Unix milliseconds of the agent's last update of any kind.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_activity_at: Option<i64>,
+    /// Unix milliseconds of the agent's last update while no prompt was in
+    /// flight, i.e. it resumed on its own.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_unprompted_activity_at: Option<i64>,
+    /// The agent process behind the session is gone.
+    #[serde(default)]
+    pub agent_exited: bool,
+    /// Unix milliseconds at which each background command the agent launched,
+    /// and is not known to have finished, started.
+    #[serde(default)]
+    pub background_tasks_started_at: Vec<i64>,
+    /// Why the latest turn failed, if it did.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_turn_error: Option<String>,
+    /// Turns that failed in a row, counting the latest.
+    #[serde(default)]
+    pub consecutive_failed_turns: u32,
 }
 
 /// List the sessions with an agent in memory. Unlike the session list, which

@@ -2483,21 +2483,6 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "Sitzungsaktionen"
   },
-  "navigationPanel.statusError": {
-    "defaultMessage": "Fehler"
-  },
-  "navigationPanel.statusIdle": {
-    "defaultMessage": "Inaktiv"
-  },
-  "navigationPanel.statusLive": {
-    "defaultMessage": "Geladen"
-  },
-  "navigationPanel.statusStreaming": {
-    "defaultMessage": "Streaming"
-  },
-  "navigationPanel.statusUnread": {
-    "defaultMessage": "Ungelesene Aktivität"
-  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Unbenannte Sitzung"
   },
@@ -3920,17 +3905,38 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.error": {
-    "defaultMessage": "In der Sitzung ist ein Fehler aufgetreten"
+  "sessionIndicators.working": {
+    "defaultMessage": "Arbeitet"
   },
-  "sessionIndicators.live": {
-    "defaultMessage": "Geladen – hält einen Agenten offen"
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {Arbeitet im Hintergrund} one {Arbeitet im Hintergrund (# Hintergrundbefehl)} other {Arbeitet im Hintergrund (# Hintergrundbefehle)}}"
   },
-  "sessionIndicators.newActivity": {
-    "defaultMessage": "Hat neue Aktivität"
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Wartet auf deine Freigabe"
   },
-  "sessionIndicators.streaming": {
-    "defaultMessage": "Streaming"
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Wartet auf dich"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Wartet auf dich (neue Antwort)"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Hängt: kein Fortschritt seit {minutes, plural, one {# Minute} other {# Minuten}}"
+  },
+  "sessionIndicators.exited": {
+    "defaultMessage": "Hängt: der Agentenprozess wurde beendet"
+  },
+  "sessionIndicators.failed": {
+    "defaultMessage": "Letzter Durchlauf fehlgeschlagen"
+  },
+  "sessionIndicators.failing": {
+    "defaultMessage": "Hängt: {count} Durchläufe in Folge fehlgeschlagen"
+  },
+  "sessionIndicators.withError": {
+    "defaultMessage": "{label}: {error}"
+  },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Inaktiv"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

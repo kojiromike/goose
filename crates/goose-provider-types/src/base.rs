@@ -461,11 +461,40 @@ pub fn stream_from_single_message(message: Message, usage: ProviderUsage) -> Mes
     Box::pin(stream)
 }
 
+/// What a provider that runs its own agent can report about that agent's
+/// progress, beyond whether goose is waiting on a reply from it. Times are Unix
+/// milliseconds.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ProviderActivity {
+    /// The last time the agent reported anything at all, including progress
+    /// beats for a running tool.
+    pub last_update_at: Option<i64>,
+    /// The last time the agent reported something while no turn was in flight:
+    /// it resumed on its own, for example to report on a background command.
+    pub last_unprompted_update_at: Option<i64>,
+    /// Permission requests the agent is waiting on the user to answer.
+    pub pending_permissions: u32,
+    /// The agent process or its connection is gone.
+    pub exited: bool,
+    /// Start times of background commands the agent launched that are not known
+    /// to have finished.
+    pub background_tasks_started_at: Vec<i64>,
+    /// Why the latest turn failed, if it did.
+    pub last_turn_error: Option<String>,
+    /// Turns that failed in a row, counting the latest.
+    pub consecutive_failed_turns: u32,
+}
+
 /// Base trait for AI providers (OpenAI, Anthropic, etc)
 #[async_trait]
 pub trait Provider: Send + Sync {
     /// Get the name of this provider instance
     fn get_name(&self) -> &str;
+
+    /// Progress of the agent this provider runs, for providers that run one.
+    fn activity(&self) -> Option<ProviderActivity> {
+        None
+    }
 
     fn provider_session_id(&self) -> Option<String> {
         None

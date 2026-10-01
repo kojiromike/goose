@@ -296,6 +296,36 @@ export type LiveSessionDto = {
      */
     runningTurn: boolean;
     providerId?: string | null;
+    /**
+     * The agent is waiting on the user to answer a permission request.
+     */
+    awaitingInput?: boolean;
+    /**
+     * Unix milliseconds of the agent's last update of any kind.
+     */
+    lastActivityAt?: number | null;
+    /**
+     * Unix milliseconds of the agent's last update while no prompt was in
+     * flight, i.e. it resumed on its own.
+     */
+    lastUnpromptedActivityAt?: number | null;
+    /**
+     * The agent process behind the session is gone.
+     */
+    agentExited?: boolean;
+    /**
+     * Unix milliseconds at which each background command the agent launched,
+     * and is not known to have finished, started.
+     */
+    backgroundTasksStartedAt?: Array<number>;
+    /**
+     * Why the latest turn failed, if it did.
+     */
+    lastTurnError?: string | null;
+    /**
+     * Turns that failed in a row, counting the latest.
+     */
+    consecutiveFailedTurns?: number;
 };
 
 /**

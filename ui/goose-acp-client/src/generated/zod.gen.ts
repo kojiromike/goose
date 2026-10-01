@@ -187,7 +187,14 @@ export const zListLiveSessionsRequest_unstable = z.record(z.string(), z.unknown(
 export const zLiveSessionDto = z.object({
     sessionId: z.string(),
     runningTurn: z.boolean(),
-    providerId: z.string().nullish()
+    providerId: z.string().nullish(),
+    awaitingInput: z.boolean().optional().default(false),
+    lastActivityAt: z.int().nullish(),
+    lastUnpromptedActivityAt: z.int().nullish(),
+    agentExited: z.boolean().optional().default(false),
+    backgroundTasksStartedAt: z.array(z.int()).optional().default([]),
+    lastTurnError: z.string().nullish(),
+    consecutiveFailedTurns: z.int().gte(0).optional().default(0)
 });
 
 export const zListLiveSessionsResponse_unstable = z.object({

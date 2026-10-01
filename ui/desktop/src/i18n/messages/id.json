@@ -2483,21 +2483,6 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "Tindakan sesi"
   },
-  "navigationPanel.statusError": {
-    "defaultMessage": "Kesalahan"
-  },
-  "navigationPanel.statusIdle": {
-    "defaultMessage": "Menganggur"
-  },
-  "navigationPanel.statusLive": {
-    "defaultMessage": "Dimuat"
-  },
-  "navigationPanel.statusStreaming": {
-    "defaultMessage": "Streaming"
-  },
-  "navigationPanel.statusUnread": {
-    "defaultMessage": "Aktivitas belum dibaca"
-  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Sesi tanpa judul"
   },
@@ -3920,17 +3905,38 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.error": {
-    "defaultMessage": "Sesi mengalami kesalahan"
+  "sessionIndicators.working": {
+    "defaultMessage": "Sedang bekerja"
   },
-  "sessionIndicators.live": {
-    "defaultMessage": "Dimuat — menahan agen tetap terbuka"
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {Bekerja di latar belakang} one {Bekerja di latar belakang (# perintah latar belakang)} other {Bekerja di latar belakang (# perintah latar belakang)}}"
   },
-  "sessionIndicators.newActivity": {
-    "defaultMessage": "Memiliki aktivitas baru"
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Menunggu persetujuan Anda"
   },
-  "sessionIndicators.streaming": {
-    "defaultMessage": "Streaming"
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Menunggu Anda"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Menunggu Anda (balasan baru)"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Macet: tidak ada kemajuan selama {minutes, plural, one {# menit} other {# menit}}"
+  },
+  "sessionIndicators.exited": {
+    "defaultMessage": "Macet: proses agen berhenti"
+  },
+  "sessionIndicators.failed": {
+    "defaultMessage": "Giliran terakhir gagal"
+  },
+  "sessionIndicators.failing": {
+    "defaultMessage": "Macet: {count} giliran gagal berturut-turut"
+  },
+  "sessionIndicators.withError": {
+    "defaultMessage": "{label}: {error}"
+  },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Diam"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

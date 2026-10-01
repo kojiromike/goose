@@ -2483,21 +2483,6 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "Acciones de sesión"
   },
-  "navigationPanel.statusError": {
-    "defaultMessage": "Error"
-  },
-  "navigationPanel.statusIdle": {
-    "defaultMessage": "Inactivo"
-  },
-  "navigationPanel.statusLive": {
-    "defaultMessage": "Cargada"
-  },
-  "navigationPanel.statusStreaming": {
-    "defaultMessage": "Transmitiendo"
-  },
-  "navigationPanel.statusUnread": {
-    "defaultMessage": "Actividad sin leer"
-  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Sesión sin título"
   },
@@ -3920,17 +3905,38 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.error": {
-    "defaultMessage": "La sesión encontró un error"
+  "sessionIndicators.working": {
+    "defaultMessage": "Trabajando"
   },
-  "sessionIndicators.live": {
-    "defaultMessage": "Cargada: mantiene un agente abierto"
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {Trabajando en segundo plano} one {Trabajando en segundo plano (# comando en segundo plano)} other {Trabajando en segundo plano (# comandos en segundo plano)}}"
   },
-  "sessionIndicators.newActivity": {
-    "defaultMessage": "Tiene actividad nueva"
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Necesita tu aprobación"
   },
-  "sessionIndicators.streaming": {
-    "defaultMessage": "Streaming"
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Esperándote"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Esperándote (respuesta nueva)"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Atascada: sin avances desde hace {minutes, plural, one {# minuto} other {# minutos}}"
+  },
+  "sessionIndicators.exited": {
+    "defaultMessage": "Atascada: el proceso del agente terminó"
+  },
+  "sessionIndicators.failed": {
+    "defaultMessage": "El último turno falló"
+  },
+  "sessionIndicators.failing": {
+    "defaultMessage": "Atascada: {count} turnos fallidos seguidos"
+  },
+  "sessionIndicators.withError": {
+    "defaultMessage": "{label}: {error}"
+  },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Inactiva"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

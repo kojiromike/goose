@@ -30,7 +30,7 @@ import {
 } from '../../hooks/useNavigationItems';
 import { AppEvents } from '../../constants/events';
 import { InlineEditText } from '../common/InlineEditText';
-import { SessionIndicators } from '../SessionIndicators';
+import { describeSessionActivity, SessionIndicators } from '../SessionIndicators';
 import {
   acpArchiveSession,
   acpCloseSession,
@@ -60,8 +60,9 @@ import {
 import { cn } from '../../utils';
 import type { ProjectGroup } from '../../utils/projectSessions';
 import { defineMessages, useIntl } from '../../i18n';
+import { deriveSessionActivity, type LocalStreamState } from '../../utils/sessionActivity';
 
-type StreamState = 'idle' | 'loading' | 'streaming' | 'waiting' | 'error';
+type StreamState = LocalStreamState;
 
 const LIVE_REFRESH_INTERVAL_MS = 5000;
 
@@ -102,22 +103,6 @@ const i18n = defineMessages({
   metaUpdated: {
     id: 'navigationPanel.metaUpdated',
     defaultMessage: 'Updated',
-  },
-  statusStreaming: {
-    id: 'navigationPanel.statusStreaming',
-    defaultMessage: 'Streaming',
-  },
-  statusError: {
-    id: 'navigationPanel.statusError',
-    defaultMessage: 'Error',
-  },
-  statusUnread: {
-    id: 'navigationPanel.statusUnread',
-    defaultMessage: 'Unread activity',
-  },
-  statusIdle: {
-    id: 'navigationPanel.statusIdle',
-    defaultMessage: 'Idle',
   },
   sessionActions: {
     id: 'navigationPanel.sessionActions',
@@ -166,10 +151,6 @@ const i18n = defineMessages({
   deleteFailed: {
     id: 'navigationPanel.deleteFailed',
     defaultMessage: 'Failed to delete session: {error}',
-  },
-  statusLive: {
-    id: 'navigationPanel.statusLive',
-    defaultMessage: 'Loaded',
   },
   endSession: {
     id: 'navigationPanel.endSession',
@@ -306,19 +287,17 @@ const SessionRow: React.FC<SessionRowProps> = ({
     status?.streamState === 'loading' ||
     status?.streamState === 'waiting' ||
     busyElsewhere;
-  const hasError = status?.streamState === 'error';
-  const hasUnread = status?.hasUnreadActivity ?? false;
   const isLive = live !== undefined;
-
-  const statusLabel = isStreaming
-    ? intl.formatMessage(i18n.statusStreaming)
-    : hasError
-      ? intl.formatMessage(i18n.statusError)
-      : hasUnread
-        ? intl.formatMessage(i18n.statusUnread)
-        : isLive
-          ? intl.formatMessage(i18n.statusLive)
-          : intl.formatMessage(i18n.statusIdle);
+  // The panel re-renders on every live-session poll, which keeps `now` fresh
+  // enough for the stall and background-age thresholds.
+  const now = Date.now();
+  const activity = deriveSessionActivity({
+    live,
+    localStreamState: status?.streamState,
+    hasUnread: status?.hasUnreadActivity ?? false,
+    now,
+  });
+  const statusLabel = describeSessionActivity(intl, activity, now);
 
   const handleEnd = async () => {
     setIsEnding(true);
@@ -384,12 +363,7 @@ const SessionRow: React.FC<SessionRowProps> = ({
             onEditStart={() => setIsEditing(true)}
             onEditEnd={() => setIsEditing(false)}
           />
-          <SessionIndicators
-            isStreaming={isStreaming}
-            hasUnread={hasUnread}
-            hasError={hasError}
-            isLive={isLive}
-          />
+          <SessionIndicators activity={activity} now={now} />
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
               <button
@@ -427,10 +401,7 @@ const SessionRow: React.FC<SessionRowProps> = ({
                 {intl.formatMessage(i18n.rename)}
               </DropdownMenuItem>
               {isLive && (
-                <DropdownMenuItem
-                  disabled={isBusy || isEnding}
-                  onSelect={() => void handleEnd()}
-                >
+                <DropdownMenuItem disabled={isBusy || isEnding} onSelect={() => void handleEnd()}>
                   <Power className="w-4 h-4" />
                   {intl.formatMessage(i18n.endSession)}
                 </DropdownMenuItem>

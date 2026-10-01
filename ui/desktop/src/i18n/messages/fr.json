@@ -2483,21 +2483,6 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "Actions de session"
   },
-  "navigationPanel.statusError": {
-    "defaultMessage": "Erreur"
-  },
-  "navigationPanel.statusIdle": {
-    "defaultMessage": "Inactif"
-  },
-  "navigationPanel.statusLive": {
-    "defaultMessage": "Chargée"
-  },
-  "navigationPanel.statusStreaming": {
-    "defaultMessage": "Diffusion en continu"
-  },
-  "navigationPanel.statusUnread": {
-    "defaultMessage": "Activité non lue"
-  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Session sans titre"
   },
@@ -3920,17 +3905,38 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.error": {
-    "defaultMessage": "La session a rencontré une erreur"
+  "sessionIndicators.working": {
+    "defaultMessage": "En cours"
   },
-  "sessionIndicators.live": {
-    "defaultMessage": "Chargée — maintient un agent ouvert"
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {En cours en arrière-plan} one {En cours en arrière-plan (# commande en arrière-plan)} other {En cours en arrière-plan (# commandes en arrière-plan)}}"
   },
-  "sessionIndicators.newActivity": {
-    "defaultMessage": "A une nouvelle activité"
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Attend votre approbation"
   },
-  "sessionIndicators.streaming": {
-    "defaultMessage": "Diffusion en cours"
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Vous attend"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Vous attend (nouvelle réponse)"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Bloquée : aucun progrès depuis {minutes, plural, one {# minute} other {# minutes}}"
+  },
+  "sessionIndicators.exited": {
+    "defaultMessage": "Bloquée : le processus de l'agent s'est arrêté"
+  },
+  "sessionIndicators.failed": {
+    "defaultMessage": "Le dernier tour a échoué"
+  },
+  "sessionIndicators.failing": {
+    "defaultMessage": "Bloquée : {count} tours ont échoué d'affilée"
+  },
+  "sessionIndicators.withError": {
+    "defaultMessage": "{label} : {error}"
+  },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Inactive"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

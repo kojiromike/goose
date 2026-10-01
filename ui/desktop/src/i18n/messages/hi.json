@@ -2483,21 +2483,6 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "सत्र क्रियाएँ"
   },
-  "navigationPanel.statusError": {
-    "defaultMessage": "त्रुटि"
-  },
-  "navigationPanel.statusIdle": {
-    "defaultMessage": "निष्क्रिय"
-  },
-  "navigationPanel.statusLive": {
-    "defaultMessage": "लोडेड"
-  },
-  "navigationPanel.statusStreaming": {
-    "defaultMessage": "स्ट्रीमिंग"
-  },
-  "navigationPanel.statusUnread": {
-    "defaultMessage": "अपठित गतिविधि"
-  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "शीर्षकहीन सत्र"
   },
@@ -3920,17 +3905,38 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.error": {
-    "defaultMessage": "सत्र में एक त्रुटि आई"
+  "sessionIndicators.working": {
+    "defaultMessage": "काम कर रहा है"
   },
-  "sessionIndicators.live": {
-    "defaultMessage": "लोडेड — एक एजेंट खुला रखे हुए"
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {पृष्ठभूमि में काम कर रहा है} one {पृष्ठभूमि में काम कर रहा है (# पृष्ठभूमि कमांड)} other {पृष्ठभूमि में काम कर रहा है (# पृष्ठभूमि कमांड)}}"
   },
-  "sessionIndicators.newActivity": {
-    "defaultMessage": "नई गतिविधि है"
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "आपकी स्वीकृति चाहिए"
   },
-  "sessionIndicators.streaming": {
-    "defaultMessage": "स्ट्रीमिंग"
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "आपकी प्रतीक्षा में"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "आपकी प्रतीक्षा में (नया उत्तर)"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "अटका हुआ: कोई प्रगति नहीं, {minutes, plural, one {# मिनट से} other {# मिनट से}}"
+  },
+  "sessionIndicators.exited": {
+    "defaultMessage": "अटका हुआ: एजेंट प्रक्रिया बंद हो गई"
+  },
+  "sessionIndicators.failed": {
+    "defaultMessage": "पिछला टर्न विफल रहा"
+  },
+  "sessionIndicators.failing": {
+    "defaultMessage": "अटका हुआ: लगातार {count} टर्न विफल"
+  },
+  "sessionIndicators.withError": {
+    "defaultMessage": "{label}: {error}"
+  },
+  "sessionIndicators.idle": {
+    "defaultMessage": "निष्क्रिय"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

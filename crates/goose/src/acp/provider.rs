@@ -34,6 +34,7 @@ use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, oneshot, watch, Mutex as TokioMutex};
 use tokio_util::compat::{TokioAsyncReadCompatExt as _, TokioAsyncWriteCompatExt as _};
 
+use crate::acp::activity::{now_ms, AcpActivity};
 use crate::acp::handoff::{build_handoff_context_memo, memo_token_budget, prompt_token_cost};
 use crate::acp::llm_backend::{
     disable_request, set_provider_request, LlmBackend, LlmBackendKind, LlmBackendState,
@@ -59,6 +60,9 @@ pub const ACP_CURRENT_MODEL: &str = "current";
 /// Config option id used by agents that advertise a thinking-effort selector
 /// without categorizing it as `thought_level`.
 const EFFORT_CONFIG_OPTION_ID: &str = "effort";
+
+/// Tool meta naming the subagent (Agent/Task) tool call that made a call.
+const TOOL_META_ACP_PARENT_TOOL_CALL_KEY: &str = "goose.acp.parent_tool_call_id";
 
 /// How long to wait for an ACP agent to answer a control-plane request before
 /// giving up. These requests are served from the agent's own state, so a
@@ -222,12 +226,14 @@ enum AcpUpdate {
         name: String,
         kind: ToolKind,
         raw_input: Option<serde_json::Value>,
+        parent_tool_call_id: Option<String>,
     },
     ToolCallComplete {
         id: String,
         raw_output: Option<serde_json::Value>,
         content: Option<Vec<ToolCallContent>>,
         is_error: bool,
+        parent_tool_call_id: Option<String>,
     },
     PermissionRequest {
         request: Box<RequestPermissionRequest>,
@@ -313,6 +319,26 @@ struct AccumulatedToolCall {
     /// An announcement held back because the agent had not finished streaming
     /// the call's input when it made it. See [`PendingToolCallStart`].
     pending_start: Option<PendingToolCallStart>,
+    /// Remembered from the call's announcement so its result stays attributed
+    /// even if a later update omits the meta.
+    parent_tool_call_id: Option<String>,
+}
+
+/// The Agent/Task tool call of the subagent that made this call, if any.
+///
+/// claude-agent-acp reports a subagent's tool calls on the parent session and
+/// marks each one with `_meta.claudeCode.parentToolUseId`. A background
+/// subagent keeps making them while the main agent streams its reply, so they
+/// must not be read as the main turn moving on to a tool.
+fn subagent_parent_tool_call_id(
+    meta: Option<&agent_client_protocol::schema::v1::Meta>,
+) -> Option<String> {
+    meta?
+        .get("claudeCode")?
+        .get("parentToolUseId")?
+        .as_str()
+        .filter(|id| !id.is_empty())
+        .map(str::to_string)
 }
 
 /// A tool call the agent has announced but that goose has not shown yet.
@@ -332,6 +358,7 @@ struct PendingToolCallStart {
     name: String,
     kind: ToolKind,
     raw_input: Option<serde_json::Value>,
+    parent_tool_call_id: Option<String>,
 }
 
 impl PendingToolCallStart {
@@ -359,6 +386,7 @@ impl PendingToolCallStart {
             name: self.name,
             kind: self.kind,
             raw_input: self.raw_input,
+            parent_tool_call_id: self.parent_tool_call_id,
         }
     }
 }
@@ -428,13 +456,15 @@ impl AcpEffortState {
 struct AcpSessionState {
     active_id: Arc<Mutex<Option<SessionId>>>,
     effort: AcpEffortState,
+    activity: AcpActivity,
 }
 
 impl AcpSessionState {
-    fn new(effort: AcpEffortState) -> Self {
+    fn new(effort: AcpEffortState, activity: AcpActivity) -> Self {
         Self {
             active_id: Arc::new(Mutex::new(None)),
             effort,
+            activity,
         }
     }
 }
@@ -512,17 +542,23 @@ impl OutOfBandMessagePublisher {
                 name,
                 kind,
                 raw_input,
+                parent_tool_call_id,
             } => {
-                self.end_run();
-                acp_tool_request_message(id, name, kind, raw_input)
+                if parent_tool_call_id.is_none() {
+                    self.end_run();
+                }
+                acp_tool_request_message(id, name, kind, raw_input, parent_tool_call_id)
             }
             AcpUpdate::ToolCallComplete {
                 id,
                 raw_output,
                 content,
                 is_error,
+                parent_tool_call_id,
             } => {
-                self.end_run();
+                if parent_tool_call_id.is_none() {
+                    self.end_run();
+                }
                 acp_tool_response_message(id, raw_output, content, is_error)
             }
             _ => return,
@@ -601,6 +637,8 @@ pub struct AcpProvider {
     /// value, it tracks the agent resetting its own effort (e.g. on a model
     /// switch), so the persisted value is re-applied when that happens.
     effort: AcpEffortState,
+    /// What the agent's own updates say about its progress; see [`AcpActivity`].
+    activity: AcpActivity,
     /// Current cancel epoch, bumped by `begin_cancel_scope()` when a new
     /// reply begins. Prompts capture it at enqueue time; each reply's cancel
     /// forwarder passes its own epoch back through `cancel()`.
@@ -710,6 +748,8 @@ struct AcpConnection {
     context_size: Arc<AtomicU64>,
     out_of_band_publisher: OutOfBandMessagePublisher,
     effort: AcpEffortState,
+    /// What the agent's own updates say about its progress; see [`AcpActivity`].
+    activity: AcpActivity,
     supports_llm_backends: bool,
     llm_backend: Option<LlmBackend>,
     spawn_backend: Option<LlmBackendKind>,
@@ -750,6 +790,7 @@ impl AcpConnection {
         let context_size = Arc::new(AtomicU64::new(0));
         let out_of_band_publisher = OutOfBandMessagePublisher::default();
         let effort = AcpEffortState::new();
+        let activity = AcpActivity::default();
         let agent_cx: Arc<OnceLock<ConnectionTo<Agent>>> = Arc::new(OnceLock::new());
         let cancelled_scopes: Arc<Mutex<HashSet<u64>>> = Arc::new(Mutex::new(HashSet::new()));
         let active_prompt_epoch = Arc::new(AtomicU64::new(0));
@@ -762,6 +803,7 @@ impl AcpConnection {
             context_size.clone(),
             out_of_band_publisher.clone(),
             effort.clone(),
+            activity.clone(),
             agent_cx.clone(),
             cancelled_scopes.clone(),
             active_prompt_epoch.clone(),
@@ -794,6 +836,7 @@ impl AcpConnection {
             context_size,
             out_of_band_publisher,
             effort,
+            activity,
             supports_llm_backends,
             llm_backend,
             spawn_backend,
@@ -866,6 +909,7 @@ impl AcpConnection {
             applied_model: self.applied_model,
             model_setups_in_flight: self.model_setups_in_flight,
             effort: self.effort,
+            activity: self.activity,
             supports_llm_backends: self.supports_llm_backends,
             llm_backend: Mutex::new(self.llm_backend),
             spawn_backend: self.spawn_backend,
@@ -1397,6 +1441,10 @@ fn fresh_text_run() -> (String, i64) {
 
 #[async_trait::async_trait]
 impl Provider for AcpProvider {
+    fn activity(&self) -> Option<goose_providers::base::ProviderActivity> {
+        Some(self.activity.snapshot())
+    }
+
     fn get_name(&self) -> &str {
         &self.name
     }
@@ -1615,20 +1663,27 @@ impl Provider for AcpProvider {
             })?;
         }
         let session_id = self.session_id();
+        let activity = self.activity.clone();
+        let failed_before_prompt = |error: ProviderError| {
+            activity.turn_failed_before_prompt(error.to_string(), now_ms());
+            error
+        };
 
         let model_name = self
             .apply_model_if_changed(&model_config.model_name)
             .await
             .map_err(|e| {
                 ProviderError::RequestFailed(format!("Failed to set ACP model option: {e}"))
-            })?
+            })
+            .map_err(failed_before_prompt)?
             .unwrap_or_else(|| "unknown".to_string());
 
         self.apply_effort_if_changed(model_config)
             .await
             .map_err(|e| {
                 ProviderError::RequestFailed(format!("Failed to set ACP effort option: {e}"))
-            })?;
+            })
+            .map_err(failed_before_prompt)?;
 
         let current_prompt_blocks = messages_to_prompt(messages, None);
         if current_prompt_blocks.is_empty() {
@@ -1743,15 +1798,31 @@ impl Provider for AcpProvider {
                         yielded_content = true;
                         yield (Some(message), None);
                     }
-                    AcpUpdate::ToolCallStart { id, name, kind, raw_input } => {
-                        text_run = None;
-                        thought_run = None;
+                    AcpUpdate::ToolCallStart { id, name, kind, raw_input, parent_tool_call_id } => {
+                        // A subagent's call runs beside the main reply rather than
+                        // interrupting it, so the reply keeps its message and the
+                        // chunks after the call join the bubble before it.
+                        if parent_tool_call_id.is_none() {
+                            text_run = None;
+                            thought_run = None;
+                        }
                         yielded_content = true;
                         if reject_all_tools {
-                            suppress_text = true;
+                            if parent_tool_call_id.is_none() {
+                                suppress_text = true;
+                            }
                             rejected_tool_calls.insert(id);
                         } else {
-                            yield (Some(acp_tool_request_message(id, name, kind, raw_input)), None);
+                            yield (
+                                Some(acp_tool_request_message(
+                                    id,
+                                    name,
+                                    kind,
+                                    raw_input,
+                                    parent_tool_call_id,
+                                )),
+                                None,
+                            );
                         }
                     }
                     AcpUpdate::ToolCallComplete {
@@ -1759,9 +1830,12 @@ impl Provider for AcpProvider {
                         raw_output,
                         content,
                         is_error,
+                        parent_tool_call_id,
                     } => {
-                        text_run = None;
-                        thought_run = None;
+                        if parent_tool_call_id.is_none() {
+                            text_run = None;
+                            thought_run = None;
+                        }
                         yielded_content = true;
                         if rejected_tool_calls.remove(&id) {
                             // In chat mode no tool_request was emitted (suppressed at
@@ -1805,6 +1879,7 @@ impl Provider for AcpProvider {
                             .await
                             .insert(request_id.clone(), tx);
 
+                        activity.permission_requested(now_ms());
                         if let Some(action_required) = build_action_required_message(&request) {
                             yield (Some(action_required), None);
                         }
@@ -1815,6 +1890,7 @@ impl Provider for AcpProvider {
                         });
 
                         pending_confirmations.lock().await.remove(&request_id);
+                        activity.permission_resolved(now_ms());
 
                         let decision = PermissionDecision::from(confirmation.permission);
                         if decision.should_record_rejection() {
@@ -2028,6 +2104,8 @@ struct AcpClientLoop {
     context_size: Arc<AtomicU64>,
     out_of_band_publisher: OutOfBandMessagePublisher,
     effort: AcpEffortState,
+    /// What the agent's own updates say about its progress; see [`AcpActivity`].
+    activity: AcpActivity,
     /// Session the notification handler will accept updates for. `reset_context`
     /// leaves a superseded session that may still emit trailing usage and mode
     /// updates; without this those would overwrite the fresh session's state.
@@ -2050,6 +2128,7 @@ impl AcpClientLoop {
         context_size: Arc<AtomicU64>,
         out_of_band_publisher: OutOfBandMessagePublisher,
         effort: AcpEffortState,
+        activity: AcpActivity,
         agent_cx: Arc<OnceLock<ConnectionTo<Agent>>>,
         cancelled_scopes: Arc<Mutex<HashSet<u64>>>,
         active_prompt_epoch: Arc<AtomicU64>,
@@ -2066,6 +2145,7 @@ impl AcpClientLoop {
             context_size,
             out_of_band_publisher,
             effort,
+            activity,
             active_session: Arc::new(Mutex::new(None)),
             agent_cx,
             cancelled_scopes,
@@ -2087,6 +2167,7 @@ impl AcpClientLoop {
             Err(e) => {
                 let _ = init_tx.send(Err(anyhow::anyhow!("{e}")));
                 tracing::error!("failed to spawn ACP process: {e}");
+                self.activity.mark_exited();
                 return;
             }
         };
@@ -2110,7 +2191,10 @@ impl AcpClientLoop {
         }
         let transport =
             agent_client_protocol::ByteStreams::new(stdin.compat_write(), stdout.compat());
+        let activity = self.activity.clone();
         let result = self.run(transport, rx, init_tx).await;
+        // The connection ends when the agent process does, whichever went first.
+        activity.mark_exited();
         let _ = child.kill().await;
         let _ = child.wait().await;
         result
@@ -2130,6 +2214,7 @@ impl AcpClientLoop {
             context_size,
             out_of_band_publisher,
             effort,
+            activity,
             active_session,
             agent_cx,
             cancelled_scopes,
@@ -2141,7 +2226,7 @@ impl AcpClientLoop {
         } = self;
         let notification_callback = config.notification_callback.clone();
         let reverse_modes = reverse_mode_mapping(&config.mode_mapping);
-        let session_state = AcpSessionState::new(effort);
+        let session_state = AcpSessionState::new(effort, activity.clone());
 
         Client
             .builder()
@@ -2169,6 +2254,9 @@ impl AcpClientLoop {
                             );
                             return Ok(());
                         }
+                        session_state
+                            .activity
+                            .record_update(&notification.update, now_ms());
                         if let Some(ref cb) = notification_callback {
                             cb(notification.clone());
                         }
@@ -2256,10 +2344,13 @@ impl AcpClientLoop {
                                 // tool_meta for stable categorization, and the
                                 // goose.external_dispatch marker keeps `name` off the
                                 // agent loop's routing/auth paths.
+                                let parent_tool_call_id =
+                                    subagent_parent_tool_call_id(tool_call.meta.as_ref());
                                 let mut start = Some(PendingToolCallStart {
                                     name: tool_call.title.clone(),
                                     kind: tool_call.kind,
                                     raw_input: tool_call.raw_input.clone(),
+                                    parent_tool_call_id: parent_tool_call_id.clone(),
                                 });
                                 // A call announced mid-stream waits for the refinement
                                 // that describes it. A terminal one has no refinement
@@ -2276,6 +2367,7 @@ impl AcpClientLoop {
                                             entry.raw_output = Some(raw_output);
                                         }
                                         entry.content.extend(tool_call.content.clone());
+                                        entry.parent_tool_call_id = parent_tool_call_id.clone();
                                         if !announce_now {
                                             entry.pending_start = start.take();
                                         }
@@ -2312,6 +2404,7 @@ impl AcpClientLoop {
                                                 initial_status,
                                                 ToolCallStatus::Failed
                                             ),
+                                            parent_tool_call_id: accumulated.parent_tool_call_id,
                                         },
                                     )
                                     .await;
@@ -2336,6 +2429,10 @@ impl AcpClientLoop {
                                         }
                                         if let Some(content) = update.fields.content.clone() {
                                             entry.content.extend(content);
+                                        }
+                                        if entry.parent_tool_call_id.is_none() {
+                                            entry.parent_tool_call_id =
+                                                subagent_parent_tool_call_id(update.meta.as_ref());
                                         }
                                         if let Some(start) = entry.pending_start.as_mut() {
                                             start.refine(&update.fields);
@@ -2383,6 +2480,7 @@ impl AcpClientLoop {
                                             raw_output: accumulated.raw_output,
                                             content,
                                             is_error: matches!(status, ToolCallStatus::Failed),
+                                            parent_tool_call_id: accumulated.parent_tool_call_id,
                                         },
                                     )
                                     .await;
@@ -2932,6 +3030,7 @@ async fn handle_requests(
                 // reach the wire, so `cancel()` for this scope notifies the
                 // backend while a stale scope's cancel does not.
                 active_prompt_epoch.store(cancel_epoch, Ordering::SeqCst);
+                session_state.activity.turn_started(now_ms());
                 let request = cx.send_request(PromptRequest::new(session_id.clone(), content));
                 // send_request queues the message before returning, so a
                 // cancel observed here raced the enqueue and its notification
@@ -2944,6 +3043,9 @@ async fn handle_requests(
                 }
                 let response: Result<PromptResponse, _> = request.block_task().await;
                 active_prompt_epoch.store(0, Ordering::SeqCst);
+                session_state
+                    .activity
+                    .turn_finished(response.as_ref().err().map(ToString::to_string), now_ms());
 
                 match response {
                     Ok(r) => {
@@ -3380,16 +3482,20 @@ fn acp_tool_request_message(
     name: String,
     kind: ToolKind,
     raw_input: Option<serde_json::Value>,
+    parent_tool_call_id: Option<String>,
 ) -> Message {
     let mut params = CallToolRequestParams::new(name);
     if let Some(serde_json::Value::Object(map)) = raw_input {
         params = params.with_arguments(map);
     }
-    let tool_meta = Some(serde_json::json!({
+    let mut tool_meta = serde_json::json!({
         TOOL_META_EXTERNAL_DISPATCH_KEY: true,
         "goose.acp.kind": kind,
-    }));
-    Message::assistant().with_tool_request_with_metadata(id, Ok(params), None, tool_meta)
+    });
+    if let Some(parent) = parent_tool_call_id {
+        tool_meta[TOOL_META_ACP_PARENT_TOOL_CALL_KEY] = serde_json::Value::String(parent);
+    }
+    Message::assistant().with_tool_request_with_metadata(id, Ok(params), None, Some(tool_meta))
 }
 
 /// Build the tool-response message pairing with [`acp_tool_request_message`].
@@ -3930,6 +4036,7 @@ mod tests {
                 model_config_option_id: None,
                 applied_model: Arc::new(Mutex::new(None)),
                 effort: AcpEffortState::new(),
+                activity: AcpActivity::default(),
                 supports_llm_backends: false,
                 llm_backend: Mutex::new(None),
                 spawn_backend: None,
@@ -4163,6 +4270,7 @@ mod tests {
                     name: "read_file".to_string(),
                     kind: ToolKind::Read,
                     raw_input: None,
+                    parent_tool_call_id: None,
                 })
                 .await
                 .unwrap();
@@ -4172,6 +4280,7 @@ mod tests {
                     raw_output: None,
                     content: None,
                     is_error: false,
+                    parent_tool_call_id: None,
                 })
                 .await
                 .unwrap();
@@ -4246,12 +4355,135 @@ mod tests {
         assert!(!published[0].is_agent_visible());
     }
 
+    /// A background subagent's tool calls land in the middle of the main
+    /// agent's reply. They must not split the reply into several bubbles, and
+    /// they keep their attribution so a client can tell them apart.
+    #[tokio::test]
+    async fn subagent_tool_calls_do_not_split_the_main_reply() {
+        use futures::StreamExt;
+
+        let (tx, mut rx) = mpsc::channel(1);
+        let (provider, model) = test_provider_with_tx(Some(tx));
+        let messages = vec![Message::user().with_text("write it up")];
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        let response_tx = match rx.recv().await.expect("expected ACP prompt request") {
+            ClientRequest::Prompt { response_tx, .. } => response_tx,
+            _ => panic!("expected ACP prompt request"),
+        };
+
+        let subagent = Some("toolu_agent".to_string());
+        let updates = vec![
+            AcpUpdate::Text(TextContent::new("and it mat")),
+            AcpUpdate::ToolCallStart {
+                id: "sub-call".to_string(),
+                name: "git grep".to_string(),
+                kind: ToolKind::Execute,
+                raw_input: None,
+                parent_tool_call_id: subagent.clone(),
+            },
+            AcpUpdate::ToolCallComplete {
+                id: "sub-call".to_string(),
+                raw_output: None,
+                content: None,
+                is_error: false,
+                parent_tool_call_id: subagent,
+            },
+            AcpUpdate::Text(TextContent::new("ters: a lot")),
+            AcpUpdate::ToolCallStart {
+                id: "own-call".to_string(),
+                name: "ls".to_string(),
+                kind: ToolKind::Execute,
+                raw_input: None,
+                parent_tool_call_id: None,
+            },
+            AcpUpdate::Text(TextContent::new("after my own call")),
+            AcpUpdate::Complete(StopReason::EndTurn, None),
+        ];
+        for update in updates {
+            response_tx.send(update).await.unwrap();
+        }
+
+        let mut yielded = Vec::new();
+        while let Some(item) = stream.next().await {
+            if let (Some(message), _) = item.unwrap() {
+                yielded.push(message);
+            }
+        }
+
+        let text_ids: Vec<(String, String)> = yielded
+            .iter()
+            .filter(|m| !m.as_concat_text().is_empty())
+            .map(|m| (m.as_concat_text(), m.id.clone().unwrap()))
+            .collect();
+        assert_eq!(text_ids.len(), 3);
+        assert_eq!(
+            text_ids[0].1, text_ids[1].1,
+            "text around a subagent call must stay in one message"
+        );
+        assert_ne!(
+            text_ids[1].1, text_ids[2].1,
+            "the main agent's own tool call still starts a new message"
+        );
+
+        let sub_request = yielded
+            .iter()
+            .flat_map(|m| m.content.iter())
+            .find_map(|content| match content {
+                MessageContent::ToolRequest(request) if request.id == "sub-call" => Some(request),
+                _ => None,
+            })
+            .expect("the subagent call is still shown");
+        assert_eq!(
+            sub_request.tool_meta.as_ref().unwrap()[TOOL_META_ACP_PARENT_TOOL_CALL_KEY],
+            "toolu_agent"
+        );
+    }
+
+    #[test]
+    fn subagent_parent_is_read_from_claude_code_meta() {
+        let meta: agent_client_protocol::schema::v1::Meta = serde_json::from_value(
+            serde_json::json!({ "claudeCode": { "parentToolUseId": "toolu_1", "toolName": "Bash" } }),
+        )
+        .unwrap();
+        assert_eq!(
+            subagent_parent_tool_call_id(Some(&meta)).as_deref(),
+            Some("toolu_1")
+        );
+
+        let own: agent_client_protocol::schema::v1::Meta =
+            serde_json::from_value(serde_json::json!({ "claudeCode": { "toolName": "Bash" } }))
+                .unwrap();
+        assert_eq!(subagent_parent_tool_call_id(Some(&own)), None);
+        assert_eq!(subagent_parent_tool_call_id(None), None);
+    }
+
+    #[test]
+    fn a_subagent_tool_call_does_not_end_the_out_of_band_text_run() {
+        let publisher = OutOfBandMessagePublisher::default();
+        let published = collect_published(&publisher);
+
+        publisher.publish(AcpUpdate::Text(TextContent::new("the build ")));
+        publisher.publish(AcpUpdate::ToolCallStart {
+            id: "sub-call".to_string(),
+            name: "git grep".to_string(),
+            kind: ToolKind::Execute,
+            raw_input: None,
+            parent_tool_call_id: Some("toolu_agent".to_string()),
+        });
+        publisher.publish(AcpUpdate::Text(TextContent::new("passed")));
+
+        let published = published.lock().unwrap();
+        assert_eq!(published.len(), 3);
+        assert_eq!(published[0].id, published[2].id);
+    }
+
     #[test]
     fn an_announcement_made_mid_stream_is_not_described_yet() {
         let mut start = PendingToolCallStart {
             name: "Terminal".to_string(),
             kind: ToolKind::Execute,
             raw_input: Some(serde_json::json!({})),
+            parent_tool_call_id: None,
         };
         assert!(
             !start.is_described(),
@@ -4271,6 +4503,7 @@ mod tests {
             name: "Terminal".to_string(),
             kind: ToolKind::Other,
             raw_input: Some(serde_json::json!({})),
+            parent_tool_call_id: None,
         };
 
         start.refine(
@@ -4300,12 +4533,14 @@ mod tests {
             name: "Bash".to_string(),
             kind: ToolKind::Execute,
             raw_input: Some(serde_json::json!({ "command": "just test" })),
+            parent_tool_call_id: None,
         });
         publisher.publish(AcpUpdate::ToolCallComplete {
             id: "call-1".to_string(),
             raw_output: Some(serde_json::json!("all tests passed")),
             content: None,
             is_error: false,
+            parent_tool_call_id: None,
         });
 
         let published = published.lock().unwrap();
@@ -4343,6 +4578,7 @@ mod tests {
             name: "Bash".to_string(),
             kind: ToolKind::Execute,
             raw_input: None,
+            parent_tool_call_id: None,
         });
         publisher.publish(AcpUpdate::Text(TextContent::new("they passed")));
 

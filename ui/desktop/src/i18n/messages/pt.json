@@ -2483,21 +2483,6 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "Ações da sessão"
   },
-  "navigationPanel.statusError": {
-    "defaultMessage": "Erro"
-  },
-  "navigationPanel.statusIdle": {
-    "defaultMessage": "Inativo"
-  },
-  "navigationPanel.statusLive": {
-    "defaultMessage": "Carregada"
-  },
-  "navigationPanel.statusStreaming": {
-    "defaultMessage": "Transmitindo"
-  },
-  "navigationPanel.statusUnread": {
-    "defaultMessage": "Atividade não lida"
-  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Sessão sem título"
   },
@@ -3920,17 +3905,38 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.error": {
-    "defaultMessage": "A sessão encontrou um erro"
+  "sessionIndicators.working": {
+    "defaultMessage": "Trabalhando"
   },
-  "sessionIndicators.live": {
-    "defaultMessage": "Carregada — mantém um agente aberto"
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {Trabalhando em segundo plano} one {Trabalhando em segundo plano (# comando em segundo plano)} other {Trabalhando em segundo plano (# comandos em segundo plano)}}"
   },
-  "sessionIndicators.newActivity": {
-    "defaultMessage": "Tem nova atividade"
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Precisa da sua aprovação"
   },
-  "sessionIndicators.streaming": {
-    "defaultMessage": "Em transmissão"
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Aguardando você"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Aguardando você (nova resposta)"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Travada: sem progresso há {minutes, plural, one {# minuto} other {# minutos}}"
+  },
+  "sessionIndicators.exited": {
+    "defaultMessage": "Travada: o processo do agente foi encerrado"
+  },
+  "sessionIndicators.failed": {
+    "defaultMessage": "O último turno falhou"
+  },
+  "sessionIndicators.failing": {
+    "defaultMessage": "Travada: {count} turnos falharam seguidos"
+  },
+  "sessionIndicators.withError": {
+    "defaultMessage": "{label}: {error}"
+  },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Ociosa"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"
