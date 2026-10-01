@@ -303,8 +303,9 @@ const SessionRow: React.FC<SessionRowProps> = ({
   });
   const statusLabel = describeSessionActivity(intl, activity, now);
   const localStreamState = status?.streamState;
+  const listedActiveRun = session.activeRun;
   useEffect(() => {
-    logStuckTransition(session.id, activity, { live, localStreamState });
+    logStuckTransition(session.id, activity, { live, localStreamState, listedActiveRun });
   });
 
   const handleEnd = async () => {
@@ -615,7 +616,10 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
     (session: SessionListItem): SessionStatus | undefined => {
       // Live in-window status events win; until one arrives for a session
       // (e.g. right after a renderer reload), fall back to the backend's
-      // activeRun flag from the fetched session list.
+      // activeRun flag from the fetched session list. That flag is as old as
+      // the last fetch, and a session this window never opens gets no event to
+      // replace it, so deriveSessionActivity believes it only for sessions the
+      // server does not report.
       const live =
         sessionStatuses.get(session.id) ??
         (session.activeRun
