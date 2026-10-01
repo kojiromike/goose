@@ -469,8 +469,9 @@ pub struct ProviderActivity {
     /// The last time the agent reported anything at all, including progress
     /// beats for a running tool.
     pub last_update_at: Option<i64>,
-    /// The last time the agent reported something while no turn was in flight:
-    /// it resumed on its own, for example to report on a background command.
+    /// The latest update of a run the agent started on its own, with no turn in
+    /// flight, for example to report on a background command. `None` once that
+    /// run is known to be over.
     pub last_unprompted_update_at: Option<i64>,
     /// Permission requests the agent is waiting on the user to answer.
     pub pending_permissions: u32,

@@ -60,7 +60,11 @@ import {
 import { cn } from '../../utils';
 import type { ProjectGroup } from '../../utils/projectSessions';
 import { defineMessages, useIntl } from '../../i18n';
-import { deriveSessionActivity, type LocalStreamState } from '../../utils/sessionActivity';
+import {
+  deriveSessionActivity,
+  logStuckTransition,
+  type LocalStreamState,
+} from '../../utils/sessionActivity';
 
 type StreamState = LocalStreamState;
 
@@ -298,6 +302,10 @@ const SessionRow: React.FC<SessionRowProps> = ({
     now,
   });
   const statusLabel = describeSessionActivity(intl, activity, now);
+  const localStreamState = status?.streamState;
+  useEffect(() => {
+    logStuckTransition(session.id, activity, { live, localStreamState });
+  });
 
   const handleEnd = async () => {
     setIsEnding(true);

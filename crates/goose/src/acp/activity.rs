@@ -10,9 +10,15 @@
 //! lifecycle only to clients that negotiate its JetBrains AIR `asyncTasks`
 //! extension, which goose does not. What every client sees is the Bash result
 //! announcing the command ("Command running in background with ID: …") and,
-//! when a command finishes, the agent resuming unprompted to report on it. So a
-//! command counts as running from its announcement until the next unprompted
-//! run of the agent, oldest first, or until the agent stops it.
+//! when a command finishes while the agent is idle, the agent resuming
+//! unprompted to report on it. A command that finishes while the agent is busy
+//! is reported inside that run and produces no update at all. So a command
+//! counts as running from its announcement until the agent next resumes
+//! unprompted or stops it. That forgets a command still running beside the one
+//! that finished, which then shows as waiting until it brings the agent back.
+//! Counting one command per run erred the other way, and worse: every command
+//! that finished unseen left the session "working" until its age limit, long
+//! after the agent had gone idle.
 
 use std::sync::{Arc, Mutex};
 
@@ -21,8 +27,13 @@ use goose_providers::base::ProviderActivity;
 
 const BACKGROUND_COMMAND_MARKER: &str = "Command running in background with ID: ";
 
-/// Unprompted updates this close together belong to one run of the agent.
+/// An unprompted run that goes this long without an update is over. Only
+/// matters for an agent that does not report the result of each run.
 const UNPROMPTED_RUN_GAP_MS: i64 = 60_000;
+
+/// claude-agent-acp sends a usage update carrying this key with the result of
+/// every cycle the agent runs, naming what started the cycle.
+const CYCLE_ORIGIN_META_KEY: &str = "_claude/origin";
 
 /// Enough for any real session; bounds the list if completions are missed.
 const MAX_TRACKED_BACKGROUND_TASKS: usize = 32;
@@ -38,7 +49,10 @@ struct ActivityState {
     /// session's history, not anything it is doing now.
     prompted: bool,
     turn_in_flight: bool,
+    /// The agent resumed with no prompt in flight and has not finished yet.
+    unprompted_run_open: bool,
     last_update_at: Option<i64>,
+    /// The latest update of the open unprompted run; `None` once it ends.
     last_unprompted_update_at: Option<i64>,
     pending_permissions: u32,
     exited: bool,
@@ -76,20 +90,26 @@ impl AcpActivity {
 
     pub(crate) fn record_update(&self, update: &SessionUpdate, now: i64) {
         self.with_state(|state| {
-            let previous_unprompted = state.last_unprompted_update_at;
+            let previous_update = state.last_update_at;
             state.last_update_at = Some(now);
             if !state.prompted {
                 return;
             }
-            if !state.turn_in_flight && is_agent_output(update) {
-                let starts_run = previous_unprompted
-                    .is_none_or(|previous| now - previous > UNPROMPTED_RUN_GAP_MS);
-                // The agent resumes on its own chiefly to report a finished
-                // background command, and nothing says which one finished.
-                if starts_run && !state.background_tasks.is_empty() {
-                    state.background_tasks.remove(0);
+            if !state.turn_in_flight {
+                let after_silence =
+                    previous_update.is_some_and(|previous| now - previous > UNPROMPTED_RUN_GAP_MS);
+                if is_agent_output(update) && (!state.unprompted_run_open || after_silence) {
+                    state.unprompted_run_open = true;
+                    state.background_tasks.clear();
                 }
-                state.last_unprompted_update_at = Some(now);
+                if state.unprompted_run_open {
+                    if is_cycle_result(update) {
+                        state.unprompted_run_open = false;
+                        state.last_unprompted_update_at = None;
+                    } else {
+                        state.last_unprompted_update_at = Some(now);
+                    }
+                }
             }
             if let Some(stopped) = stopped_background_task(update) {
                 state.background_tasks.retain(|(id, _)| id != &stopped);
@@ -109,7 +129,7 @@ impl AcpActivity {
             state.prompted = true;
             state.turn_in_flight = true;
             state.last_update_at = Some(now);
-            // A new turn ends any unprompted run, so the next one is counted.
+            state.unprompted_run_open = false;
             state.last_unprompted_update_at = None;
         });
     }
@@ -165,6 +185,17 @@ fn is_agent_output(update: &SessionUpdate) -> bool {
         SessionUpdate::AgentMessageChunk(_)
             | SessionUpdate::AgentThoughtChunk(_)
             | SessionUpdate::ToolCall(_)
+    )
+}
+
+fn is_cycle_result(update: &SessionUpdate) -> bool {
+    matches!(
+        update,
+        SessionUpdate::UsageUpdate(usage)
+            if usage
+                .meta
+                .as_ref()
+                .is_some_and(|meta| meta.contains_key(CYCLE_ORIGIN_META_KEY))
     )
 }
 
@@ -230,7 +261,7 @@ mod tests {
     use super::*;
     use agent_client_protocol::schema::v1::{
         ContentBlock, ContentChunk, TextContent, ToolCall, ToolCallContent, ToolCallId,
-        ToolCallUpdate, ToolCallUpdateFields,
+        ToolCallUpdate, ToolCallUpdateFields, UsageUpdate,
     };
 
     fn text_chunk() -> SessionUpdate {
@@ -253,6 +284,22 @@ mod tests {
         ))
     }
 
+    fn tool_progress() -> SessionUpdate {
+        SessionUpdate::ToolCallUpdate(ToolCallUpdate::new(
+            ToolCallId::new("toolu_slow"),
+            ToolCallUpdateFields::new().status(ToolCallStatus::InProgress),
+        ))
+    }
+
+    fn unprompted_run_result() -> SessionUpdate {
+        let mut meta = serde_json::Map::new();
+        meta.insert(
+            "_claude/origin".to_string(),
+            serde_json::json!({ "kind": "task-notification" }),
+        );
+        SessionUpdate::UsageUpdate(UsageUpdate::new(120_000, 1_000_000).meta(meta))
+    }
+
     #[test]
     fn background_command_runs_until_the_agent_resumes_to_report_it() {
         let activity = AcpActivity::default();
@@ -271,19 +318,139 @@ mod tests {
     }
 
     #[test]
-    fn one_unprompted_run_accounts_for_one_background_command() {
+    fn an_unprompted_run_forgets_the_commands_launched_before_it() {
         let activity = AcpActivity::default();
         activity.turn_started(0);
+        // "first" finishes while the turn is still running, which no update
+        // reports; "second" finishing is what brings the agent back.
         activity.record_update(&background_bash_result("first"), 1_000);
         activity.record_update(&background_bash_result("second"), 2_000);
         activity.turn_finished(None, 3_000);
+        assert_eq!(
+            activity.snapshot().background_tasks_started_at,
+            vec![1_000, 2_000]
+        );
 
         activity.record_update(&text_chunk(), 100_000);
-        activity.record_update(&text_chunk(), 110_000);
-        assert_eq!(activity.snapshot().background_tasks_started_at, vec![2_000]);
-
-        activity.record_update(&text_chunk(), 500_000);
         assert!(activity.snapshot().background_tasks_started_at.is_empty());
+    }
+
+    #[test]
+    fn a_command_an_unprompted_run_launches_outlives_the_run() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.record_update(&background_bash_result("first"), 1_000);
+        activity.turn_finished(None, 2_000);
+
+        activity.record_update(&text_chunk(), 100_000);
+        activity.record_update(&background_bash_result("second"), 101_000);
+        activity.record_update(&text_chunk(), 102_000);
+        activity.record_update(&unprompted_run_result(), 103_000);
+
+        let snapshot = activity.snapshot();
+        assert_eq!(snapshot.background_tasks_started_at, vec![101_000]);
+        assert_eq!(snapshot.last_unprompted_update_at, None);
+    }
+
+    #[test]
+    fn nothing_is_in_flight_once_the_last_unprompted_run_ends() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.record_update(&background_bash_result("a"), 1_000);
+        activity.turn_finished(None, 2_000);
+
+        // The agent comes back for "a" and starts two more. "b" finishes
+        // before this run does, so nothing ever reports it.
+        activity.record_update(&text_chunk(), 100_000);
+        activity.record_update(&background_bash_result("b"), 110_000);
+        activity.record_update(&background_bash_result("c"), 120_000);
+        activity.record_update(&unprompted_run_result(), 130_000);
+        assert_eq!(
+            activity.snapshot().background_tasks_started_at,
+            vec![110_000, 120_000]
+        );
+
+        // It comes back for "c" and starts nothing.
+        activity.record_update(&text_chunk(), 300_000);
+        assert_eq!(activity.snapshot().last_unprompted_update_at, Some(300_000));
+        activity.record_update(&unprompted_run_result(), 310_000);
+
+        let snapshot = activity.snapshot();
+        assert!(snapshot.background_tasks_started_at.is_empty());
+        assert_eq!(snapshot.last_unprompted_update_at, None);
+        assert_eq!(snapshot.consecutive_failed_turns, 0);
+        assert_eq!(snapshot.last_update_at, Some(310_000));
+    }
+
+    #[test]
+    fn a_slow_tool_inside_an_unprompted_run_does_not_start_another() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.turn_finished(None, 1_000);
+
+        activity.record_update(&text_chunk(), 100_000);
+        activity.record_update(&background_bash_result("build"), 110_000);
+        for at in [140_000, 170_000, 200_000] {
+            activity.record_update(&tool_progress(), at);
+        }
+        assert_eq!(activity.snapshot().last_unprompted_update_at, Some(200_000));
+        activity.record_update(&text_chunk(), 230_000);
+
+        assert_eq!(
+            activity.snapshot().background_tasks_started_at,
+            vec![110_000]
+        );
+    }
+
+    #[test]
+    fn silence_separates_the_runs_of_an_agent_that_reports_no_results() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.turn_finished(None, 1_000);
+
+        activity.record_update(&text_chunk(), 100_000);
+        activity.record_update(&background_bash_result("build"), 101_000);
+        activity.record_update(&text_chunk(), 102_000);
+        assert_eq!(
+            activity.snapshot().background_tasks_started_at,
+            vec![101_000]
+        );
+
+        activity.record_update(&text_chunk(), 400_000);
+        assert!(activity.snapshot().background_tasks_started_at.is_empty());
+    }
+
+    #[test]
+    fn only_a_result_ends_an_unprompted_run() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.turn_finished(None, 1_000);
+
+        // A result with no run open is the placeholder the agent emits for a
+        // notification it answers together with a later one.
+        activity.record_update(&unprompted_run_result(), 50_000);
+        activity.record_update(&text_chunk(), 100_000);
+        let mid_run_usage = SessionUpdate::UsageUpdate(UsageUpdate::new(120_000, 1_000_000));
+        activity.record_update(&mid_run_usage, 101_000);
+        assert_eq!(activity.snapshot().last_unprompted_update_at, Some(101_000));
+
+        activity.record_update(&unprompted_run_result(), 102_000);
+        assert_eq!(activity.snapshot().last_unprompted_update_at, None);
+    }
+
+    #[test]
+    fn a_result_inside_a_prompt_is_not_an_unprompted_run_ending() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.record_update(&background_bash_result("build"), 1_000);
+        // The agent holds the prompt open for a background subagent and reports
+        // on it before the prompt returns.
+        activity.record_update(&text_chunk(), 100_000);
+        activity.record_update(&unprompted_run_result(), 101_000);
+
+        let snapshot = activity.snapshot();
+        assert_eq!(snapshot.background_tasks_started_at, vec![1_000]);
+        assert_eq!(snapshot.last_unprompted_update_at, None);
     }
 
     #[test]

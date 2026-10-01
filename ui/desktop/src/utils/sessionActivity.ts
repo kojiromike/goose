@@ -78,7 +78,7 @@ export const STALL_AFTER_MS = 10 * 60_000;
  */
 export const BACKGROUND_TASK_MAX_AGE_MS = 30 * 60_000;
 
-/** Unprompted output this recent means the agent is working on its own. */
+/** An unprompted run with an update this recent is taken to be still going. */
 export const UNPROMPTED_WORK_WINDOW_MS = 60_000;
 
 export function deriveSessionActivity({
@@ -102,7 +102,11 @@ export function deriveSessionActivity({
     };
   }
 
-  const running = live?.runningTurn || localStreamState === 'streaming';
+  // The server knows whether a turn is running in a session it holds. What
+  // this window last saw is only a stand-in until the server reports: nothing
+  // clears it for a chat the window is not showing, so trusting it turned
+  // sessions that had finished into "running, and silent for 10 minutes".
+  const running = live ? live.runningTurn : localStreamState === 'streaming';
   if (running) {
     const lastActivityAt = live?.lastActivityAt;
     if (lastActivityAt && now - lastActivityAt >= STALL_AFTER_MS) {
@@ -144,4 +148,36 @@ export function deriveSessionActivity({
   }
 
   return { state: 'idle', reason: 'none', unread };
+}
+
+const MAX_LOGGED_SIGNALS_LENGTH = 4000;
+
+const loggedStuckReasons = new Map<string, SessionActivityReason>();
+
+/**
+ * Record in the app log each time a session becomes stuck, with the signals
+ * that decided it, and when it recovers. A stuck marker says only that
+ * something is wrong; its tooltip is gone once the pointer moves, and the
+ * server reports a session's signals only to the connection holding it, so
+ * without this a false alarm leaves nothing to examine afterwards.
+ */
+export function logStuckTransition(
+  sessionId: string,
+  activity: SessionActivity,
+  signals: Record<string, unknown>
+): void {
+  const previous = loggedStuckReasons.get(sessionId);
+  if (activity.state !== 'stuck') {
+    if (previous === undefined) return;
+    loggedStuckReasons.delete(sessionId);
+    window.electron.logInfo(
+      `Session ${sessionId} is no longer stuck (was ${previous}): now ${activity.state}/${activity.reason}`
+    );
+    return;
+  }
+  if (previous === activity.reason) return;
+  loggedStuckReasons.set(sessionId, activity.reason);
+  // The main process drops messages over 10 KB, and a turn error can be long.
+  const detail = JSON.stringify(signals).slice(0, MAX_LOGGED_SIGNALS_LENGTH);
+  window.electron.logInfo(`Session ${sessionId} is stuck (${activity.reason}): ${detail}`);
 }

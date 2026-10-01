@@ -610,7 +610,7 @@
             "integer",
             "null"
           ],
-          "description": "Unix milliseconds of the agent's last update while no prompt was in\nflight, i.e. it resumed on its own."
+          "description": "Unix milliseconds of the agent's last update in a run it started on its\nown, with no prompt in flight. Unset once that run is known to be over."
         },
         "agentExited": {
           "type": "boolean",

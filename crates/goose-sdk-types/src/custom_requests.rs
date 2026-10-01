@@ -2343,8 +2343,8 @@ pub struct LiveSessionDto {
     /// Unix milliseconds of the agent's last update of any kind.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_activity_at: Option<i64>,
-    /// Unix milliseconds of the agent's last update while no prompt was in
-    /// flight, i.e. it resumed on its own.
+    /// Unix milliseconds of the agent's last update in a run it started on its
+    /// own, with no prompt in flight. Unset once that run is known to be over.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_unprompted_activity_at: Option<i64>,
     /// The agent process behind the session is gone.

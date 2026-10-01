@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   BACKGROUND_TASK_MAX_AGE_MS,
   deriveSessionActivity,
+  logStuckTransition,
   STALL_AFTER_MS,
   UNPROMPTED_WORK_WINDOW_MS,
   type LiveSessionSignals,
@@ -125,6 +126,37 @@ describe('deriveSessionActivity', () => {
     expect(activity(undefined, { hasUnread: true })).toMatchObject({ state: 'waiting' });
   });
 
+  it('believes the server over this window about whether a turn is running', () => {
+    // Nothing clears a window's "streaming" for a chat it is not showing, so a
+    // session that finished long ago must not read as a turn that went silent.
+    const finishedLongAgo = { runningTurn: false, lastActivityAt: NOW - 2 * STALL_AFTER_MS };
+    expect(activity(finishedLongAgo, { localStreamState: 'streaming' })).toMatchObject({
+      state: 'waiting',
+      reason: 'turnEnded',
+    });
+    expect(
+      activity(
+        { runningTurn: false, lastActivityAt: NOW - 30_000 },
+        { localStreamState: 'streaming' }
+      )
+    ).toMatchObject({ state: 'waiting', reason: 'turnEnded' });
+  });
+
+  it('settles to waiting once an unprompted run ends, however the session got there', () => {
+    const afterUnpromptedRun = {
+      runningTurn: false,
+      lastActivityAt: NOW - 2 * STALL_AFTER_MS,
+      lastUnpromptedActivityAt: null,
+      backgroundTasksStartedAt: [],
+    };
+    for (const localStreamState of [undefined, 'idle', 'streaming'] as const) {
+      expect(activity(afterUnpromptedRun, { localStreamState })).toMatchObject({
+        state: 'waiting',
+        reason: 'turnEnded',
+      });
+    }
+  });
+
   it('falls back to what this window saw when the server has not reported yet', () => {
     expect(activity(undefined, { localStreamState: 'streaming' })).toMatchObject({
       state: 'working',
@@ -134,5 +166,41 @@ describe('deriveSessionActivity', () => {
       state: 'stuck',
       reason: 'failed',
     });
+  });
+});
+
+describe('logStuckTransition', () => {
+  it('logs a session once when it becomes stuck and once when it recovers', () => {
+    const logInfo = vi.fn();
+    window.electron.logInfo = logInfo;
+    const live = { runningTurn: true, lastActivityAt: NOW - STALL_AFTER_MS };
+    const stuck = activity(live);
+    const signals = { live, localStreamState: 'idle' };
+
+    logStuckTransition('session-1', stuck, signals);
+    logStuckTransition('session-1', stuck, signals);
+    expect(logInfo).toHaveBeenCalledTimes(1);
+    expect(logInfo.mock.calls[0][0]).toContain('Session session-1 is stuck (stalled)');
+    expect(logInfo.mock.calls[0][0]).toContain(`"lastActivityAt":${live.lastActivityAt}`);
+    expect(logInfo.mock.calls[0][0]).toContain('"localStreamState":"idle"');
+
+    const failed = activity({ runningTurn: false, consecutiveFailedTurns: 1 });
+    logStuckTransition('session-1', failed, signals);
+    expect(logInfo).toHaveBeenCalledTimes(2);
+    expect(logInfo.mock.calls[1][0]).toContain('is stuck (failed)');
+
+    logStuckTransition('session-1', activity({ runningTurn: false }), signals);
+    logStuckTransition('session-1', activity({ runningTurn: false }), signals);
+    expect(logInfo).toHaveBeenCalledTimes(3);
+    expect(logInfo.mock.calls[2][0]).toContain(
+      'no longer stuck (was failed): now waiting/turnEnded'
+    );
+  });
+
+  it('says nothing about a session that was never stuck', () => {
+    const logInfo = vi.fn();
+    window.electron.logInfo = logInfo;
+    logStuckTransition('session-2', activity({ runningTurn: true, lastActivityAt: NOW }), {});
+    expect(logInfo).not.toHaveBeenCalled();
   });
 });
