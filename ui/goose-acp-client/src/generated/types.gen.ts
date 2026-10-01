@@ -305,8 +305,8 @@ export type LiveSessionDto = {
      */
     lastActivityAt?: number | null;
     /**
-     * Unix milliseconds of the agent's last update while no prompt was in
-     * flight, i.e. it resumed on its own.
+     * Unix milliseconds of the agent's last update in a run it started on its
+     * own, with no prompt in flight. Unset once that run is known to be over.
      */
     lastUnpromptedActivityAt?: number | null;
     /**
