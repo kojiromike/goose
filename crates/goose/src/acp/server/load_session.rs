@@ -483,6 +483,23 @@ impl GooseAcpAgent {
                 &pending_confirmations,
                 None,
             )?;
+            // A run this client did not start (an agent orchestrating the session
+            // sent the prompt) can still be going. Loading reset the client's view
+            // of the session, so name the run again: without its id the client
+            // shows the chat as idle and has nothing to cancel or steer.
+            let active_run_id = self
+                .active_prompt_runs
+                .lock()
+                .await
+                .get(&session_id_str)
+                .map(|active_run| active_run.run_id.clone());
+            if let Some(run_id) = active_run_id {
+                Self::send_active_run_update(
+                    cx,
+                    &SessionId::new(session_id_str.clone()),
+                    Some(&run_id),
+                )?;
+            }
         }
 
         Ok(response)

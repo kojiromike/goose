@@ -228,7 +228,8 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     // fast path above skips message copies while loading).
     entry.messages = entry.adapter.getMessages();
     retainPendingLocalSteerMessageIds(entry);
-    entry.chatState = entry.activePromptAttemptId ? ChatState.Streaming : ChatState.Idle;
+    entry.chatState =
+      entry.activePromptAttemptId || entry.activeRunId ? ChatState.Streaming : ChatState.Idle;
     return notify(sessionId, entry);
   };
 
@@ -289,7 +290,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     entry.pendingUserInputRequestIds.delete(userInputRequestId);
 
     if (
-      entry.activePromptAttemptId &&
+      (entry.activePromptAttemptId || entry.activeRunId) &&
       entry.chatState === ChatState.WaitingForUserInput &&
       entry.pendingUserInputRequestIds.size === 0
     ) {
@@ -673,6 +674,7 @@ function applyChatStateChanges(entry: StoreEntry, changes: AcpChatStateChange[])
         }
         if (change.activeRunId !== undefined) {
           entry.activeRunId = change.activeRunId;
+          followUnownedRun(entry);
         }
         break;
       case 'localSteerConfirmed':
@@ -684,6 +686,33 @@ function applyChatStateChanges(entry: StoreEntry, changes: AcpChatStateChange[])
         entry.notifications = [...entry.notifications, change.notification];
         break;
     }
+  }
+}
+
+// A run this window did not start (an agent orchestrating the session sent the
+// prompt) has no prompt attempt to move the chat state, so follow the backend's
+// reports of it. Otherwise the chat looks idle while the turn streams in, with
+// no Stop button and an input that starts a second run the backend rejects.
+function followUnownedRun(entry: StoreEntry): void {
+  if (entry.activePromptAttemptId !== null || entry.pendingCancelPromptAttemptId !== null) {
+    return;
+  }
+
+  if (entry.activeRunId === null) {
+    if (
+      entry.chatState === ChatState.Streaming ||
+      entry.chatState === ChatState.Thinking ||
+      entry.chatState === ChatState.WaitingForUserInput
+    ) {
+      entry.pendingUserInputRequestIds.clear();
+      entry.progressMessage = undefined;
+      entry.chatState = ChatState.Idle;
+    }
+    return;
+  }
+
+  if (entry.chatState === ChatState.Idle) {
+    entry.chatState = ChatState.Streaming;
   }
 }
 
