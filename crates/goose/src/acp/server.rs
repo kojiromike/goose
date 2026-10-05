@@ -2233,6 +2233,56 @@ impl GooseAcpAgent {
         Ok(session)
     }
 
+    /// Pass on the provider's own reading of how full its context is while the
+    /// turn is still running. An agent that owns its context can make dozens of
+    /// model requests in one turn, so a figure sent only when the turn ends says
+    /// nothing while the window fills. Best effort: on any failure the client
+    /// keeps its last figure until the end-of-turn update.
+    async fn send_live_context_update(
+        &self,
+        cx: &ConnectionTo<Client>,
+        acp_session_id: &SessionId,
+        session_id: &str,
+        agent: &Arc<Agent>,
+        last_sent: &mut u64,
+    ) {
+        let Ok(provider) = agent.provider().await else {
+            return;
+        };
+        let Some(used) = provider.live_context_tokens() else {
+            return;
+        };
+        if used == *last_sent {
+            return;
+        }
+        let Ok(mut session) = self.session_manager.get_session(session_id, false).await else {
+            return;
+        };
+        let Some(model) = session.model_config.as_ref() else {
+            return;
+        };
+        let Ok(context_limit) =
+            crate::context_limit::get_context_limit(provider.as_ref(), &model.model_name).await
+        else {
+            return;
+        };
+        let totals = self
+            .session_manager
+            .get_session_usage_totals(session_id)
+            .await
+            .unwrap_or_default();
+        session.usage.total_tokens = Some(i32::try_from(used).unwrap_or(i32::MAX));
+        let updates = build_usage_updates(&session, &totals, context_limit);
+        if self.supports_goose_custom_notifications() {
+            let _ = cx.send_notification(updates.custom);
+        }
+        let _ = cx.send_notification(SessionNotification::new(
+            acp_session_id.clone(),
+            SessionUpdate::UsageUpdate(updates.standard),
+        ));
+        *last_sent = used;
+    }
+
     async fn forward_agent_stream(
         &self,
         cx: &ConnectionTo<Client>,
@@ -2246,6 +2296,7 @@ impl GooseAcpAgent {
         let mut output_token_limit_reached = false;
         let mut tool_requests = HashMap::new();
         let mut chain_tracker = ToolChainTracker::default();
+        let mut live_context_sent = 0;
         let target = SessionAgentTarget {
             agent: agent.clone(),
             session_id: session_id.to_string(),
@@ -2307,6 +2358,14 @@ impl GooseAcpAgent {
                             self.spawn_ready_chain_summary(chain, agent, acp_session_id, cx);
                         }
                     }
+                    self.send_live_context_update(
+                        cx,
+                        acp_session_id,
+                        session_id,
+                        agent,
+                        &mut live_context_sent,
+                    )
+                    .await;
                 }
                 Ok(crate::agents::AgentEvent::McpNotification((request_id, notification))) => {
                     if let Some(update) =
