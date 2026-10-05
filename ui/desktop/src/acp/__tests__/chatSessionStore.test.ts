@@ -466,6 +466,60 @@ describe('acpChatSessionStore', () => {
     expect(clearedSnapshot.activeRunId).toBeNull();
   });
 
+  it('shows a run the window did not start as a streaming turn until it ends', () => {
+    const currentSessionId = sessionId('session-1');
+
+    const runningSnapshot = acpChatSessionActions.applyAcpSessionNotification(
+      activeRunNotification(currentSessionId, 'run-1')
+    );
+    expect(runningSnapshot.chatState).toBe(ChatState.Streaming);
+
+    const finishedSnapshot = acpChatSessionActions.applyAcpSessionNotification(
+      activeRunNotification(currentSessionId, null)
+    );
+    expect(finishedSnapshot.chatState).toBe(ChatState.Idle);
+  });
+
+  it('keeps a session streaming when a load finds a run already going', () => {
+    const currentSessionId = sessionId('session-1');
+
+    acpChatSessionActions.applyAcpSessionNotification(
+      activeRunNotification(currentSessionId, 'run-1')
+    );
+    // Loading resets what the window knew, and the backend names the run again
+    // while it replays the conversation.
+    const loadingSnapshot = acpChatSessionActions.startSessionLoad(currentSessionId);
+    expect(loadingSnapshot.activeRunId).toBeNull();
+    acpChatSessionActions.applyAcpSessionNotification(
+      activeRunNotification(currentSessionId, 'run-1')
+    );
+
+    const loadedSnapshot = acpChatSessionActions.finishSessionLoad(
+      currentSessionId,
+      session(currentSessionId)
+    );
+
+    expect(loadedSnapshot.activeRunId).toBe('run-1');
+    expect(loadedSnapshot.chatState).toBe(ChatState.Streaming);
+  });
+
+  it('leaves the chat state to the prompt attempt for a run the window started', () => {
+    const currentSessionId = sessionId('session-1');
+
+    acpChatSessionActions.startPromptAttempt(currentSessionId, 'attempt-1');
+    acpChatSessionActions.applyAcpSessionNotification(
+      activeRunNotification(currentSessionId, 'run-1')
+    );
+    acpChatSessionActions.startPromptCancellation(currentSessionId, 'attempt-1');
+
+    // The backend still reports the run until the cancel lands; the chat stays
+    // idle, as the user asked.
+    const cancellingSnapshot = acpChatSessionActions.applyAcpSessionNotification(
+      activeRunNotification(currentSessionId, 'run-1')
+    );
+    expect(cancellingSnapshot.chatState).toBe(ChatState.Idle);
+  });
+
   it('clears active run ids when the prompt attempt finishes', () => {
     const currentSessionId = sessionId('session-1');
 
