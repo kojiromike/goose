@@ -672,6 +672,13 @@ pub trait Provider: MaybeSend + MaybeSync {
         false
     }
 
+    /// How many tokens the provider's own context window holds right now, for a
+    /// provider that tracks this itself and reports it while a turn is still
+    /// running. `None` means no reading: the session's recorded usage stands.
+    fn live_context_tokens(&self) -> Option<u64> {
+        None
+    }
+
     fn uses_local_session_naming(&self) -> bool {
         self.manages_own_context()
     }

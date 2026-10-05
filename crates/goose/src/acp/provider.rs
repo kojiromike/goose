@@ -822,6 +822,13 @@ impl Provider for AcpProvider {
         true
     }
 
+    fn live_context_tokens(&self) -> Option<u64> {
+        match self.context_used.load(Ordering::Relaxed) {
+            0 => None,
+            used => Some(used),
+        }
+    }
+
     async fn handle_permission_confirmation(
         &self,
         request_id: &str,
@@ -2929,6 +2936,15 @@ mod tests {
 
         context_used.store(176_698, Ordering::Relaxed);
         assert_eq!(context_tokens(&context_used, 684_839), 176_698);
+    }
+
+    #[test]
+    fn live_context_tokens_reports_the_agents_latest_reading() {
+        let (provider, _model) = test_provider();
+        assert_eq!(provider.live_context_tokens(), None);
+
+        provider.context_used.store(53_209, Ordering::Relaxed);
+        assert_eq!(provider.live_context_tokens(), Some(53_209));
     }
 
     #[tokio::test]
