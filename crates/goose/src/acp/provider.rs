@@ -243,6 +243,18 @@ enum AcpUpdate {
     Error(agent_client_protocol::Error),
 }
 
+/// The token count to record as a turn's total. goose shows a session's total as
+/// how full its context window is, but an ACP agent reports a turn's total as the
+/// sum over every model request in the turn, which re-counts the whole context
+/// once per tool call. Prefer the agent's own context reading when it has sent one.
+fn context_tokens(context_used: &AtomicU64, turn_total_tokens: u64) -> i32 {
+    let used = match context_used.load(Ordering::Relaxed) {
+        0 => turn_total_tokens,
+        used => used,
+    };
+    i32::try_from(used).unwrap_or(i32::MAX)
+}
+
 /// Whether dropping the handoff memo could plausibly change the outcome. An agent that
 /// rejected the very first update has told us nothing except that it disliked the prompt,
 /// and the memo is the only part we added — but a spent account or a missing credential
@@ -613,6 +625,9 @@ pub struct AcpProvider {
     /// Latest `size` reported by the ACP server in a `session/update` →
     /// `usage_update` notification. 0 means no real update has arrived yet.
     context_size: Arc<AtomicU64>,
+    /// Latest `used` from the same notification: the tokens in the agent's
+    /// context window after its most recent request. 0 means none has arrived.
+    context_used: Arc<AtomicU64>,
     /// Set when the agent rejected a prompt because its session transcript no
     /// longer fits the model's context window. The next `stream()` call
     /// abandons the exhausted backend session and starts a fresh one, so the
@@ -746,6 +761,7 @@ struct AcpConnection {
     handoff_context_sent: Arc<AtomicBool>,
     pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
     context_size: Arc<AtomicU64>,
+    context_used: Arc<AtomicU64>,
     out_of_band_publisher: OutOfBandMessagePublisher,
     effort: AcpEffortState,
     /// What the agent's own updates say about its progress; see [`AcpActivity`].
@@ -788,6 +804,7 @@ impl AcpConnection {
         let pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>> =
             Arc::new(Mutex::new(HashMap::new()));
         let context_size = Arc::new(AtomicU64::new(0));
+        let context_used = Arc::new(AtomicU64::new(0));
         let out_of_band_publisher = OutOfBandMessagePublisher::default();
         let effort = AcpEffortState::new();
         let activity = AcpActivity::default();
@@ -801,6 +818,7 @@ impl AcpConnection {
             goose_mode.clone(),
             pending_tool_updates.clone(),
             context_size.clone(),
+            context_used.clone(),
             out_of_band_publisher.clone(),
             effort.clone(),
             activity.clone(),
@@ -834,6 +852,7 @@ impl AcpConnection {
             handoff_context_sent,
             pending_tool_updates,
             context_size,
+            context_used,
             out_of_band_publisher,
             effort,
             activity,
@@ -903,6 +922,7 @@ impl AcpConnection {
             pending_tool_updates: self.pending_tool_updates,
             handoff_context_sent: self.handoff_context_sent,
             context_size: self.context_size,
+            context_used: self.context_used,
             session_exhausted: Arc::new(AtomicBool::new(false)),
             out_of_band_publisher: self.out_of_band_publisher,
             model_config_option_id: self.model_config_option_id,
@@ -1764,6 +1784,7 @@ impl Provider for AcpProvider {
             .map_err(|_| ProviderError::RequestFailed("goose_mode lock poisoned".into()))?;
 
         let reject_all_tools = goose_mode == GooseMode::Chat;
+        let context_used = self.context_used.clone();
         Ok(Box::pin(try_stream! {
             let mut suppress_text = false;
             let mut bare_retry = bare_retry;
@@ -1949,7 +1970,7 @@ impl Provider for AcpProvider {
                                 Usage::new(
                                     Some(usage.input_tokens as i32),
                                     Some(usage.output_tokens as i32),
-                                    Some(usage.total_tokens as i32),
+                                    Some(context_tokens(&context_used, usage.total_tokens)),
                                 ),
                             );
                             yield (None, Some(provider_usage));
@@ -2027,6 +2048,7 @@ impl Provider for AcpProvider {
         close_session(tx, previous.id).await;
         self.handoff_context_sent.store(false, Ordering::Release);
         self.context_size.store(0, Ordering::Relaxed);
+        self.context_used.store(0, Ordering::Relaxed);
         *self
             .applied_model
             .lock()
@@ -2102,6 +2124,7 @@ struct AcpClientLoop {
     prompt_response_tx: Arc<Mutex<Option<mpsc::Sender<AcpUpdate>>>>,
     pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
     context_size: Arc<AtomicU64>,
+    context_used: Arc<AtomicU64>,
     out_of_band_publisher: OutOfBandMessagePublisher,
     effort: AcpEffortState,
     /// What the agent's own updates say about its progress; see [`AcpActivity`].
@@ -2126,6 +2149,7 @@ impl AcpClientLoop {
         goose_mode: Arc<Mutex<GooseMode>>,
         pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
         context_size: Arc<AtomicU64>,
+        context_used: Arc<AtomicU64>,
         out_of_band_publisher: OutOfBandMessagePublisher,
         effort: AcpEffortState,
         activity: AcpActivity,
@@ -2143,6 +2167,7 @@ impl AcpClientLoop {
             prompt_response_tx: Arc::new(Mutex::new(None)),
             pending_tool_updates,
             context_size,
+            context_used,
             out_of_band_publisher,
             effort,
             activity,
@@ -2212,6 +2237,7 @@ impl AcpClientLoop {
             prompt_response_tx,
             pending_tool_updates,
             context_size,
+            context_used,
             out_of_band_publisher,
             effort,
             activity,
@@ -2237,6 +2263,7 @@ impl AcpClientLoop {
                     let goose_mode = goose_mode.clone();
                     let pending_tool_updates = pending_tool_updates.clone();
                     let context_size = context_size.clone();
+                    let context_used = context_used.clone();
                     let out_of_band_publisher = out_of_band_publisher.clone();
                     let session_state = session_state.clone();
                     let active_session = active_session.clone();
@@ -2292,6 +2319,7 @@ impl AcpClientLoop {
                             }
                             SessionUpdate::UsageUpdate(usage) => {
                                 context_size.store(usage.size, Ordering::Relaxed);
+                                context_used.store(usage.used, Ordering::Relaxed);
                             }
                             _ => {}
                         }
@@ -4031,6 +4059,7 @@ mod tests {
                 pending_tool_updates: Arc::new(Mutex::new(HashMap::new())),
                 handoff_context_sent: Arc::new(AtomicBool::new(false)),
                 context_size: Arc::new(AtomicU64::new(0)),
+                context_used: Arc::new(AtomicU64::new(0)),
                 session_exhausted: Arc::new(AtomicBool::new(false)),
                 out_of_band_publisher: OutOfBandMessagePublisher::default(),
                 model_config_option_id: None,
@@ -5008,6 +5037,15 @@ mod tests {
         }
 
         handle.await.unwrap().unwrap();
+    }
+
+    #[test]
+    fn context_tokens_prefers_the_agents_context_reading() {
+        let context_used = AtomicU64::new(0);
+        assert_eq!(context_tokens(&context_used, 684_839), 684_839);
+
+        context_used.store(176_698, Ordering::Relaxed);
+        assert_eq!(context_tokens(&context_used, 684_839), 176_698);
     }
 
     #[tokio::test]
