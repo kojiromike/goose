@@ -1,13 +1,64 @@
 use std::path::Path;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
+use std::time::Duration;
 
 use anyhow::Result;
 use goose_providers::conversation::{message::Message, Conversation};
+use goose_providers::model::ModelConfig;
 use regex::Regex;
 
-use crate::{providers::base::Provider, utils::safe_truncate};
+use crate::{config::Config, providers::base::Provider, utils::safe_truncate};
 
 pub static MSG_COUNT_FOR_SESSION_NAME_GENERATION: usize = 3;
+
+pub const SESSION_NAMING_PROVIDER_KEY: &str = "GOOSE_SESSION_NAMING_PROVIDER";
+pub const SESSION_NAMING_MODEL_KEY: &str = "GOOSE_SESSION_NAMING_MODEL";
+
+// A local model may have to load before it answers, and a reasoning model
+// thinks before it writes four words.
+const NAMING_PROVIDER_TIMEOUT: Duration = Duration::from_secs(120);
+// Keep a pasted document from overflowing a small naming model's context.
+const NAMING_PROVIDER_MESSAGE_CHARS: usize = 4000;
+
+/// A provider dedicated to titling sessions, so that sessions whose own
+/// provider cannot run a side completion still get a model-written title.
+pub(crate) struct NamingProvider {
+    pub(crate) provider: Arc<dyn Provider>,
+    pub(crate) model_config: ModelConfig,
+}
+
+impl NamingProvider {
+    pub(crate) async fn from_config() -> Result<Option<Self>> {
+        let config = Config::global();
+        let Some(provider_name) = non_empty_param(config, SESSION_NAMING_PROVIDER_KEY) else {
+            return Ok(None);
+        };
+        let model_name = non_empty_param(config, SESSION_NAMING_MODEL_KEY)
+            .or_else(|| {
+                crate::config::providers::get_provider_entry(config, &provider_name)
+                    .map(|entry| entry.model)
+                    .filter(|model| !model.is_empty())
+            })
+            .ok_or_else(|| {
+                anyhow::anyhow!("No model configured for session naming provider '{provider_name}'")
+            })?;
+        let model_config =
+            crate::model_config::model_config_from_user_config(&provider_name, &model_name)?;
+        let provider = crate::providers::create(&provider_name, Vec::new()).await?;
+        Ok(Some(Self {
+            provider,
+            model_config,
+        }))
+    }
+}
+
+fn non_empty_param(config: &Config, key: &str) -> Option<String> {
+    config
+        .get_param::<String>(key)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
 
 fn strip_xml_tags(text: &str) -> String {
     static BLOCK_RE: LazyLock<Regex> = LazyLock::new(|| {
@@ -87,19 +138,14 @@ fn get_initial_user_messages(messages: &Conversation) -> Vec<String> {
         .collect()
 }
 
-pub(crate) async fn generate_session_name(
-    provider: &dyn Provider,
-    model_config: &goose_providers::model::ModelConfig,
-    session_id: &str,
-    messages: &Conversation,
-    working_dir: Option<&Path>,
-) -> Result<String> {
-    let context = get_initial_user_messages(messages);
-    let system = crate::prompt_template::render_template(
+fn naming_system_prompt() -> Result<String> {
+    Ok(crate::prompt_template::render_template(
         "session_name.md",
         &std::collections::HashMap::<String, String>::new(),
-    )?;
+    )?)
+}
 
+fn naming_request(context: &[String], working_dir: Option<&Path>) -> Message {
     use crate::providers::cli_common::{
         SESSION_NAME_BEGIN_MARKER, SESSION_NAME_END_MARKER, SESSION_NAME_SUFFIX,
     };
@@ -124,7 +170,31 @@ pub(crate) async fn generate_session_name(
         SESSION_NAME_END_MARKER,
         SESSION_NAME_SUFFIX,
     );
-    let message = Message::user().with_text(&user_text);
+    Message::user().with_text(&user_text)
+}
+
+fn title_from_response(response: &Message) -> String {
+    let raw: String = response
+        .content
+        .iter()
+        .filter_map(|c| c.as_text())
+        .collect();
+    let description = strip_xml_tags(&raw)
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    safe_truncate(&extract_short_title(&description), 100)
+}
+
+pub(crate) async fn generate_session_name(
+    provider: &dyn Provider,
+    model_config: &ModelConfig,
+    session_id: &str,
+    messages: &Conversation,
+    working_dir: Option<&Path>,
+) -> Result<String> {
+    let message = naming_request(&get_initial_user_messages(messages), working_dir);
     let result = if provider.uses_local_session_naming() {
         crate::providers::cli_common::generate_simple_session_description(
             provider.get_name(),
@@ -135,25 +205,47 @@ pub(crate) async fn generate_session_name(
             provider,
             model_config,
             session_id,
-            &system,
+            &naming_system_prompt()?,
             &[message],
             &[],
         )
         .await?
     };
 
-    let raw: String = result
-        .0
-        .content
-        .iter()
-        .filter_map(|c| c.as_text())
-        .collect();
-    let description = strip_xml_tags(&raw)
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
+    Ok(title_from_response(&result.0))
+}
 
-    Ok(safe_truncate(&extract_short_title(&description), 100))
+pub(crate) async fn generate_session_name_with_naming_provider(
+    naming: &NamingProvider,
+    session_id: &str,
+    messages: &Conversation,
+    working_dir: Option<&Path>,
+) -> Result<String> {
+    let context: Vec<String> = get_initial_user_messages(messages)
+        .iter()
+        .map(|message| safe_truncate(message, NAMING_PROVIDER_MESSAGE_CHARS))
+        .collect();
+    let message = naming_request(&context, working_dir);
+    let system = naming_system_prompt()?;
+    let result = tokio::time::timeout(
+        NAMING_PROVIDER_TIMEOUT,
+        crate::model_config::complete_one_shot(
+            naming.provider.as_ref(),
+            &naming.model_config,
+            session_id,
+            &system,
+            &[message],
+            &[],
+        ),
+    )
+    .await
+    .map_err(|_| anyhow::anyhow!("Session naming provider timed out"))??;
+
+    let title = title_from_response(&result.0);
+    if title.is_empty() {
+        anyhow::bail!("Session naming provider returned an empty title");
+    }
+    Ok(title)
 }
 
 #[cfg(test)]
