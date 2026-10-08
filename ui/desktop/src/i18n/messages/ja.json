@@ -4744,5 +4744,47 @@
   },
   "settings.agentLoop.title": {
     "defaultMessage": "エージェントループ"
+  },
+  "filePreview.binary": {
+    "defaultMessage": "このファイルはテキストではないため、プレビューできません。"
+  },
+  "filePreview.close": {
+    "defaultMessage": "ファイルプレビューを閉じる"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "ファイルプレビューを折りたたむ"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "パスをコピー"
+  },
+  "filePreview.error": {
+    "defaultMessage": "このファイルを読み込めませんでした。"
+  },
+  "filePreview.expand": {
+    "defaultMessage": "ファイルプレビューを表示"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "読み込み中…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "このファイルはもう存在しません。"
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "このパスは通常のファイルではありません。"
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "テキストエディタで開く"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "ファイルを再読み込み"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "フォルダで表示"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "このファイルは大きすぎてプレビューできません。"
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "{path} をプレビュー"
   }
 }

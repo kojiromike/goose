@@ -4744,5 +4744,47 @@
   },
   "settings.agentLoop.title": {
     "defaultMessage": "Loop do agente"
+  },
+  "filePreview.binary": {
+    "defaultMessage": "Este arquivo não é texto, portanto não pode ser pré-visualizado."
+  },
+  "filePreview.close": {
+    "defaultMessage": "Fechar pré-visualização do arquivo"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "Recolher pré-visualização do arquivo"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "Copiar caminho"
+  },
+  "filePreview.error": {
+    "defaultMessage": "Não foi possível ler este arquivo."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "Mostrar pré-visualização do arquivo"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "Carregando…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "Este arquivo não existe mais."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "Este caminho não é um arquivo comum."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "Abrir no editor de texto"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "Recarregar arquivo"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "Mostrar na pasta"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "Este arquivo é grande demais para pré-visualizar."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "Pré-visualizar {path}"
   }
 }

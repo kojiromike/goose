@@ -4744,5 +4744,47 @@
   },
   "settings.agentLoop.title": {
     "defaultMessage": "Ciclo agente"
+  },
+  "filePreview.binary": {
+    "defaultMessage": "Questo file non è di testo, quindi non può essere visualizzato in anteprima."
+  },
+  "filePreview.close": {
+    "defaultMessage": "Chiudi anteprima file"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "Comprimi anteprima file"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "Copia percorso"
+  },
+  "filePreview.error": {
+    "defaultMessage": "Impossibile leggere questo file."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "Mostra anteprima file"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "Caricamento…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "Questo file non esiste più."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "Questo percorso non è un file normale."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "Apri nell'editor di testo"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "Ricarica file"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "Mostra nella cartella"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "Questo file è troppo grande per l'anteprima."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "Anteprima di {path}"
   }
 }

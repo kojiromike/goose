@@ -66,6 +66,12 @@ import {
   isAuthorizedFileAccessRequest,
   readSelectedRecipe,
 } from './desktopFileAccess';
+import {
+  isPreviewableFile,
+  readFilePreview,
+  resolvePreviewPath,
+  type FilePreviewResult,
+} from './filePreview';
 
 function shouldSetupUpdater(): boolean {
   // Setup updater if either the flag is enabled OR dev updates are enabled
@@ -2224,6 +2230,44 @@ ipcMain.handle('read-goosehints', async (event) => {
 ipcMain.handle('write-goosehints', async (event, content) => {
   const senderWindow = requireRegularRendererWindow(event);
   return desktopFileAccess.writeGoosehints(senderWindow.id, content);
+});
+
+ipcMain.handle('file-preview-resolve', async (event, rawPath: unknown, baseDir?: unknown) => {
+  requireRegularRendererWindow(event);
+  const filePath = resolvePreviewPath(rawPath, baseDir);
+  return filePath !== null && (await isPreviewableFile(filePath)) ? filePath : null;
+});
+
+ipcMain.handle(
+  'file-preview-read',
+  async (event, rawPath: unknown, baseDir?: unknown): Promise<FilePreviewResult> => {
+    requireRegularRendererWindow(event);
+    const filePath = resolvePreviewPath(rawPath, baseDir);
+    if (filePath === null) {
+      return { status: 'invalid-path', filePath: typeof rawPath === 'string' ? rawPath : '' };
+    }
+    return readFilePreview(filePath);
+  }
+);
+
+ipcMain.handle('file-preview-reveal', async (event, rawPath: unknown) => {
+  requireRegularRendererWindow(event);
+  const filePath = resolvePreviewPath(rawPath);
+  if (filePath === null || !(await isPreviewableFile(filePath))) return false;
+  shell.showItemInFolder(filePath);
+  return true;
+});
+
+// `open -t` always hands the file to the default text editor. shell.openPath would
+// instead launch whatever owns the extension, which runs scripts such as `.command`.
+ipcMain.handle('file-preview-open-in-editor', async (event, rawPath: unknown) => {
+  requireRegularRendererWindow(event);
+  const filePath = resolvePreviewPath(rawPath);
+  if (process.platform !== 'darwin' || filePath === null || !(await isPreviewableFile(filePath))) {
+    return false;
+  }
+  spawn('open', ['-t', filePath], { detached: true, stdio: 'ignore' }).unref();
+  return true;
 });
 
 // Native picker tailored for session imports: shows hidden files (so users can

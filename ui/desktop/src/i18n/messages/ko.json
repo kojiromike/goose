@@ -4744,5 +4744,47 @@
   },
   "settings.agentLoop.title": {
     "defaultMessage": "에이전트 루프"
+  },
+  "filePreview.binary": {
+    "defaultMessage": "이 파일은 텍스트가 아니므로 미리 볼 수 없습니다."
+  },
+  "filePreview.close": {
+    "defaultMessage": "파일 미리보기 닫기"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "파일 미리보기 접기"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "경로 복사"
+  },
+  "filePreview.error": {
+    "defaultMessage": "이 파일을 읽을 수 없습니다."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "파일 미리보기 표시"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "불러오는 중…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "이 파일은 더 이상 존재하지 않습니다."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "이 경로는 일반 파일이 아닙니다."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "텍스트 편집기에서 열기"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "파일 다시 불러오기"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "폴더에서 보기"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "이 파일은 너무 커서 미리 볼 수 없습니다."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "{path} 미리보기"
   }
 }

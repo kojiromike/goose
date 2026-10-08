@@ -4744,5 +4744,47 @@
   },
   "settings.agentLoop.title": {
     "defaultMessage": "Цикл агента"
+  },
+  "filePreview.binary": {
+    "defaultMessage": "Этот файл не является текстовым, поэтому его нельзя просмотреть."
+  },
+  "filePreview.close": {
+    "defaultMessage": "Закрыть предпросмотр файла"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "Свернуть предпросмотр файла"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "Скопировать путь"
+  },
+  "filePreview.error": {
+    "defaultMessage": "Не удалось прочитать этот файл."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "Показать предпросмотр файла"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "Загрузка…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "Этот файл больше не существует."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "Этот путь не является обычным файлом."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "Открыть в текстовом редакторе"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "Перезагрузить файл"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "Показать в папке"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "Этот файл слишком велик для предпросмотра."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "Предпросмотр {path}"
   }
 }

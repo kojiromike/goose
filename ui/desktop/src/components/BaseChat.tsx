@@ -32,6 +32,7 @@ import { useAutoSubmit } from '../hooks/useAutoSubmit';
 import { Goose } from './icons';
 import EnvironmentBadge from './GooseSidebar/EnvironmentBadge';
 import SessionActionsHeader from './SessionActionsHeader';
+import { FilePreviewBaseDirContext } from './filePreview/FilePreviewContext';
 import { isAcpRecovering, subscribeToAcpRecovery } from '../acp/acpConnection';
 import type { LiveVoiceAvailabilityResponse_unstable } from '@aaif/goose-acp-client';
 import { acpGetLiveVoiceAvailability } from '../acp/liveVoice';
@@ -530,6 +531,7 @@ export default function BaseChat({
               <>
                 <SearchView>
                   <div ref={conversationRef}>
+                  <FilePreviewBaseDirContext.Provider value={session?.working_dir}>
                   <ProgressiveMessageList
                     messages={messages}
                     sessionId={sessionId}
@@ -541,6 +543,7 @@ export default function BaseChat({
                     onMessageUpdate={onMessageUpdate}
                     submitElicitationResponse={submitElicitationResponse}
                   />
+                  </FilePreviewBaseDirContext.Provider>
                   </div>
                 </SearchView>
 

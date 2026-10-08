@@ -4744,5 +4744,47 @@
   },
   "settings.agentLoop.title": {
     "defaultMessage": "代理程式迴圈"
+  },
+  "filePreview.binary": {
+    "defaultMessage": "此檔案不是文字，無法預覽。"
+  },
+  "filePreview.close": {
+    "defaultMessage": "關閉檔案預覽"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "收合檔案預覽"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "複製路徑"
+  },
+  "filePreview.error": {
+    "defaultMessage": "無法讀取此檔案。"
+  },
+  "filePreview.expand": {
+    "defaultMessage": "顯示檔案預覽"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "載入中…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "此檔案已不存在。"
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "此路徑不是一般檔案。"
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "在文字編輯器中開啟"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "重新載入檔案"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "在資料夾中顯示"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "此檔案太大，無法預覽。"
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "預覽 {path}"
   }
 }

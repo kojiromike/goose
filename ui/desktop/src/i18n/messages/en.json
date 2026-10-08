@@ -1268,6 +1268,45 @@
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
   },
+  "filePreview.binary": {
+    "defaultMessage": "This file is not text, so it cannot be previewed."
+  },
+  "filePreview.close": {
+    "defaultMessage": "Close file preview"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "Collapse file preview"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "Copy path"
+  },
+  "filePreview.error": {
+    "defaultMessage": "This file could not be read."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "Show file preview"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "This file no longer exists."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "This path is not a regular file."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "Open in text editor"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "Reload file"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "Show in folder"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "This file is too large to preview."
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "Failed to switch to {branch}"
   },
@@ -1957,6 +1996,9 @@
   },
   "markdownContent.noApplicationFound": {
     "defaultMessage": "No application found to open this link."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "Preview {path}"
   },
   "mcpAppRenderer.appFallbackTitle": {
     "defaultMessage": "App"

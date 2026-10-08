@@ -9,6 +9,8 @@ import ChatSessionsContainer from '../ChatSessionsContainer';
 import { useChatContext } from '../../contexts/ChatContext';
 import { NavigationProvider, useNavigationContext } from './NavigationContext';
 import { Navigation } from './NavigationPanel';
+import { FilePreviewProvider } from '../filePreview/FilePreviewContext';
+import { FilePreviewPanel } from '../filePreview/FilePreviewPanel';
 import { Z_INDEX } from './constants';
 import { cn } from '../../utils';
 import { UserInput } from '../../types/message';
@@ -164,7 +166,7 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions, liv
         </motion.div>
 
         {/* Main content — no border / no card; just flows on the canvas. */}
-        <div className="flex-1 overflow-hidden min-h-0">
+        <div className="flex-1 overflow-hidden min-h-0 min-w-0">
           <Outlet />
           {/* Always render ChatSessionsContainer to keep SSE connections alive.
               When navigating away from /pair, hide it with CSS */}
@@ -176,6 +178,8 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions, liv
             />
           </div>
         </div>
+
+        <FilePreviewPanel />
       </div>
     </div>
   );
@@ -193,7 +197,9 @@ interface AppLayoutProps {
 export const AppLayout: React.FC<AppLayoutProps> = ({ activeSessions, liveVoice }) => {
   return (
     <NavigationProvider>
-      <AppLayoutContent activeSessions={activeSessions} liveVoice={liveVoice} />
+      <FilePreviewProvider>
+        <AppLayoutContent activeSessions={activeSessions} liveVoice={liveVoice} />
+      </FilePreviewProvider>
     </NavigationProvider>
   );
 };

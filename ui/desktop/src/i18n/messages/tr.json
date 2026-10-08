@@ -4744,5 +4744,47 @@
   },
   "settings.agentLoop.title": {
     "defaultMessage": "Ajan döngüsü"
+  },
+  "filePreview.binary": {
+    "defaultMessage": "Bu dosya metin olmadığı için önizlenemiyor."
+  },
+  "filePreview.close": {
+    "defaultMessage": "Dosya önizlemesini kapat"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "Dosya önizlemesini daralt"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "Yolu kopyala"
+  },
+  "filePreview.error": {
+    "defaultMessage": "Bu dosya okunamadı."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "Dosya önizlemesini göster"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "Yükleniyor…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "Bu dosya artık mevcut değil."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "Bu yol normal bir dosya değil."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "Metin düzenleyicide aç"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "Dosyayı yeniden yükle"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "Klasörde göster"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "Bu dosya önizlenemeyecek kadar büyük."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "{path} önizlemesi"
   }
 }

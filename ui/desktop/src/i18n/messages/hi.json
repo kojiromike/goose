@@ -4744,5 +4744,47 @@
   },
   "settings.agentLoop.title": {
     "defaultMessage": "एजेंट लूप"
+  },
+  "filePreview.binary": {
+    "defaultMessage": "यह फ़ाइल टेक्स्ट नहीं है, इसलिए इसका पूर्वावलोकन नहीं किया जा सकता।"
+  },
+  "filePreview.close": {
+    "defaultMessage": "फ़ाइल पूर्वावलोकन बंद करें"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "फ़ाइल पूर्वावलोकन संक्षिप्त करें"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "पथ कॉपी करें"
+  },
+  "filePreview.error": {
+    "defaultMessage": "यह फ़ाइल पढ़ी नहीं जा सकी।"
+  },
+  "filePreview.expand": {
+    "defaultMessage": "फ़ाइल पूर्वावलोकन दिखाएँ"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "लोड हो रहा है…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "यह फ़ाइल अब मौजूद नहीं है।"
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "यह पथ कोई सामान्य फ़ाइल नहीं है।"
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "टेक्स्ट एडिटर में खोलें"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "फ़ाइल फिर से लोड करें"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "फ़ोल्डर में दिखाएँ"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "यह फ़ाइल पूर्वावलोकन के लिए बहुत बड़ी है।"
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "{path} का पूर्वावलोकन"
   }
 }

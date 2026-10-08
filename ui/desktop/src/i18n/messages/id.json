@@ -4744,5 +4744,47 @@
   },
   "settings.agentLoop.title": {
     "defaultMessage": "Loop agen"
+  },
+  "filePreview.binary": {
+    "defaultMessage": "File ini bukan teks, sehingga tidak dapat dipratinjau."
+  },
+  "filePreview.close": {
+    "defaultMessage": "Tutup pratinjau file"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "Ciutkan pratinjau file"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "Salin jalur"
+  },
+  "filePreview.error": {
+    "defaultMessage": "File ini tidak dapat dibaca."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "Tampilkan pratinjau file"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "Memuat…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "File ini sudah tidak ada."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "Jalur ini bukan file biasa."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "Buka di editor teks"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "Muat ulang file"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "Tampilkan di folder"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "File ini terlalu besar untuk dipratinjau."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "Pratinjau {path}"
   }
 }

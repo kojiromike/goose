@@ -4744,5 +4744,47 @@
   },
   "settings.agentLoop.title": {
     "defaultMessage": "Agentenschleife"
+  },
+  "filePreview.binary": {
+    "defaultMessage": "Diese Datei ist kein Text und kann nicht in der Vorschau angezeigt werden."
+  },
+  "filePreview.close": {
+    "defaultMessage": "Dateivorschau schließen"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "Dateivorschau einklappen"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "Pfad kopieren"
+  },
+  "filePreview.error": {
+    "defaultMessage": "Diese Datei konnte nicht gelesen werden."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "Dateivorschau anzeigen"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "Wird geladen…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "Diese Datei existiert nicht mehr."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "Dieser Pfad ist keine reguläre Datei."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "Im Texteditor öffnen"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "Datei neu laden"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "Im Ordner anzeigen"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "Diese Datei ist zu groß für die Vorschau."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "Vorschau von {path}"
   }
 }

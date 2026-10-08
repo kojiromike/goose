@@ -4744,5 +4744,47 @@
   },
   "settings.agentLoop.title": {
     "defaultMessage": "Gelung ejen"
+  },
+  "filePreview.binary": {
+    "defaultMessage": "Fail ini bukan teks, jadi ia tidak boleh dipratonton."
+  },
+  "filePreview.close": {
+    "defaultMessage": "Tutup pratonton fail"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "Runtuhkan pratonton fail"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "Salin laluan"
+  },
+  "filePreview.error": {
+    "defaultMessage": "Fail ini tidak dapat dibaca."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "Tunjukkan pratonton fail"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "Memuatkan…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "Fail ini tidak lagi wujud."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "Laluan ini bukan fail biasa."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "Buka dalam editor teks"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "Muat semula fail"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "Tunjukkan dalam folder"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "Fail ini terlalu besar untuk dipratonton."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "Pratonton {path}"
   }
 }
