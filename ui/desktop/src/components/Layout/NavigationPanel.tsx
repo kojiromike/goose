@@ -399,7 +399,6 @@ const SessionRow: React.FC<SessionRowProps> = ({
               }}
             >
               <DropdownMenuItem
-                disabled={isStreaming}
                 onSelect={() => {
                   renameRequested.current = true;
                   setEditSignal((v) => v + 1);
