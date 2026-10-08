@@ -42,6 +42,8 @@ export interface Settings {
   enableWakelock: boolean;
   enableNotifications: boolean;
   spellcheckEnabled: boolean;
+  // Page zoom level shared by every window (0 is 100%).
+  zoomLevel?: number;
   // Key is kept as `externalGoosed` for backward compat with persisted user settings.
   externalGoosed: ExternalBackendConfig;
   globalShortcut?: string | null;

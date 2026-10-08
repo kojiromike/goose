@@ -61,6 +61,7 @@ import { WEB_PROTOCOLS } from './utils/urlSecurity';
 import { openExternalUrl } from './utils/openExternalUrl';
 import { buildCSP, leaseBackendOrigin, shouldApplyRendererCsp } from './utils/csp';
 import { resolveWorkingDir } from './utils/workingDir';
+import { keepZoomAcrossNavigation, type ZoomStore } from './utils/windowZoom';
 import {
   DesktopFileAccess,
   isAuthorizedFileAccessRequest,
@@ -236,6 +237,17 @@ function updateSettings(modifier: (settings: Settings) => void): void {
   modifier(settings);
   fsSync.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
 }
+
+let zoomLevel: number | undefined;
+const zoomStore: ZoomStore = {
+  get: () => (zoomLevel ??= getSettings().zoomLevel ?? 0),
+  set: (level) => {
+    zoomLevel = level;
+    updateSettings((s) => {
+      s.zoomLevel = level;
+    });
+  },
+};
 
 function getConfiguredGooseLocale(): string | undefined {
   const language = getSettings().language;
@@ -1303,6 +1315,7 @@ const createChat = async (
 
   // Let windowStateKeeper manage the window
   mainWindowState.manage(mainWindow);
+  keepZoomAcrossNavigation(mainWindow, zoomStore);
 
   mainWindow.webContents.session.setSpellCheckerLanguages(['en-US', 'en-GB']);
   mainWindow.webContents.on('context-menu', (_event, params) => {
