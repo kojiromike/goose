@@ -1289,6 +1289,45 @@
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
   },
+  "filePreview.binary": {
+    "defaultMessage": "Diese Datei ist kein Text und kann nicht in der Vorschau angezeigt werden."
+  },
+  "filePreview.close": {
+    "defaultMessage": "Dateivorschau schließen"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "Dateivorschau einklappen"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "Pfad kopieren"
+  },
+  "filePreview.error": {
+    "defaultMessage": "Diese Datei konnte nicht gelesen werden."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "Dateivorschau anzeigen"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "Wird geladen…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "Diese Datei existiert nicht mehr."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "Dieser Pfad ist keine reguläre Datei."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "Im Texteditor öffnen"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "Datei neu laden"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "Im Ordner anzeigen"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "Diese Datei ist zu groß für die Vorschau."
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "Wechsel zu {branch} fehlgeschlagen"
   },
@@ -1951,6 +1990,9 @@
   },
   "markdownContent.noApplicationFound": {
     "defaultMessage": "Keine Anwendung zum Öffnen dieses Links gefunden."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "Vorschau von {path}"
   },
   "mcpAppRenderer.appFallbackTitle": {
     "defaultMessage": "App"
@@ -3905,24 +3947,6 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.working": {
-    "defaultMessage": "Arbeitet"
-  },
-  "sessionIndicators.workingInBackground": {
-    "defaultMessage": "{count, plural, =0 {Arbeitet im Hintergrund} one {Arbeitet im Hintergrund (# Hintergrundbefehl)} other {Arbeitet im Hintergrund (# Hintergrundbefehle)}}"
-  },
-  "sessionIndicators.needsApproval": {
-    "defaultMessage": "Wartet auf deine Freigabe"
-  },
-  "sessionIndicators.waitingForYou": {
-    "defaultMessage": "Wartet auf dich"
-  },
-  "sessionIndicators.waitingForYouUnread": {
-    "defaultMessage": "Wartet auf dich (neue Antwort)"
-  },
-  "sessionIndicators.stalled": {
-    "defaultMessage": "Hängt: kein Fortschritt seit {minutes, plural, one {# Minute} other {# Minuten}}"
-  },
   "sessionIndicators.exited": {
     "defaultMessage": "Hängt: der Agentenprozess wurde beendet"
   },
@@ -3932,11 +3956,29 @@
   "sessionIndicators.failing": {
     "defaultMessage": "Hängt: {count} Durchläufe in Folge fehlgeschlagen"
   },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Inaktiv"
+  },
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Wartet auf deine Freigabe"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Hängt: kein Fortschritt seit {minutes, plural, one {# Minute} other {# Minuten}}"
+  },
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Wartet auf dich"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Wartet auf dich (neue Antwort)"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },
-  "sessionIndicators.idle": {
-    "defaultMessage": "Inaktiv"
+  "sessionIndicators.working": {
+    "defaultMessage": "Arbeitet"
+  },
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {Arbeitet im Hintergrund} one {Arbeitet im Hintergrund (# Hintergrundbefehl)} other {Arbeitet im Hintergrund (# Hintergrundbefehle)}}"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

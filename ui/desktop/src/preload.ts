@@ -4,6 +4,7 @@ import type { GooseApp } from './types/apps';
 import type { Settings, SettingKey } from './utils/settings';
 import { defaultSettings } from './utils/settings';
 import type { OpenExternalUrlResult } from './utils/urlSecurity';
+import type { FilePreviewResult } from './filePreview';
 
 // Mapping from settings keys to their old localStorage keys for lazy migration
 const localStorageKeyMap: Partial<Record<SettingKey, string>> = {
@@ -122,6 +123,10 @@ type ElectronAPI = {
   selectRecipeFile: () => Promise<FileResponse | null>;
   readGoosehints: () => Promise<FileResponse>;
   writeGoosehints: (content: string) => Promise<boolean>;
+  resolveFilePreview: (rawPath: string, baseDir?: string) => Promise<string | null>;
+  readFilePreview: (rawPath: string, baseDir?: string) => Promise<FilePreviewResult>;
+  revealFilePreview: (filePath: string) => Promise<boolean>;
+  openFilePreviewInEditor: (filePath: string) => Promise<boolean>;
   writeFile: (directory: string, content: string) => Promise<boolean>;
   ensureDirectory: (dirPath: string) => Promise<boolean>;
   listFiles: (dirPath: string, extension?: string) => Promise<string[]>;
@@ -227,6 +232,13 @@ const electronAPI: ElectronAPI = {
   selectRecipeFile: () => ipcRenderer.invoke('select-recipe-file'),
   readGoosehints: () => ipcRenderer.invoke('read-goosehints'),
   writeGoosehints: (content: string) => ipcRenderer.invoke('write-goosehints', content),
+  resolveFilePreview: (rawPath: string, baseDir?: string) =>
+    ipcRenderer.invoke('file-preview-resolve', rawPath, baseDir),
+  readFilePreview: (rawPath: string, baseDir?: string) =>
+    ipcRenderer.invoke('file-preview-read', rawPath, baseDir),
+  revealFilePreview: (filePath: string) => ipcRenderer.invoke('file-preview-reveal', filePath),
+  openFilePreviewInEditor: (filePath: string) =>
+    ipcRenderer.invoke('file-preview-open-in-editor', filePath),
   writeFile: (filePath: string, content: string) =>
     ipcRenderer.invoke('write-file', filePath, content),
   ensureDirectory: (dirPath: string) => ipcRenderer.invoke('ensure-directory', dirPath),

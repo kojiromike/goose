@@ -1289,6 +1289,45 @@
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
   },
+  "filePreview.binary": {
+    "defaultMessage": "此檔案不是文字，無法預覽。"
+  },
+  "filePreview.close": {
+    "defaultMessage": "關閉檔案預覽"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "收合檔案預覽"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "複製路徑"
+  },
+  "filePreview.error": {
+    "defaultMessage": "無法讀取此檔案。"
+  },
+  "filePreview.expand": {
+    "defaultMessage": "顯示檔案預覽"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "載入中…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "此檔案已不存在。"
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "此路徑不是一般檔案。"
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "在文字編輯器中開啟"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "重新載入檔案"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "在資料夾中顯示"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "此檔案太大，無法預覽。"
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "無法切換至 {branch}"
   },
@@ -1951,6 +1990,9 @@
   },
   "markdownContent.noApplicationFound": {
     "defaultMessage": "找不到可開啟此連結的應用程式。"
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "預覽 {path}"
   },
   "mcpAppRenderer.appFallbackTitle": {
     "defaultMessage": "應用程式"
@@ -3905,24 +3947,6 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.working": {
-    "defaultMessage": "工作中"
-  },
-  "sessionIndicators.workingInBackground": {
-    "defaultMessage": "{count, plural, =0 {正在背景工作} one {正在背景工作（# 個背景命令）} other {正在背景工作（# 個背景命令）}}"
-  },
-  "sessionIndicators.needsApproval": {
-    "defaultMessage": "需要你核准"
-  },
-  "sessionIndicators.waitingForYou": {
-    "defaultMessage": "等待你的回覆"
-  },
-  "sessionIndicators.waitingForYouUnread": {
-    "defaultMessage": "等待你的回覆（有新回覆）"
-  },
-  "sessionIndicators.stalled": {
-    "defaultMessage": "卡住：已 {minutes, plural, one {# 分鐘沒有進展} other {# 分鐘沒有進展}}"
-  },
   "sessionIndicators.exited": {
     "defaultMessage": "卡住：代理程式行程已結束"
   },
@@ -3932,11 +3956,29 @@
   "sessionIndicators.failing": {
     "defaultMessage": "卡住：連續 {count} 輪失敗"
   },
+  "sessionIndicators.idle": {
+    "defaultMessage": "閒置"
+  },
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "需要你核准"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "卡住：已 {minutes, plural, one {# 分鐘沒有進展} other {# 分鐘沒有進展}}"
+  },
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "等待你的回覆"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "等待你的回覆（有新回覆）"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}：{error}"
   },
-  "sessionIndicators.idle": {
-    "defaultMessage": "閒置"
+  "sessionIndicators.working": {
+    "defaultMessage": "工作中"
+  },
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {正在背景工作} one {正在背景工作（# 個背景命令）} other {正在背景工作（# 個背景命令）}}"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

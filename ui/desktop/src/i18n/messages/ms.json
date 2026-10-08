@@ -1289,6 +1289,45 @@
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
   },
+  "filePreview.binary": {
+    "defaultMessage": "Fail ini bukan teks, jadi ia tidak boleh dipratonton."
+  },
+  "filePreview.close": {
+    "defaultMessage": "Tutup pratonton fail"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "Runtuhkan pratonton fail"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "Salin laluan"
+  },
+  "filePreview.error": {
+    "defaultMessage": "Fail ini tidak dapat dibaca."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "Tunjukkan pratonton fail"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "Memuatkan…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "Fail ini tidak lagi wujud."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "Laluan ini bukan fail biasa."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "Buka dalam editor teks"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "Muat semula fail"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "Tunjukkan dalam folder"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "Fail ini terlalu besar untuk dipratonton."
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "Gagal beralih ke {branch}"
   },
@@ -1951,6 +1990,9 @@
   },
   "markdownContent.noApplicationFound": {
     "defaultMessage": "Tiada aplikasi dijumpai untuk membuka pautan ini."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "Pratonton {path}"
   },
   "mcpAppRenderer.appFallbackTitle": {
     "defaultMessage": "Apl"
@@ -3905,24 +3947,6 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.working": {
-    "defaultMessage": "Sedang bekerja"
-  },
-  "sessionIndicators.workingInBackground": {
-    "defaultMessage": "{count, plural, =0 {Bekerja di latar belakang} one {Bekerja di latar belakang (# arahan latar belakang)} other {Bekerja di latar belakang (# arahan latar belakang)}}"
-  },
-  "sessionIndicators.needsApproval": {
-    "defaultMessage": "Memerlukan kelulusan anda"
-  },
-  "sessionIndicators.waitingForYou": {
-    "defaultMessage": "Menunggu anda"
-  },
-  "sessionIndicators.waitingForYouUnread": {
-    "defaultMessage": "Menunggu anda (balasan baharu)"
-  },
-  "sessionIndicators.stalled": {
-    "defaultMessage": "Tersekat: tiada kemajuan selama {minutes, plural, one {# minit} other {# minit}}"
-  },
   "sessionIndicators.exited": {
     "defaultMessage": "Tersekat: proses ejen telah tamat"
   },
@@ -3932,11 +3956,29 @@
   "sessionIndicators.failing": {
     "defaultMessage": "Tersekat: {count} giliran gagal berturut-turut"
   },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Melahu"
+  },
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Memerlukan kelulusan anda"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Tersekat: tiada kemajuan selama {minutes, plural, one {# minit} other {# minit}}"
+  },
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Menunggu anda"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Menunggu anda (balasan baharu)"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },
-  "sessionIndicators.idle": {
-    "defaultMessage": "Melahu"
+  "sessionIndicators.working": {
+    "defaultMessage": "Sedang bekerja"
+  },
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {Bekerja di latar belakang} one {Bekerja di latar belakang (# arahan latar belakang)} other {Bekerja di latar belakang (# arahan latar belakang)}}"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

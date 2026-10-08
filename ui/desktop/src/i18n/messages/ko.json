@@ -1289,6 +1289,45 @@
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
   },
+  "filePreview.binary": {
+    "defaultMessage": "이 파일은 텍스트가 아니므로 미리 볼 수 없습니다."
+  },
+  "filePreview.close": {
+    "defaultMessage": "파일 미리보기 닫기"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "파일 미리보기 접기"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "경로 복사"
+  },
+  "filePreview.error": {
+    "defaultMessage": "이 파일을 읽을 수 없습니다."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "파일 미리보기 표시"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "불러오는 중…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "이 파일은 더 이상 존재하지 않습니다."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "이 경로는 일반 파일이 아닙니다."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "텍스트 편집기에서 열기"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "파일 다시 불러오기"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "폴더에서 보기"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "이 파일은 너무 커서 미리 볼 수 없습니다."
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "{branch} 브랜치로 전환하지 못했습니다"
   },
@@ -1951,6 +1990,9 @@
   },
   "markdownContent.noApplicationFound": {
     "defaultMessage": "이 링크를 열 수 있는 애플리케이션을 찾을 수 없습니다."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "{path} 미리보기"
   },
   "mcpAppRenderer.appFallbackTitle": {
     "defaultMessage": "앱"
@@ -3905,24 +3947,6 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "최근 모델 상호작용 보기"
   },
-  "sessionIndicators.working": {
-    "defaultMessage": "작업 중"
-  },
-  "sessionIndicators.workingInBackground": {
-    "defaultMessage": "{count, plural, =0 {백그라운드에서 작업 중} one {백그라운드에서 작업 중(백그라운드 명령 #개)} other {백그라운드에서 작업 중(백그라운드 명령 #개)}}"
-  },
-  "sessionIndicators.needsApproval": {
-    "defaultMessage": "승인이 필요합니다"
-  },
-  "sessionIndicators.waitingForYou": {
-    "defaultMessage": "입력을 기다리는 중"
-  },
-  "sessionIndicators.waitingForYouUnread": {
-    "defaultMessage": "입력을 기다리는 중(새 답변)"
-  },
-  "sessionIndicators.stalled": {
-    "defaultMessage": "멈춤: {minutes, plural, one {# 분 동안 진행 없음} other {# 분 동안 진행 없음}}"
-  },
   "sessionIndicators.exited": {
     "defaultMessage": "멈춤: 에이전트 프로세스가 종료됨"
   },
@@ -3932,11 +3956,29 @@
   "sessionIndicators.failing": {
     "defaultMessage": "멈춤: {count}번 연속으로 턴이 실패함"
   },
+  "sessionIndicators.idle": {
+    "defaultMessage": "유휴"
+  },
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "승인이 필요합니다"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "멈춤: {minutes, plural, one {# 분 동안 진행 없음} other {# 분 동안 진행 없음}}"
+  },
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "입력을 기다리는 중"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "입력을 기다리는 중(새 답변)"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },
-  "sessionIndicators.idle": {
-    "defaultMessage": "유휴"
+  "sessionIndicators.working": {
+    "defaultMessage": "작업 중"
+  },
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {백그라운드에서 작업 중} one {백그라운드에서 작업 중(백그라운드 명령 #개)} other {백그라운드에서 작업 중(백그라운드 명령 #개)}}"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

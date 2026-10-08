@@ -1289,6 +1289,45 @@
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
   },
+  "filePreview.binary": {
+    "defaultMessage": "Bu dosya metin olmadığı için önizlenemiyor."
+  },
+  "filePreview.close": {
+    "defaultMessage": "Dosya önizlemesini kapat"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "Dosya önizlemesini daralt"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "Yolu kopyala"
+  },
+  "filePreview.error": {
+    "defaultMessage": "Bu dosya okunamadı."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "Dosya önizlemesini göster"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "Yükleniyor…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "Bu dosya artık mevcut değil."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "Bu yol normal bir dosya değil."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "Metin düzenleyicide aç"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "Dosyayı yeniden yükle"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "Klasörde göster"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "Bu dosya önizlenemeyecek kadar büyük."
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "{branch} dalına geçilemedi"
   },
@@ -1951,6 +1990,9 @@
   },
   "markdownContent.noApplicationFound": {
     "defaultMessage": "Bu bağlantıyı açacak uygulama bulunamadı."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "{path} önizlemesi"
   },
   "mcpAppRenderer.appFallbackTitle": {
     "defaultMessage": "Uygulama"
@@ -3905,24 +3947,6 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.working": {
-    "defaultMessage": "Çalışıyor"
-  },
-  "sessionIndicators.workingInBackground": {
-    "defaultMessage": "{count, plural, =0 {Arka planda çalışıyor} one {Arka planda çalışıyor (# arka plan komutu)} other {Arka planda çalışıyor (# arka plan komutu)}}"
-  },
-  "sessionIndicators.needsApproval": {
-    "defaultMessage": "Onayınızı bekliyor"
-  },
-  "sessionIndicators.waitingForYou": {
-    "defaultMessage": "Sizi bekliyor"
-  },
-  "sessionIndicators.waitingForYouUnread": {
-    "defaultMessage": "Sizi bekliyor (yeni yanıt)"
-  },
-  "sessionIndicators.stalled": {
-    "defaultMessage": "Takıldı: {minutes, plural, one {# dakikadır ilerleme yok} other {# dakikadır ilerleme yok}}"
-  },
   "sessionIndicators.exited": {
     "defaultMessage": "Takıldı: ajan süreci sonlandı"
   },
@@ -3932,11 +3956,29 @@
   "sessionIndicators.failing": {
     "defaultMessage": "Takıldı: art arda {count} tur başarısız oldu"
   },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Boşta"
+  },
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Onayınızı bekliyor"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Takıldı: {minutes, plural, one {# dakikadır ilerleme yok} other {# dakikadır ilerleme yok}}"
+  },
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Sizi bekliyor"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Sizi bekliyor (yeni yanıt)"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },
-  "sessionIndicators.idle": {
-    "defaultMessage": "Boşta"
+  "sessionIndicators.working": {
+    "defaultMessage": "Çalışıyor"
+  },
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {Arka planda çalışıyor} one {Arka planda çalışıyor (# arka plan komutu)} other {Arka planda çalışıyor (# arka plan komutu)}}"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

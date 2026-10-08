@@ -1289,6 +1289,45 @@
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
   },
+  "filePreview.binary": {
+    "defaultMessage": "यह फ़ाइल टेक्स्ट नहीं है, इसलिए इसका पूर्वावलोकन नहीं किया जा सकता।"
+  },
+  "filePreview.close": {
+    "defaultMessage": "फ़ाइल पूर्वावलोकन बंद करें"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "फ़ाइल पूर्वावलोकन संक्षिप्त करें"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "पथ कॉपी करें"
+  },
+  "filePreview.error": {
+    "defaultMessage": "यह फ़ाइल पढ़ी नहीं जा सकी।"
+  },
+  "filePreview.expand": {
+    "defaultMessage": "फ़ाइल पूर्वावलोकन दिखाएँ"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "लोड हो रहा है…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "यह फ़ाइल अब मौजूद नहीं है।"
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "यह पथ कोई सामान्य फ़ाइल नहीं है।"
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "टेक्स्ट एडिटर में खोलें"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "फ़ाइल फिर से लोड करें"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "फ़ोल्डर में दिखाएँ"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "यह फ़ाइल पूर्वावलोकन के लिए बहुत बड़ी है।"
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "{branch} पर स्विच नहीं किया जा सका"
   },
@@ -1951,6 +1990,9 @@
   },
   "markdownContent.noApplicationFound": {
     "defaultMessage": "इस लिंक को खोलने के लिए कोई एप्लिकेशन नहीं मिला."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "{path} का पूर्वावलोकन"
   },
   "mcpAppRenderer.appFallbackTitle": {
     "defaultMessage": "ऐप"
@@ -3905,24 +3947,6 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.working": {
-    "defaultMessage": "काम कर रहा है"
-  },
-  "sessionIndicators.workingInBackground": {
-    "defaultMessage": "{count, plural, =0 {पृष्ठभूमि में काम कर रहा है} one {पृष्ठभूमि में काम कर रहा है (# पृष्ठभूमि कमांड)} other {पृष्ठभूमि में काम कर रहा है (# पृष्ठभूमि कमांड)}}"
-  },
-  "sessionIndicators.needsApproval": {
-    "defaultMessage": "आपकी स्वीकृति चाहिए"
-  },
-  "sessionIndicators.waitingForYou": {
-    "defaultMessage": "आपकी प्रतीक्षा में"
-  },
-  "sessionIndicators.waitingForYouUnread": {
-    "defaultMessage": "आपकी प्रतीक्षा में (नया उत्तर)"
-  },
-  "sessionIndicators.stalled": {
-    "defaultMessage": "अटका हुआ: कोई प्रगति नहीं, {minutes, plural, one {# मिनट से} other {# मिनट से}}"
-  },
   "sessionIndicators.exited": {
     "defaultMessage": "अटका हुआ: एजेंट प्रक्रिया बंद हो गई"
   },
@@ -3932,11 +3956,29 @@
   "sessionIndicators.failing": {
     "defaultMessage": "अटका हुआ: लगातार {count} टर्न विफल"
   },
+  "sessionIndicators.idle": {
+    "defaultMessage": "निष्क्रिय"
+  },
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "आपकी स्वीकृति चाहिए"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "अटका हुआ: कोई प्रगति नहीं, {minutes, plural, one {# मिनट से} other {# मिनट से}}"
+  },
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "आपकी प्रतीक्षा में"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "आपकी प्रतीक्षा में (नया उत्तर)"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },
-  "sessionIndicators.idle": {
-    "defaultMessage": "निष्क्रिय"
+  "sessionIndicators.working": {
+    "defaultMessage": "काम कर रहा है"
+  },
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {पृष्ठभूमि में काम कर रहा है} one {पृष्ठभूमि में काम कर रहा है (# पृष्ठभूमि कमांड)} other {पृष्ठभूमि में काम कर रहा है (# पृष्ठभूमि कमांड)}}"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

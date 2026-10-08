@@ -1289,6 +1289,45 @@
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
   },
+  "filePreview.binary": {
+    "defaultMessage": "File ini bukan teks, sehingga tidak dapat dipratinjau."
+  },
+  "filePreview.close": {
+    "defaultMessage": "Tutup pratinjau file"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "Ciutkan pratinjau file"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "Salin jalur"
+  },
+  "filePreview.error": {
+    "defaultMessage": "File ini tidak dapat dibaca."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "Tampilkan pratinjau file"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "Memuat…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "File ini sudah tidak ada."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "Jalur ini bukan file biasa."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "Buka di editor teks"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "Muat ulang file"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "Tampilkan di folder"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "File ini terlalu besar untuk dipratinjau."
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "Gagal beralih ke {branch}"
   },
@@ -1951,6 +1990,9 @@
   },
   "markdownContent.noApplicationFound": {
     "defaultMessage": "Tidak ada aplikasi yang ditemukan untuk membuka tautan ini."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "Pratinjau {path}"
   },
   "mcpAppRenderer.appFallbackTitle": {
     "defaultMessage": "Aplikasi"
@@ -3905,24 +3947,6 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.working": {
-    "defaultMessage": "Sedang bekerja"
-  },
-  "sessionIndicators.workingInBackground": {
-    "defaultMessage": "{count, plural, =0 {Bekerja di latar belakang} one {Bekerja di latar belakang (# perintah latar belakang)} other {Bekerja di latar belakang (# perintah latar belakang)}}"
-  },
-  "sessionIndicators.needsApproval": {
-    "defaultMessage": "Menunggu persetujuan Anda"
-  },
-  "sessionIndicators.waitingForYou": {
-    "defaultMessage": "Menunggu Anda"
-  },
-  "sessionIndicators.waitingForYouUnread": {
-    "defaultMessage": "Menunggu Anda (balasan baru)"
-  },
-  "sessionIndicators.stalled": {
-    "defaultMessage": "Macet: tidak ada kemajuan selama {minutes, plural, one {# menit} other {# menit}}"
-  },
   "sessionIndicators.exited": {
     "defaultMessage": "Macet: proses agen berhenti"
   },
@@ -3932,11 +3956,29 @@
   "sessionIndicators.failing": {
     "defaultMessage": "Macet: {count} giliran gagal berturut-turut"
   },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Diam"
+  },
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Menunggu persetujuan Anda"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Macet: tidak ada kemajuan selama {minutes, plural, one {# menit} other {# menit}}"
+  },
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Menunggu Anda"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Menunggu Anda (balasan baru)"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },
-  "sessionIndicators.idle": {
-    "defaultMessage": "Diam"
+  "sessionIndicators.working": {
+    "defaultMessage": "Sedang bekerja"
+  },
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {Bekerja di latar belakang} one {Bekerja di latar belakang (# perintah latar belakang)} other {Bekerja di latar belakang (# perintah latar belakang)}}"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

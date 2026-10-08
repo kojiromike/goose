@@ -1289,6 +1289,45 @@
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
   },
+  "filePreview.binary": {
+    "defaultMessage": "Ce fichier n'est pas du texte et ne peut donc pas être prévisualisé."
+  },
+  "filePreview.close": {
+    "defaultMessage": "Fermer l'aperçu du fichier"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "Réduire l'aperçu du fichier"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "Copier le chemin"
+  },
+  "filePreview.error": {
+    "defaultMessage": "Ce fichier n'a pas pu être lu."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "Afficher l'aperçu du fichier"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "Chargement…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "Ce fichier n'existe plus."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "Ce chemin n'est pas un fichier ordinaire."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "Ouvrir dans l'éditeur de texte"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "Recharger le fichier"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "Afficher dans le dossier"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "Ce fichier est trop volumineux pour être prévisualisé."
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "Impossible de basculer vers {branch}"
   },
@@ -1951,6 +1990,9 @@
   },
   "markdownContent.noApplicationFound": {
     "defaultMessage": "Aucune application trouvée pour ouvrir ce lien."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "Aperçu de {path}"
   },
   "mcpAppRenderer.appFallbackTitle": {
     "defaultMessage": "Application"
@@ -3905,24 +3947,6 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.working": {
-    "defaultMessage": "En cours"
-  },
-  "sessionIndicators.workingInBackground": {
-    "defaultMessage": "{count, plural, =0 {En cours en arrière-plan} one {En cours en arrière-plan (# commande en arrière-plan)} other {En cours en arrière-plan (# commandes en arrière-plan)}}"
-  },
-  "sessionIndicators.needsApproval": {
-    "defaultMessage": "Attend votre approbation"
-  },
-  "sessionIndicators.waitingForYou": {
-    "defaultMessage": "Vous attend"
-  },
-  "sessionIndicators.waitingForYouUnread": {
-    "defaultMessage": "Vous attend (nouvelle réponse)"
-  },
-  "sessionIndicators.stalled": {
-    "defaultMessage": "Bloquée : aucun progrès depuis {minutes, plural, one {# minute} other {# minutes}}"
-  },
   "sessionIndicators.exited": {
     "defaultMessage": "Bloquée : le processus de l'agent s'est arrêté"
   },
@@ -3932,11 +3956,29 @@
   "sessionIndicators.failing": {
     "defaultMessage": "Bloquée : {count} tours ont échoué d'affilée"
   },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Inactive"
+  },
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Attend votre approbation"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Bloquée : aucun progrès depuis {minutes, plural, one {# minute} other {# minutes}}"
+  },
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Vous attend"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Vous attend (nouvelle réponse)"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label} : {error}"
   },
-  "sessionIndicators.idle": {
-    "defaultMessage": "Inactive"
+  "sessionIndicators.working": {
+    "defaultMessage": "En cours"
+  },
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {En cours en arrière-plan} one {En cours en arrière-plan (# commande en arrière-plan)} other {En cours en arrière-plan (# commandes en arrière-plan)}}"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

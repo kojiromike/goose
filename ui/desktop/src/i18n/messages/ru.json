@@ -1289,6 +1289,45 @@
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
   },
+  "filePreview.binary": {
+    "defaultMessage": "Этот файл не является текстовым, поэтому его нельзя просмотреть."
+  },
+  "filePreview.close": {
+    "defaultMessage": "Закрыть предпросмотр файла"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "Свернуть предпросмотр файла"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "Скопировать путь"
+  },
+  "filePreview.error": {
+    "defaultMessage": "Не удалось прочитать этот файл."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "Показать предпросмотр файла"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "Загрузка…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "Этот файл больше не существует."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "Этот путь не является обычным файлом."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "Открыть в текстовом редакторе"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "Перезагрузить файл"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "Показать в папке"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "Этот файл слишком велик для предпросмотра."
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "Не удалось переключиться на {branch}"
   },
@@ -1951,6 +1990,9 @@
   },
   "markdownContent.noApplicationFound": {
     "defaultMessage": "Не найдено приложение для открытия этой ссылки."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "Предпросмотр {path}"
   },
   "mcpAppRenderer.appFallbackTitle": {
     "defaultMessage": "Приложение"
@@ -3905,24 +3947,6 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.working": {
-    "defaultMessage": "Работает"
-  },
-  "sessionIndicators.workingInBackground": {
-    "defaultMessage": "{count, plural, =0 {Работает в фоне} one {Работает в фоне (# фоновая команда)} other {Работает в фоне (фоновых команд: #)}}"
-  },
-  "sessionIndicators.needsApproval": {
-    "defaultMessage": "Нужно ваше одобрение"
-  },
-  "sessionIndicators.waitingForYou": {
-    "defaultMessage": "Ждёт вас"
-  },
-  "sessionIndicators.waitingForYouUnread": {
-    "defaultMessage": "Ждёт вас (новый ответ)"
-  },
-  "sessionIndicators.stalled": {
-    "defaultMessage": "Зависла: нет прогресса {minutes, plural, one {# минуту} few {# минуты} many {# минут} other {# минуты}}"
-  },
   "sessionIndicators.exited": {
     "defaultMessage": "Зависла: процесс агента завершился"
   },
@@ -3932,11 +3956,29 @@
   "sessionIndicators.failing": {
     "defaultMessage": "Зависла: ходов с ошибкой подряд: {count}"
   },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Бездействует"
+  },
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Нужно ваше одобрение"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Зависла: нет прогресса {minutes, plural, one {# минуту} few {# минуты} many {# минут} other {# минуты}}"
+  },
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Ждёт вас"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Ждёт вас (новый ответ)"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },
-  "sessionIndicators.idle": {
-    "defaultMessage": "Бездействует"
+  "sessionIndicators.working": {
+    "defaultMessage": "Работает"
+  },
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {Работает в фоне} one {Работает в фоне (# фоновая команда)} other {Работает в фоне (фоновых команд: #)}}"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

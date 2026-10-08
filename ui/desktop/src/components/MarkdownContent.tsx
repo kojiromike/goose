@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, memo, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, memo, useMemo, useCallback, useContext } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -31,6 +31,13 @@ import { wrapHTMLInCodeBlock } from '../utils/htmlSecurity';
 import { BLOCKED_PROTOCOLS } from '../utils/urlSecurity';
 import { getTextDirection } from '../utils/textDirection';
 import { defineMessages, useIntl } from '../i18n';
+import { filePathFromHref } from '../utils/filePathCandidate';
+import {
+  FilePreviewBaseDirContext,
+  resolvePreviewableFile,
+  useFilePreview,
+  usePreviewableFile,
+} from './filePreview/FilePreviewContext';
 
 const i18n = defineMessages({
   copyCode: {
@@ -44,6 +51,10 @@ const i18n = defineMessages({
   noApplicationFound: {
     id: 'markdownContent.noApplicationFound',
     defaultMessage: 'No application found to open this link.',
+  },
+  previewFile: {
+    id: 'markdownContent.previewFile',
+    defaultMessage: 'Preview {path}',
   },
 });
 
@@ -134,7 +145,7 @@ function rehypePerBlockDirection(): (tree: HastNode) => void {
 }
 
 // Memoized CodeBlock component to prevent re-rendering when props haven't changed
-const CodeBlock = memo(function CodeBlock({
+export const CodeBlock = memo(function CodeBlock({
   language,
   children,
 }: {
@@ -237,9 +248,42 @@ const MarkdownCode = memo(
     // a trailing newline, which inline code spans can never contain.
     const isBlockLevelCode = !inline && codeContent.endsWith('\n');
 
-    return isBlockLevelCode ? (
-      <CodeBlock language={match ? match[1] : 'text'}>{codeContent.replace(/\n$/, '')}</CodeBlock>
-    ) : (
+    const intl = useIntl();
+    const filePreview = useFilePreview();
+    const previewablePath = usePreviewableFile(isBlockLevelCode ? null : codeContent);
+
+    if (isBlockLevelCode) {
+      return (
+        <CodeBlock language={match ? match[1] : 'text'}>{codeContent.replace(/\n$/, '')}</CodeBlock>
+      );
+    }
+
+    if (filePreview && previewablePath !== null) {
+      const openPreview = (e: React.SyntheticEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        filePreview.openFile(previewablePath);
+      };
+      return (
+        <code
+          ref={ref}
+          {...props}
+          dir="ltr"
+          role="link"
+          tabIndex={0}
+          title={intl.formatMessage(i18n.previewFile, { path: previewablePath })}
+          onClick={openPreview}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') openPreview(e);
+          }}
+          className="break-all bg-inline-code whitespace-pre-wrap font-mono cursor-pointer underline decoration-dotted underline-offset-2 hover:decoration-solid"
+        >
+          {children}
+        </code>
+      );
+    }
+
+    return (
       <code
         ref={ref}
         {...props}
@@ -254,10 +298,14 @@ const MarkdownCode = memo(
 
 // Custom URL transform to preserve deep link URLs (spotify:, vscode:, slack:, etc.)
 // React-markdown's default only allows http/https/mailto and strips all other protocols
-// We allow all protocols except dangerous ones (javascript:, data:, file:, etc.)
+// We allow all protocols except dangerous ones (javascript:, data:, etc.)
+// file: links become plain paths, which only ever open in the read-only file preview.
 const customUrlTransform = (url: string): string => {
   try {
     const protocol = new URL(url).protocol;
+    if (protocol === 'file:') {
+      return filePathFromHref(url) ?? '';
+    }
     if (BLOCKED_PROTOCOLS.includes(protocol)) {
       return '';
     }
@@ -281,8 +329,21 @@ const MarkdownContent = memo(function MarkdownContent({
     }
   }, [content]);
 
+  const filePreview = useFilePreview();
+  const baseDir = useContext(FilePreviewBaseDirContext);
+  const openFilePreview = filePreview?.openFile;
+
   const handleOpenExternal = useCallback(
     async (href: string) => {
+      const linkedPath = openFilePreview ? filePathFromHref(href) : null;
+      if (openFilePreview && linkedPath !== null) {
+        const filePath = await resolvePreviewableFile(linkedPath, baseDir);
+        if (filePath !== null) {
+          openFilePreview(filePath);
+          return;
+        }
+      }
+
       try {
         await window.electron.openExternal(href);
       } catch {
@@ -295,7 +356,7 @@ const MarkdownContent = memo(function MarkdownContent({
         });
       }
     },
-    [intl]
+    [intl, openFilePreview, baseDir]
   );
 
   return (

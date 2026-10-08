@@ -1289,6 +1289,45 @@
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
   },
+  "filePreview.binary": {
+    "defaultMessage": "Este archivo no es de texto, por lo que no se puede previsualizar."
+  },
+  "filePreview.close": {
+    "defaultMessage": "Cerrar vista previa del archivo"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "Contraer vista previa del archivo"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "Copiar ruta"
+  },
+  "filePreview.error": {
+    "defaultMessage": "No se pudo leer este archivo."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "Mostrar vista previa del archivo"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "Cargando…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "Este archivo ya no existe."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "Esta ruta no es un archivo normal."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "Abrir en el editor de texto"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "Recargar archivo"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "Mostrar en la carpeta"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "Este archivo es demasiado grande para previsualizarlo."
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "No se pudo cambiar a {branch}"
   },
@@ -1951,6 +1990,9 @@
   },
   "markdownContent.noApplicationFound": {
     "defaultMessage": "No se encontró ninguna aplicación para abrir este enlace."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "Vista previa de {path}"
   },
   "mcpAppRenderer.appFallbackTitle": {
     "defaultMessage": "App"
@@ -3905,24 +3947,6 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.working": {
-    "defaultMessage": "Trabajando"
-  },
-  "sessionIndicators.workingInBackground": {
-    "defaultMessage": "{count, plural, =0 {Trabajando en segundo plano} one {Trabajando en segundo plano (# comando en segundo plano)} other {Trabajando en segundo plano (# comandos en segundo plano)}}"
-  },
-  "sessionIndicators.needsApproval": {
-    "defaultMessage": "Necesita tu aprobación"
-  },
-  "sessionIndicators.waitingForYou": {
-    "defaultMessage": "Esperándote"
-  },
-  "sessionIndicators.waitingForYouUnread": {
-    "defaultMessage": "Esperándote (respuesta nueva)"
-  },
-  "sessionIndicators.stalled": {
-    "defaultMessage": "Atascada: sin avances desde hace {minutes, plural, one {# minuto} other {# minutos}}"
-  },
   "sessionIndicators.exited": {
     "defaultMessage": "Atascada: el proceso del agente terminó"
   },
@@ -3932,11 +3956,29 @@
   "sessionIndicators.failing": {
     "defaultMessage": "Atascada: {count} turnos fallidos seguidos"
   },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Inactiva"
+  },
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Necesita tu aprobación"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Atascada: sin avances desde hace {minutes, plural, one {# minuto} other {# minutos}}"
+  },
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Esperándote"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Esperándote (respuesta nueva)"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },
-  "sessionIndicators.idle": {
-    "defaultMessage": "Inactiva"
+  "sessionIndicators.working": {
+    "defaultMessage": "Trabajando"
+  },
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {Trabajando en segundo plano} one {Trabajando en segundo plano (# comando en segundo plano)} other {Trabajando en segundo plano (# comandos en segundo plano)}}"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

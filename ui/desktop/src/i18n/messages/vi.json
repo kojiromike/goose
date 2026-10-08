@@ -1289,6 +1289,45 @@
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
   },
+  "filePreview.binary": {
+    "defaultMessage": "Tệp này không phải văn bản nên không thể xem trước."
+  },
+  "filePreview.close": {
+    "defaultMessage": "Đóng bản xem trước tệp"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "Thu gọn bản xem trước tệp"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "Sao chép đường dẫn"
+  },
+  "filePreview.error": {
+    "defaultMessage": "Không thể đọc tệp này."
+  },
+  "filePreview.expand": {
+    "defaultMessage": "Hiện bản xem trước tệp"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "Đang tải…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "Tệp này không còn tồn tại."
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "Đường dẫn này không phải là tệp thông thường."
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "Mở trong trình soạn thảo văn bản"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "Tải lại tệp"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "Hiện trong thư mục"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "Tệp này quá lớn để xem trước."
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "Không thể chuyển sang {branch}"
   },
@@ -1951,6 +1990,9 @@
   },
   "markdownContent.noApplicationFound": {
     "defaultMessage": "Không tìm thấy ứng dụng nào để mở liên kết này."
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "Xem trước {path}"
   },
   "mcpAppRenderer.appFallbackTitle": {
     "defaultMessage": "Ứng dụng"
@@ -3905,24 +3947,6 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.working": {
-    "defaultMessage": "Đang làm việc"
-  },
-  "sessionIndicators.workingInBackground": {
-    "defaultMessage": "{count, plural, =0 {Đang làm việc trong nền} one {Đang làm việc trong nền (# lệnh chạy nền)} other {Đang làm việc trong nền (# lệnh chạy nền)}}"
-  },
-  "sessionIndicators.needsApproval": {
-    "defaultMessage": "Cần bạn phê duyệt"
-  },
-  "sessionIndicators.waitingForYou": {
-    "defaultMessage": "Đang chờ bạn"
-  },
-  "sessionIndicators.waitingForYouUnread": {
-    "defaultMessage": "Đang chờ bạn (có trả lời mới)"
-  },
-  "sessionIndicators.stalled": {
-    "defaultMessage": "Bị kẹt: không có tiến triển trong {minutes, plural, one {# phút} other {# phút}}"
-  },
   "sessionIndicators.exited": {
     "defaultMessage": "Bị kẹt: tiến trình tác tử đã thoát"
   },
@@ -3932,11 +3956,29 @@
   "sessionIndicators.failing": {
     "defaultMessage": "Bị kẹt: {count} lượt thất bại liên tiếp"
   },
+  "sessionIndicators.idle": {
+    "defaultMessage": "Nhàn rỗi"
+  },
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "Cần bạn phê duyệt"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "Bị kẹt: không có tiến triển trong {minutes, plural, one {# phút} other {# phút}}"
+  },
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "Đang chờ bạn"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "Đang chờ bạn (có trả lời mới)"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },
-  "sessionIndicators.idle": {
-    "defaultMessage": "Nhàn rỗi"
+  "sessionIndicators.working": {
+    "defaultMessage": "Đang làm việc"
+  },
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {Đang làm việc trong nền} one {Đang làm việc trong nền (# lệnh chạy nền)} other {Đang làm việc trong nền (# lệnh chạy nền)}}"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

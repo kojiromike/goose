@@ -1289,6 +1289,45 @@
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
   },
+  "filePreview.binary": {
+    "defaultMessage": "このファイルはテキストではないため、プレビューできません。"
+  },
+  "filePreview.close": {
+    "defaultMessage": "ファイルプレビューを閉じる"
+  },
+  "filePreview.collapse": {
+    "defaultMessage": "ファイルプレビューを折りたたむ"
+  },
+  "filePreview.copyPath": {
+    "defaultMessage": "パスをコピー"
+  },
+  "filePreview.error": {
+    "defaultMessage": "このファイルを読み込めませんでした。"
+  },
+  "filePreview.expand": {
+    "defaultMessage": "ファイルプレビューを表示"
+  },
+  "filePreview.loading": {
+    "defaultMessage": "読み込み中…"
+  },
+  "filePreview.missing": {
+    "defaultMessage": "このファイルはもう存在しません。"
+  },
+  "filePreview.notFile": {
+    "defaultMessage": "このパスは通常のファイルではありません。"
+  },
+  "filePreview.openInEditor": {
+    "defaultMessage": "テキストエディタで開く"
+  },
+  "filePreview.reload": {
+    "defaultMessage": "ファイルを再読み込み"
+  },
+  "filePreview.reveal": {
+    "defaultMessage": "フォルダで表示"
+  },
+  "filePreview.tooLarge": {
+    "defaultMessage": "このファイルは大きすぎてプレビューできません。"
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "{branch} への切り替えに失敗しました"
   },
@@ -1951,6 +1990,9 @@
   },
   "markdownContent.noApplicationFound": {
     "defaultMessage": "このリンクを開くアプリケーションが見つかりません。"
+  },
+  "markdownContent.previewFile": {
+    "defaultMessage": "{path} をプレビュー"
   },
   "mcpAppRenderer.appFallbackTitle": {
     "defaultMessage": "アプリ"
@@ -3905,24 +3947,6 @@
   "sessionActionsHeader.viewModelInteractions": {
     "defaultMessage": "View recent model interactions"
   },
-  "sessionIndicators.working": {
-    "defaultMessage": "作業中"
-  },
-  "sessionIndicators.workingInBackground": {
-    "defaultMessage": "{count, plural, =0 {バックグラウンドで作業中} one {バックグラウンドで作業中（バックグラウンドコマンド #件）} other {バックグラウンドで作業中（バックグラウンドコマンド #件）}}"
-  },
-  "sessionIndicators.needsApproval": {
-    "defaultMessage": "承認が必要です"
-  },
-  "sessionIndicators.waitingForYou": {
-    "defaultMessage": "あなたの入力待ち"
-  },
-  "sessionIndicators.waitingForYouUnread": {
-    "defaultMessage": "あなたの入力待ち（新しい返信）"
-  },
-  "sessionIndicators.stalled": {
-    "defaultMessage": "停止中: {minutes, plural, one {# 分間進捗なし} other {# 分間進捗なし}}"
-  },
   "sessionIndicators.exited": {
     "defaultMessage": "停止中: エージェントのプロセスが終了しました"
   },
@@ -3932,11 +3956,29 @@
   "sessionIndicators.failing": {
     "defaultMessage": "停止中: {count} 回連続でターンが失敗しました"
   },
+  "sessionIndicators.idle": {
+    "defaultMessage": "待機中"
+  },
+  "sessionIndicators.needsApproval": {
+    "defaultMessage": "承認が必要です"
+  },
+  "sessionIndicators.stalled": {
+    "defaultMessage": "停止中: {minutes, plural, one {# 分間進捗なし} other {# 分間進捗なし}}"
+  },
+  "sessionIndicators.waitingForYou": {
+    "defaultMessage": "あなたの入力待ち"
+  },
+  "sessionIndicators.waitingForYouUnread": {
+    "defaultMessage": "あなたの入力待ち（新しい返信）"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },
-  "sessionIndicators.idle": {
-    "defaultMessage": "待機中"
+  "sessionIndicators.working": {
+    "defaultMessage": "作業中"
+  },
+  "sessionIndicators.workingInBackground": {
+    "defaultMessage": "{count, plural, =0 {バックグラウンドで作業中} one {バックグラウンドで作業中（バックグラウンドコマンド #件）} other {バックグラウンドで作業中（バックグラウンドコマンド #件）}}"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

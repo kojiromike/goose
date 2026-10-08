@@ -45,6 +45,7 @@ import { useAutoSubmit } from '../hooks/useAutoSubmit';
 import { ArrowDown, Goose } from './icons';
 import EnvironmentBadge from './GooseSidebar/EnvironmentBadge';
 import SessionActionsHeader from './SessionActionsHeader';
+import { FilePreviewBaseDirContext } from './filePreview/FilePreviewContext';
 import { isAcpRecovering, subscribeToAcpRecovery } from '../acp/acpConnection';
 
 const i18n = defineMessages({
@@ -548,6 +549,7 @@ export default function BaseChat({
             {messages.length > 0 || recipe ? (
               <>
                 <SearchView>
+                  <FilePreviewBaseDirContext.Provider value={session?.working_dir}>
                   <ProgressiveMessageList
                     messages={messages}
                     sessionId={sessionId}
@@ -559,6 +561,7 @@ export default function BaseChat({
                     onMessageUpdate={onMessageUpdate}
                     submitElicitationResponse={submitElicitationResponse}
                   />
+                  </FilePreviewBaseDirContext.Provider>
                 </SearchView>
 
                 <div className="block h-8" />
