@@ -218,7 +218,6 @@ const SessionRow: React.FC<SessionRowProps> = ({
               onRenamed();
             }}
             placeholder={intl.formatMessage(i18n.untitledSession)}
-            disabled={isStreaming}
             singleClickEdit={false}
             className="truncate text-text-primary flex-1 !px-0 !py-0 hover:bg-transparent"
             editClassName="!text-sm"

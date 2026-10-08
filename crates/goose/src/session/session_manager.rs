@@ -10,7 +10,8 @@ use crate::recipe::Recipe;
 use crate::session::export_markdown::export_session_to_markdown;
 use crate::session::extension_data::{ExtensionData, ExtensionState};
 use crate::session::session_naming::{
-    generate_session_name, MSG_COUNT_FOR_SESSION_NAME_GENERATION,
+    generate_session_name, generate_session_name_with_naming_provider, NamingProvider,
+    MSG_COUNT_FOR_SESSION_NAME_GENERATION,
 };
 use anyhow::Result;
 use chrono::{DateTime, TimeZone, Utc};
@@ -607,26 +608,47 @@ impl SessionManager {
         &self,
         id: &str,
         name: String,
-    ) -> Result<SessionNameUpdate> {
+    ) -> Result<Option<SessionNameUpdate>> {
+        // Generating a name can take seconds; a rename made meanwhile wins.
+        if self.get_session(id, false).await?.user_set_name {
+            return Ok(None);
+        }
+
         self.update(id)
             .system_generated_name(name.clone())
             .apply()
             .await?;
 
         let session = self.get_session(id, false).await?;
-        Ok(SessionNameUpdate {
+        Ok(Some(SessionNameUpdate {
             session_id: id.to_string(),
             name,
             updated_at: session.updated_at,
             message_count: session.message_count,
             user_set_name: session.user_set_name,
-        })
+        }))
     }
 
     pub async fn maybe_update_name(
         &self,
         id: &str,
         provider: Arc<dyn Provider>,
+    ) -> Result<Option<SessionNameUpdate>> {
+        let naming = match NamingProvider::from_config().await {
+            Ok(naming) => naming,
+            Err(e) => {
+                warn!("Session naming provider is unavailable, using the session provider: {e}");
+                None
+            }
+        };
+        self.maybe_update_name_with(id, provider, naming).await
+    }
+
+    async fn maybe_update_name_with(
+        &self,
+        id: &str,
+        provider: Arc<dyn Provider>,
+        naming: Option<NamingProvider>,
     ) -> Result<Option<SessionNameUpdate>> {
         let session = self.get_session(id, true).await?;
 
@@ -644,7 +666,7 @@ impl SessionManager {
                 return Ok(None);
             }
 
-            return Ok(Some(self.system_generated_name_update(id, name).await?));
+            return self.system_generated_name_update(id, name).await;
         }
 
         let model_config = match session.model_config.clone() {
@@ -672,6 +694,24 @@ impl SessionManager {
             .filter(|m| matches!(m.role, Role::User) && m.is_user_visible())
             .count();
 
+        if let Some(naming) = &naming {
+            if user_message_count <= MSG_COUNT_FOR_SESSION_NAME_GENERATION {
+                match generate_session_name_with_naming_provider(
+                    naming,
+                    id,
+                    &conversation,
+                    Some(session.working_dir.as_path()),
+                )
+                .await
+                {
+                    Ok(name) => return self.system_generated_name_update(id, name).await,
+                    Err(e) => {
+                        warn!("Session naming provider failed, using the session provider: {e}")
+                    }
+                }
+            }
+        }
+
         let should_generate_name = if provider.manages_own_context() {
             user_message_count == 1
         } else {
@@ -687,7 +727,7 @@ impl SessionManager {
                 Some(session.working_dir.as_path()),
             )
             .await?;
-            return Ok(Some(self.system_generated_name_update(id, name).await?));
+            return self.system_generated_name_update(id, name).await;
         }
         Ok(None)
     }
@@ -3025,6 +3065,7 @@ mod tests {
 
     const NUM_CONCURRENT_SESSIONS: i32 = 10;
     const GENERATED_SESSION_NAME: &str = "Generated session name";
+    const USER_SESSION_NAME: &str = "Named by the user";
 
     #[cfg(unix)]
     #[tokio::test]
@@ -3151,6 +3192,107 @@ mod tests {
     struct StatefulNamingTestProvider;
 
     struct LocalNamingTestProvider;
+
+    struct FailingNamingTestProvider;
+
+    struct RenamingNamingTestProvider {
+        sm: Arc<SessionManager>,
+        session_id: String,
+    }
+
+    #[async_trait::async_trait]
+    impl Provider for FailingNamingTestProvider {
+        fn get_name(&self) -> &str {
+            "failing-naming-test"
+        }
+
+        async fn stream(
+            &self,
+            _model_config: &ModelConfig,
+            _system: &str,
+            _messages: &[Message],
+            _tools: &[Tool],
+        ) -> Result<MessageStream, ProviderError> {
+            unimplemented!("session naming calls complete")
+        }
+
+        async fn complete(
+            &self,
+            _model_config: &ModelConfig,
+            _system: &str,
+            _messages: &[Message],
+            _tools: &[Tool],
+        ) -> Result<(Message, ProviderUsage), ProviderError> {
+            Err(ProviderError::RequestFailed("connection refused".into()))
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl Provider for RenamingNamingTestProvider {
+        fn get_name(&self) -> &str {
+            "renaming-naming-test"
+        }
+
+        async fn stream(
+            &self,
+            _model_config: &ModelConfig,
+            _system: &str,
+            _messages: &[Message],
+            _tools: &[Tool],
+        ) -> Result<MessageStream, ProviderError> {
+            unimplemented!("session naming calls complete")
+        }
+
+        async fn complete(
+            &self,
+            _model_config: &ModelConfig,
+            _system: &str,
+            _messages: &[Message],
+            _tools: &[Tool],
+        ) -> Result<(Message, ProviderUsage), ProviderError> {
+            self.sm
+                .update(&self.session_id)
+                .user_provided_name(USER_SESSION_NAME)
+                .apply()
+                .await
+                .unwrap();
+            Ok((
+                Message::assistant().with_text(GENERATED_SESSION_NAME),
+                ProviderUsage::new("test".to_string(), Default::default()),
+            ))
+        }
+    }
+
+    fn naming_provider(provider: Arc<dyn Provider>) -> Option<NamingProvider> {
+        Some(NamingProvider {
+            provider,
+            model_config: ModelConfig::new("naming-model"),
+        })
+    }
+
+    async fn create_stateful_session_with_prompt(sm: &SessionManager, dir: &Path) -> String {
+        let session = sm
+            .create_session(
+                dir.to_path_buf(),
+                "New Chat".to_string(),
+                SessionType::User,
+                GooseMode::default(),
+            )
+            .await
+            .unwrap();
+        sm.update(&session.id)
+            .model_config(ModelConfig::new("test-model"))
+            .apply()
+            .await
+            .unwrap();
+        sm.add_message(
+            &session.id,
+            &Message::user().with_text("investigate session naming with ACP providers"),
+        )
+        .await
+        .unwrap();
+        session.id
+    }
 
     #[async_trait::async_trait]
     impl Provider for NamingTestProvider {
@@ -3601,7 +3743,7 @@ mod tests {
         add_user_message(&sm, &session.id).await;
 
         let update = sm
-            .maybe_update_name(&session.id, naming_test_provider())
+            .maybe_update_name_with(&session.id, naming_test_provider(), None)
             .await
             .unwrap();
         assert_eq!(
@@ -3641,12 +3783,75 @@ mod tests {
         .unwrap();
 
         let update = sm
-            .maybe_update_name(&session.id, Arc::new(StatefulNamingTestProvider))
+            .maybe_update_name_with(&session.id, Arc::new(StatefulNamingTestProvider), None)
             .await
             .unwrap()
             .unwrap();
 
         assert_eq!(update.name, "investigate session naming with");
+    }
+
+    #[tokio::test]
+    async fn test_naming_provider_titles_stateful_session() {
+        let temp_dir = TempDir::new().unwrap();
+        let sm = SessionManager::new(temp_dir.path().to_path_buf());
+        let id = create_stateful_session_with_prompt(&sm, temp_dir.path()).await;
+
+        let update = sm
+            .maybe_update_name_with(
+                &id,
+                Arc::new(StatefulNamingTestProvider),
+                naming_provider(naming_test_provider()),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(update.name, GENERATED_SESSION_NAME);
+        assert!(!update.user_set_name);
+    }
+
+    #[tokio::test]
+    async fn test_naming_provider_failure_falls_back_to_session_provider() {
+        let temp_dir = TempDir::new().unwrap();
+        let sm = SessionManager::new(temp_dir.path().to_path_buf());
+        let id = create_stateful_session_with_prompt(&sm, temp_dir.path()).await;
+
+        let update = sm
+            .maybe_update_name_with(
+                &id,
+                Arc::new(StatefulNamingTestProvider),
+                naming_provider(Arc::new(FailingNamingTestProvider)),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(update.name, "investigate session naming with");
+    }
+
+    #[tokio::test]
+    async fn test_rename_during_name_generation_is_preserved() {
+        let temp_dir = TempDir::new().unwrap();
+        let sm = Arc::new(SessionManager::new(temp_dir.path().to_path_buf()));
+        let id = create_stateful_session_with_prompt(&sm, temp_dir.path()).await;
+
+        let update = sm
+            .maybe_update_name_with(
+                &id,
+                Arc::new(StatefulNamingTestProvider),
+                naming_provider(Arc::new(RenamingNamingTestProvider {
+                    sm: sm.clone(),
+                    session_id: id.clone(),
+                })),
+            )
+            .await
+            .unwrap();
+
+        assert!(update.is_none());
+        let reloaded = sm.get_session(&id, false).await.unwrap();
+        assert_eq!(reloaded.name, USER_SESSION_NAME);
+        assert!(reloaded.user_set_name);
     }
 
     #[tokio::test]
@@ -3676,7 +3881,7 @@ mod tests {
         .unwrap();
 
         let update = sm
-            .maybe_update_name(&session.id, Arc::new(LocalNamingTestProvider))
+            .maybe_update_name_with(&session.id, Arc::new(LocalNamingTestProvider), None)
             .await
             .unwrap()
             .unwrap();
@@ -3707,7 +3912,7 @@ mod tests {
         add_user_message(&sm, &session.id).await;
 
         let update = sm
-            .maybe_update_name(&session.id, naming_test_provider())
+            .maybe_update_name_with(&session.id, naming_test_provider(), None)
             .await
             .unwrap();
         assert!(update.is_none());
@@ -3740,7 +3945,7 @@ mod tests {
         add_user_message(&sm, &session.id).await;
 
         let update = sm
-            .maybe_update_name(&session.id, naming_test_provider())
+            .maybe_update_name_with(&session.id, naming_test_provider(), None)
             .await
             .unwrap();
         assert_eq!(
@@ -3753,7 +3958,7 @@ mod tests {
         assert!(!reloaded.user_set_name);
 
         let update = sm
-            .maybe_update_name(&session.id, naming_test_provider())
+            .maybe_update_name_with(&session.id, naming_test_provider(), None)
             .await
             .unwrap();
         assert!(update.is_none());
@@ -3833,7 +4038,7 @@ mod tests {
         add_user_message(&sm, &session.id).await;
 
         let update = sm
-            .maybe_update_name(&session.id, naming_test_provider())
+            .maybe_update_name_with(&session.id, naming_test_provider(), None)
             .await
             .unwrap();
         assert!(update.is_none());
