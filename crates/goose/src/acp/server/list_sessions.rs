@@ -261,7 +261,8 @@ impl GooseAcpAgent {
             .sessions
             .into_iter()
             .map(|session| {
-                let active_run = active_run_ids.contains(&session.id);
+                let active_run =
+                    active_run_ids.contains(&session.id) || self.run_lock_held(&session.id);
                 build_session_info(session, active_run)
             })
             .collect();

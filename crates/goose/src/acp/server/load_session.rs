@@ -392,6 +392,14 @@ impl GooseAcpAgent {
         // permanently unreachable.
         self.closed_session_ids.lock().await.remove(&session_id_str);
 
+        // Loading resumes the agent from the conversation as it stands, so a
+        // load while another instance is mid-turn would start from a history
+        // missing that turn and fork the conversation at the next prompt.
+        if !self.has_active_run(&session_id_str).await && self.run_lock_held(&session_id_str) {
+            return Err(agent_client_protocol::Error::invalid_params()
+                .data(super::RUNNING_IN_ANOTHER_INSTANCE));
+        }
+
         let mut session = self
             .session_manager
             .get_session(&session_id_str, true)

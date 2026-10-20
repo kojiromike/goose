@@ -214,7 +214,7 @@ impl GooseAcpAgent {
                     .data(format!("Session not found: {}", session_id))
             })?;
 
-        let active_run = self.has_active_run(session_id).await;
+        let active_run = self.has_active_run(session_id).await || self.run_lock_held(session_id);
         Ok(GetSessionInfoResponse {
             session: build_session_info(session, active_run),
         })

@@ -46,8 +46,9 @@ struct SessionMeta<'a> {
     model_id: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     last_message_snippet: Option<&'a str>,
-    /// True while this server process has an active prompt run for the
-    /// session, so clients can restore "working" indicators after a reload.
+    /// True while a goose server on this session store, this one or another,
+    /// has an active prompt run for the session, so clients can restore
+    /// "working" indicators after a reload and see turns running elsewhere.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     active_run: bool,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -7,6 +7,7 @@ pub(super) use crate::acp::response_builder::{
     send_session_setup_notifications, session_meta, session_provider_selection,
     session_response_meta, should_refresh_inventory_for_session_init,
 };
+use crate::acp::run_lock::{self, RunLock};
 use crate::acp::tool_call_notifier::ToolCallNotifier;
 use crate::acp::{PermissionDecision, ACP_CURRENT_MODEL};
 use crate::agents::extension::{Envs, PLATFORM_EXTENSIONS};
@@ -249,7 +250,13 @@ pub struct ActivePromptRun {
     /// its own agent, so a steer arriving on a second connection must be
     /// routed here rather than to the caller's connection-local agent.
     agent: Arc<Agent>,
+    /// Released with the run. `None` only when the lock file could not be
+    /// opened, in which case the run proceeds unguarded across processes.
+    _run_lock: Option<RunLock>,
 }
+
+pub(crate) const RUNNING_IN_ANOTHER_INSTANCE: &str =
+    "This chat has a turn running in another goose instance. Open it there, or wait for the turn to finish.";
 
 struct AgentStreamOutcome {
     was_cancelled: bool,
@@ -371,6 +378,7 @@ pub struct GooseAcpAgent {
     thinking_effort_update_rx: Mutex<Option<mpsc::UnboundedReceiver<String>>>,
     config_dir: std::path::PathBuf,
     session_manager: Arc<SessionManager>,
+    run_lock_dir: PathBuf,
     permission_manager: Arc<PermissionManager>,
     disable_session_naming: bool,
     provider_inventory: ProviderInventoryService,
@@ -918,6 +926,12 @@ impl GooseAcpAgent {
             .contains_key(session_id)
     }
 
+    /// Whether a turn is running in the session in this process or any other
+    /// goose server on the same session store.
+    pub(super) fn run_lock_held(&self, session_id: &str) -> bool {
+        run_lock::is_held(&self.run_lock_dir, session_id)
+    }
+
     #[cfg(test)]
     pub(crate) fn active_run_registry(&self) -> &ActiveRunRegistry {
         &self.active_prompt_runs
@@ -1043,6 +1057,7 @@ impl GooseAcpAgent {
 
     // TODO: goose reads Paths::in_state_dir globally (e.g. RequestLog), ignoring this data_dir.
     pub async fn new(options: GooseAcpAgentOptions) -> Result<Self> {
+        let run_lock_dir = run_lock::lock_dir(&options.data_dir);
         let session_manager = Arc::new(SessionManager::new(options.data_dir));
 
         // Eagerly initialize the SQLite pool so it's ready when providers/sessions need it.
@@ -1085,6 +1100,7 @@ impl GooseAcpAgent {
             thinking_effort_update_rx: Mutex::new(Some(thinking_effort_update_rx)),
             config_dir: options.config_dir,
             session_manager,
+            run_lock_dir,
             permission_manager,
             disable_session_naming: options.disable_session_naming,
             provider_inventory,
@@ -2025,12 +2041,25 @@ impl GooseAcpAgent {
             )));
         }
 
+        let run_lock = match RunLock::try_acquire(&self.run_lock_dir, session_id).await {
+            Ok(Some(lock)) => Some(lock),
+            Ok(None) => {
+                return Err(agent_client_protocol::Error::invalid_params()
+                    .data(RUNNING_IN_ANOTHER_INSTANCE));
+            }
+            Err(error) => {
+                warn!(session_id, %error, "Failed to open the session's run lock");
+                None
+            }
+        };
+
         active_prompt_runs.insert(
             session_id.to_string(),
             ActivePromptRun {
                 run_id,
                 cancel_token,
                 agent,
+                _run_lock: run_lock,
             },
         );
         Ok(())

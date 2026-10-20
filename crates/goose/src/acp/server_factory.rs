@@ -256,6 +256,61 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_run_in_another_server_blocks_new_turns_until_it_ends() {
+        let root = tempfile::tempdir().unwrap();
+        let first = server(root.path().to_path_buf(), false);
+        let second = server(root.path().to_path_buf(), false);
+
+        let running = first.create_agent().await.unwrap();
+        let owner = Arc::new(crate::agents::Agent::new());
+        running
+            .test_start_active_run("session-1", "run-1".to_string(), owner)
+            .await
+            .unwrap();
+
+        let other = second.create_agent().await.unwrap();
+        assert!(
+            !other.has_active_run("session-1").await,
+            "the in-memory registry is per server"
+        );
+        assert!(
+            other.run_lock_held("session-1"),
+            "a turn running in another server must show as running"
+        );
+        let refused = other
+            .test_start_active_run(
+                "session-1",
+                "run-2".to_string(),
+                Arc::new(crate::agents::Agent::new()),
+            )
+            .await
+            .expect_err("a second server must not start a turn in a busy session");
+        assert_eq!(
+            refused.data,
+            Some(serde_json::json!(
+                crate::acp::server::RUNNING_IN_ANOTHER_INSTANCE
+            ))
+        );
+
+        running.test_drop_active_run_guard("session-1", "run-1");
+        for _ in 0..50 {
+            if !other.run_lock_held("session-1") {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        assert!(!other.run_lock_held("session-1"));
+        other
+            .test_start_active_run(
+                "session-1",
+                "run-2".to_string(),
+                Arc::new(crate::agents::Agent::new()),
+            )
+            .await
+            .expect("the session is free once the other server's run ends");
+    }
+
+    #[tokio::test]
     async fn start_scheduler_initializes_before_any_client_connects() {
         let root = tempfile::tempdir().unwrap();
         let server = server(root.path().to_path_buf(), true);
