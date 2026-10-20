@@ -167,6 +167,9 @@
   "baseChat.jumpToLatest": {
     "defaultMessage": "К последнему сообщению"
   },
+  "baseChat.launchedAt": {
+    "defaultMessage": "Этот goose запущен {time}"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Соединение потеряно. Повторное подключение…"
   },

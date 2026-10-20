@@ -167,6 +167,9 @@
   "baseChat.jumpToLatest": {
     "defaultMessage": "Zum Neuesten springen"
   },
+  "baseChat.launchedAt": {
+    "defaultMessage": "Dieser goose wurde {time} gestartet"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Verbindung unterbrochen. Verbindung wird wiederhergestellt…"
   },

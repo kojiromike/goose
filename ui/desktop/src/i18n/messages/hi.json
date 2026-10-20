@@ -167,6 +167,9 @@
   "baseChat.jumpToLatest": {
     "defaultMessage": "नवीनतम पर जाएँ"
   },
+  "baseChat.launchedAt": {
+    "defaultMessage": "यह goose {time} को शुरू हुआ"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "कनेक्शन टूट गया। फिर से कनेक्ट किया जा रहा है…"
   },

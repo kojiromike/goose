@@ -985,6 +985,8 @@ const getExternalBackendForCsp = (settings: Settings) => {
 };
 
 let appConfig = {
+  // Identifies this launch to every window it opens; see utils/instanceTint.ts.
+  GOOSE_LAUNCHED_AT: Date.now(),
   GOOSE_DEFAULT_PROVIDER: defaultProvider,
   GOOSE_DEFAULT_MODEL: defaultModel,
   GOOSE_PREDEFINED_MODELS: predefinedModels,

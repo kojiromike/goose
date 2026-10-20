@@ -167,6 +167,9 @@
   "baseChat.jumpToLatest": {
     "defaultMessage": "最新へ移動"
   },
+  "baseChat.launchedAt": {
+    "defaultMessage": "この goose の起動日時: {time}"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "接続が失われました。再接続しています…"
   },

@@ -167,6 +167,9 @@
   "baseChat.jumpToLatest": {
     "defaultMessage": "Vai al più recente"
   },
+  "baseChat.launchedAt": {
+    "defaultMessage": "Questo goose è stato avviato il {time}"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Connessione persa. Riconnessione…"
   },

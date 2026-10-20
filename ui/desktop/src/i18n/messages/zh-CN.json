@@ -167,6 +167,9 @@
   "baseChat.jumpToLatest": {
     "defaultMessage": "跳到最新"
   },
+  "baseChat.launchedAt": {
+    "defaultMessage": "此 goose 启动于 {time}"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "连接已断开。正在重新连接…"
   },

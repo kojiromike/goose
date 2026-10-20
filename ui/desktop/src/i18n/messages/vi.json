@@ -167,6 +167,9 @@
   "baseChat.jumpToLatest": {
     "defaultMessage": "Đến tin mới nhất"
   },
+  "baseChat.launchedAt": {
+    "defaultMessage": "goose này được khởi chạy lúc {time}"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Mất kết nối. Đang kết nối lại…"
   },

@@ -167,6 +167,9 @@
   "baseChat.jumpToLatest": {
     "defaultMessage": "En sona git"
   },
+  "baseChat.launchedAt": {
+    "defaultMessage": "Bu goose {time} tarihinde başlatıldı"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Bağlantı kesildi. Yeniden bağlanılıyor…"
   },

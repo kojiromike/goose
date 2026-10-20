@@ -167,6 +167,9 @@
   "baseChat.jumpToLatest": {
     "defaultMessage": "Lompat ke terkini"
   },
+  "baseChat.launchedAt": {
+    "defaultMessage": "goose ini dilancarkan pada {time}"
+  },
   "baseChat.reconnecting": {
     "defaultMessage": "Sambungan terputus. Menyambung semula…"
   },

@@ -44,11 +44,16 @@ import { substituteParameters } from '../utils/parameterSubstitution';
 import { useAutoSubmit } from '../hooks/useAutoSubmit';
 import { ArrowDown, Goose } from './icons';
 import EnvironmentBadge from './GooseSidebar/EnvironmentBadge';
+import { launchedAt } from '../utils/instanceTint';
 import SessionActionsHeader from './SessionActionsHeader';
 import { FilePreviewBaseDirContext } from './filePreview/FilePreviewContext';
 import { isAcpRecovering, subscribeToAcpRecovery } from '../acp/acpConnection';
 
 const i18n = defineMessages({
+  launchedAt: {
+    id: 'baseChat.launchedAt',
+    defaultMessage: 'This goose was launched {time}',
+  },
   failedToLoadSession: {
     id: 'baseChat.failedToLoadSession',
     defaultMessage: 'Failed to Load Session',
@@ -115,6 +120,7 @@ export default function BaseChat({
   isActiveSession,
 }: BaseChatProps) {
   const intl = useIntl();
+  const launchTime = launchedAt();
   const location = useLocation();
   const navigate = useNavigate();
   const scrollRef = useRef<ScrollAreaHandle>(null);
@@ -486,19 +492,36 @@ export default function BaseChat({
         {/* Chat container with sticky recipe header */}
         <div className="flex flex-col flex-1 min-h-0 relative">
           {/* Goose watermark - top right */}
-          <div className="absolute top-[14px] right-4 z-[60] flex flex-row items-center gap-1">
-            <a
-              href="https://goose-docs.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="no-drag flex flex-row items-center gap-1 hover:opacity-80 transition-opacity"
-            >
-              <Goose className="size-5 goose-icon-animation" />
-              <span className="text-sm leading-none text-text-secondary -translate-y-px">
-                goose
+          <div className="absolute top-[14px] right-4 z-[60] flex flex-col items-end">
+            <div className="flex flex-row items-center gap-1">
+              <a
+                href="https://goose-docs.ai"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="no-drag flex flex-row items-center gap-1 hover:opacity-80 transition-opacity"
+              >
+                <Goose className="size-5 goose-icon-animation" />
+                <span className="text-sm leading-none text-text-secondary -translate-y-px">
+                  goose
+                </span>
+              </a>
+              <EnvironmentBadge className="translate-y-px" />
+            </div>
+            {launchTime !== null && (
+              <span
+                className="text-[10px] leading-tight text-text-tertiary"
+                title={intl.formatMessage(i18n.launchedAt, {
+                  time: intl.formatDate(launchTime, { dateStyle: 'full', timeStyle: 'medium' }),
+                })}
+              >
+                {intl.formatDate(launchTime, {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })}
               </span>
-            </a>
-            <EnvironmentBadge className="translate-y-px" />
+            )}
           </div>
 
           <SessionActionsHeader session={session} onSessionChange={updateSession} />

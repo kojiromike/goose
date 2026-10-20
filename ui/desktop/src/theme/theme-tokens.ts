@@ -18,6 +18,7 @@ import type {
   McpUiStyleVariableKey,
   McpUiStyles,
 } from '@modelcontextprotocol/ext-apps/app-bridge';
+import { instanceTintOverrides, launchedAt } from '../utils/instanceTint';
 
 type ThemeTokens = Record<McpUiStyleVariableKey, string>;
 
@@ -375,7 +376,8 @@ export function applyThemeTokens(theme?: ThemeId): void {
   const resolved = theme ?? getResolvedTheme();
   const { tokens } = themes[resolved] ?? themes.light;
   const root = document.documentElement;
-  for (const [key, value] of Object.entries(tokens)) {
+  const tinted = { ...tokens, ...instanceTintOverrides(tokens, launchedAt()) };
+  for (const [key, value] of Object.entries(tinted)) {
     root.style.setProperty(key, value);
   }
 }
