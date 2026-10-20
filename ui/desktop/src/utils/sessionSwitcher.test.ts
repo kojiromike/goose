@@ -33,19 +33,21 @@ function entry(
 const ids = (entries: SwitcherEntry[]) => entries.map(({ session }) => session.id);
 
 describe('rankSwitcherEntries', () => {
-  it('lists approvals, then stuck, then unread, ahead of everything else', () => {
+  it('lists approvals, then stuck, then unread, then idle, then working', () => {
     const entries = [
-      entry('idle', 0),
+      entry('working', 0, { state: 'working', reason: 'turn' }),
+      entry('idle', 1),
       entry('unread', 5, { state: 'waiting', reason: 'turnEnded', unread: true }),
+      entry('read', 3, { state: 'waiting', reason: 'turnEnded' }),
       entry('stuck', 10, { state: 'stuck', reason: 'failed' }),
       entry('approval', 20, { state: 'waiting', reason: 'approval' }),
-      entry('working', 1, { state: 'working', reason: 'turn' }),
     ];
-    expect(ids(rankSwitcherEntries(entries, undefined, []))).toEqual([
+    expect(ids(rankSwitcherEntries(entries, undefined, ['working']))).toEqual([
       'approval',
       'stuck',
       'unread',
       'idle',
+      'read',
       'working',
     ]);
   });
@@ -55,8 +57,14 @@ describe('rankSwitcherEntries', () => {
     expect(ids(rankSwitcherEntries(entries, undefined, []))).toEqual(['newer', 'older']);
   });
 
-  it('puts the chat opened before this one first when nothing needs attention', () => {
+  it('orders idle sessions by latest activity, not by when they were opened', () => {
     const entries = [entry('a', 0), entry('b', 10), entry('c', 20)];
+    expect(ids(rankSwitcherEntries(entries, 'a', ['a', 'c', 'b']))).toEqual(['b', 'c']);
+  });
+
+  it('puts the working session opened most recently first', () => {
+    const working = { state: 'working', reason: 'turn' } as const;
+    const entries = [entry('a', 0, working), entry('b', 10, working), entry('c', 20, working)];
     expect(ids(rankSwitcherEntries(entries, 'a', ['a', 'c', 'b']))).toEqual(['c', 'b']);
   });
 

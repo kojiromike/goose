@@ -6,17 +6,20 @@ export interface SwitcherEntry {
   activity: SessionActivity;
 }
 
+const WORKING_TIER = 4;
+
 /**
  * How urgently a session wants the user, lowest first: an open permission
- * request blocks the agent outright, a stuck session needs a decision, and an
- * unread one has news. Everything else is ordered by when the user was last
- * in it.
+ * request blocks the agent outright, a stuck session needs a decision, an
+ * unread one has news, and an idle one is waiting on the user's next prompt.
+ * A session that is still working needs nothing yet.
  */
 function attentionTier(activity: SessionActivity): number {
   if (activity.reason === 'approval') return 0;
   if (activity.state === 'stuck') return 1;
   if (activity.unread) return 2;
-  return 3;
+  if (activity.state !== 'working') return 3;
+  return WORKING_TIER;
 }
 
 function activityAt(session: SessionListItem): number {
@@ -26,9 +29,9 @@ function activityAt(session: SessionListItem): number {
 
 /**
  * Order sessions for the switcher so that its first row is the best place to
- * go next: the session that most needs the user, or else the one they were in
- * before this one, so the shortcut followed by Enter toggles between two
- * chats. `recentlyOpened` lists session ids most recent first.
+ * go next: the session that most needs the user. Working sessions come last,
+ * the ones the user was in most recently first. `recentlyOpened` lists session
+ * ids most recent first.
  */
 export function rankSwitcherEntries(
   entries: readonly SwitcherEntry[],
@@ -41,7 +44,7 @@ export function rankSwitcherEntries(
     .map((entry) => ({ entry, tier: attentionTier(entry.activity) }))
     .sort((a, b) => {
       if (a.tier !== b.tier) return a.tier - b.tier;
-      if (a.tier === 3) {
+      if (a.tier === WORKING_TIER) {
         const aOpened = openedRank.get(a.entry.session.id) ?? Infinity;
         const bOpened = openedRank.get(b.entry.session.id) ?? Infinity;
         if (aOpened !== bOpened) return aOpened - bOpened;
