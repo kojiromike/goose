@@ -1751,11 +1751,23 @@
   "keyboardShortcuts.newChatWindowLabel": {
     "defaultMessage": "Nouvelle fenêtre de discussion"
   },
+  "keyboardShortcuts.nextSessionDescription": {
+    "defaultMessage": "Ouvrir la discussion située sous l’actuelle dans la barre latérale"
+  },
+  "keyboardShortcuts.nextSessionLabel": {
+    "defaultMessage": "Discussion suivante"
+  },
   "keyboardShortcuts.openDirectoryDescription": {
     "defaultMessage": "Ouvrir la boîte de dialogue de sélection de répertoire"
   },
   "keyboardShortcuts.openDirectoryLabel": {
     "defaultMessage": "Ouvrir un répertoire"
+  },
+  "keyboardShortcuts.previousSessionDescription": {
+    "defaultMessage": "Ouvrir la discussion située au-dessus de l’actuelle dans la barre latérale"
+  },
+  "keyboardShortcuts.previousSessionLabel": {
+    "defaultMessage": "Discussion précédente"
   },
   "keyboardShortcuts.quickLauncherDescription": {
     "defaultMessage": "Ouvrir la superposition du lanceur rapide"
@@ -1789,6 +1801,12 @@
   },
   "keyboardShortcuts.restartRequired": {
     "defaultMessage": "Redémarrage requis"
+  },
+  "keyboardShortcuts.sessionSwitcherDescription": {
+    "defaultMessage": "Accéder à une discussion ; celles qui vous attendent apparaissent en premier"
+  },
+  "keyboardShortcuts.sessionSwitcherLabel": {
+    "defaultMessage": "Changer de discussion"
   },
   "keyboardShortcuts.settingsDescription": {
     "defaultMessage": "Ouvrir le panneau des paramètres"
@@ -3979,6 +3997,21 @@
   },
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {En cours en arrière-plan} one {En cours en arrière-plan (# commande en arrière-plan)} other {En cours en arrière-plan (# commandes en arrière-plan)}}"
+  },
+  "sessionSwitcher.hint": {
+    "defaultMessage": "↑↓ pour naviguer · ↵ pour ouvrir · échap pour fermer"
+  },
+  "sessionSwitcher.noMatches": {
+    "defaultMessage": "Aucune discussion correspondante"
+  },
+  "sessionSwitcher.placeholder": {
+    "defaultMessage": "Accéder à une discussion…"
+  },
+  "sessionSwitcher.title": {
+    "defaultMessage": "Changer de discussion"
+  },
+  "sessionSwitcher.untitledSession": {
+    "defaultMessage": "Session sans titre"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

@@ -1751,11 +1751,23 @@
   "keyboardShortcuts.newChatWindowLabel": {
     "defaultMessage": "New Chat Window"
   },
+  "keyboardShortcuts.nextSessionDescription": {
+    "defaultMessage": "Open the chat below the current one in the sidebar"
+  },
+  "keyboardShortcuts.nextSessionLabel": {
+    "defaultMessage": "Next Chat"
+  },
   "keyboardShortcuts.openDirectoryDescription": {
     "defaultMessage": "Open directory selection dialog"
   },
   "keyboardShortcuts.openDirectoryLabel": {
     "defaultMessage": "Open Directory"
+  },
+  "keyboardShortcuts.previousSessionDescription": {
+    "defaultMessage": "Open the chat above the current one in the sidebar"
+  },
+  "keyboardShortcuts.previousSessionLabel": {
+    "defaultMessage": "Previous Chat"
   },
   "keyboardShortcuts.quickLauncherDescription": {
     "defaultMessage": "Open the quick launcher overlay"
@@ -1789,6 +1801,12 @@
   },
   "keyboardShortcuts.restartRequired": {
     "defaultMessage": "Restart Required"
+  },
+  "keyboardShortcuts.sessionSwitcherDescription": {
+    "defaultMessage": "Jump to a chat, with the ones waiting for you listed first"
+  },
+  "keyboardShortcuts.sessionSwitcherLabel": {
+    "defaultMessage": "Switch Chat"
   },
   "keyboardShortcuts.settingsDescription": {
     "defaultMessage": "Open settings panel"
@@ -3985,6 +4003,21 @@
   },
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count,plural,=0{Working in the background} one{Working in the background (# background command)} other{Working in the background (# background commands)}}"
+  },
+  "sessionSwitcher.hint": {
+    "defaultMessage": "↑↓ to move · ↵ to open · esc to close"
+  },
+  "sessionSwitcher.noMatches": {
+    "defaultMessage": "No matching chats"
+  },
+  "sessionSwitcher.placeholder": {
+    "defaultMessage": "Jump to a chat…"
+  },
+  "sessionSwitcher.title": {
+    "defaultMessage": "Switch chat"
+  },
+  "sessionSwitcher.untitledSession": {
+    "defaultMessage": "Untitled session"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

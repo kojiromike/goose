@@ -23,6 +23,9 @@ export interface KeyboardShortcuts {
   findPrevious: string | null;
   alwaysOnTop: string | null;
   toggleNavigation: string | null;
+  sessionSwitcher: string | null;
+  nextSession: string | null;
+  previousSession: string | null;
 }
 
 export type DefaultKeyboardShortcuts = {
@@ -74,6 +77,9 @@ export const defaultKeyboardShortcuts: DefaultKeyboardShortcuts = {
   findPrevious: 'CommandOrControl+Shift+G',
   alwaysOnTop: 'CommandOrControl+Shift+T',
   toggleNavigation: 'CommandOrControl+/',
+  sessionSwitcher: 'CommandOrControl+K',
+  nextSession: 'Control+Tab',
+  previousSession: 'Control+Shift+Tab',
 };
 
 export const defaultSettings: Settings = {

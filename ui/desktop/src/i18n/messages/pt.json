@@ -1751,11 +1751,23 @@
   "keyboardShortcuts.newChatWindowLabel": {
     "defaultMessage": "Nova Janela de Conversa"
   },
+  "keyboardShortcuts.nextSessionDescription": {
+    "defaultMessage": "Abrir o chat abaixo do atual na barra lateral"
+  },
+  "keyboardShortcuts.nextSessionLabel": {
+    "defaultMessage": "Próximo chat"
+  },
   "keyboardShortcuts.openDirectoryDescription": {
     "defaultMessage": "Abrir a caixa de diálogo de seleção de diretório"
   },
   "keyboardShortcuts.openDirectoryLabel": {
     "defaultMessage": "Abrir Diretório"
+  },
+  "keyboardShortcuts.previousSessionDescription": {
+    "defaultMessage": "Abrir o chat acima do atual na barra lateral"
+  },
+  "keyboardShortcuts.previousSessionLabel": {
+    "defaultMessage": "Chat anterior"
   },
   "keyboardShortcuts.quickLauncherDescription": {
     "defaultMessage": "Abrir a sobreposição do iniciador rápido"
@@ -1789,6 +1801,12 @@
   },
   "keyboardShortcuts.restartRequired": {
     "defaultMessage": "Reinício Necessário"
+  },
+  "keyboardShortcuts.sessionSwitcherDescription": {
+    "defaultMessage": "Ir para um chat; os que estão esperando por você aparecem primeiro"
+  },
+  "keyboardShortcuts.sessionSwitcherLabel": {
+    "defaultMessage": "Trocar de chat"
   },
   "keyboardShortcuts.settingsDescription": {
     "defaultMessage": "Abrir o painel de configurações"
@@ -3979,6 +3997,21 @@
   },
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {Trabalhando em segundo plano} one {Trabalhando em segundo plano (# comando em segundo plano)} other {Trabalhando em segundo plano (# comandos em segundo plano)}}"
+  },
+  "sessionSwitcher.hint": {
+    "defaultMessage": "↑↓ para mover · ↵ para abrir · esc para fechar"
+  },
+  "sessionSwitcher.noMatches": {
+    "defaultMessage": "Nenhum chat corresponde"
+  },
+  "sessionSwitcher.placeholder": {
+    "defaultMessage": "Ir para um chat…"
+  },
+  "sessionSwitcher.title": {
+    "defaultMessage": "Trocar de chat"
+  },
+  "sessionSwitcher.untitledSession": {
+    "defaultMessage": "Sessão sem título"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

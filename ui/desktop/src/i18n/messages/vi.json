@@ -1751,11 +1751,23 @@
   "keyboardShortcuts.newChatWindowLabel": {
     "defaultMessage": "Cửa sổ trò chuyện mới"
   },
+  "keyboardShortcuts.nextSessionDescription": {
+    "defaultMessage": "Mở cuộc trò chuyện bên dưới cuộc hiện tại trong thanh bên"
+  },
+  "keyboardShortcuts.nextSessionLabel": {
+    "defaultMessage": "Cuộc trò chuyện tiếp theo"
+  },
   "keyboardShortcuts.openDirectoryDescription": {
     "defaultMessage": "Mở hộp thoại chọn thư mục"
   },
   "keyboardShortcuts.openDirectoryLabel": {
     "defaultMessage": "Mở thư mục"
+  },
+  "keyboardShortcuts.previousSessionDescription": {
+    "defaultMessage": "Mở cuộc trò chuyện bên trên cuộc hiện tại trong thanh bên"
+  },
+  "keyboardShortcuts.previousSessionLabel": {
+    "defaultMessage": "Cuộc trò chuyện trước"
   },
   "keyboardShortcuts.quickLauncherDescription": {
     "defaultMessage": "Mở lớp phủ trình khởi chạy nhanh"
@@ -1789,6 +1801,12 @@
   },
   "keyboardShortcuts.restartRequired": {
     "defaultMessage": "Cần khởi động lại"
+  },
+  "keyboardShortcuts.sessionSwitcherDescription": {
+    "defaultMessage": "Chuyển đến một cuộc trò chuyện; những cuộc đang chờ bạn được liệt kê trước"
+  },
+  "keyboardShortcuts.sessionSwitcherLabel": {
+    "defaultMessage": "Chuyển cuộc trò chuyện"
   },
   "keyboardShortcuts.settingsDescription": {
     "defaultMessage": "Mở bảng cài đặt"
@@ -3979,6 +3997,21 @@
   },
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {Đang làm việc trong nền} one {Đang làm việc trong nền (# lệnh chạy nền)} other {Đang làm việc trong nền (# lệnh chạy nền)}}"
+  },
+  "sessionSwitcher.hint": {
+    "defaultMessage": "↑↓ để di chuyển · ↵ để mở · esc để đóng"
+  },
+  "sessionSwitcher.noMatches": {
+    "defaultMessage": "Không có cuộc trò chuyện phù hợp"
+  },
+  "sessionSwitcher.placeholder": {
+    "defaultMessage": "Chuyển đến cuộc trò chuyện…"
+  },
+  "sessionSwitcher.title": {
+    "defaultMessage": "Chuyển cuộc trò chuyện"
+  },
+  "sessionSwitcher.untitledSession": {
+    "defaultMessage": "Phiên chưa đặt tên"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

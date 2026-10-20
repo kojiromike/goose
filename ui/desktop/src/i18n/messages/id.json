@@ -1751,11 +1751,23 @@
   "keyboardShortcuts.newChatWindowLabel": {
     "defaultMessage": "Jendela Obrolan Baru"
   },
+  "keyboardShortcuts.nextSessionDescription": {
+    "defaultMessage": "Buka obrolan di bawah obrolan saat ini di bilah samping"
+  },
+  "keyboardShortcuts.nextSessionLabel": {
+    "defaultMessage": "Obrolan berikutnya"
+  },
   "keyboardShortcuts.openDirectoryDescription": {
     "defaultMessage": "Buka dialog pemilihan direktori"
   },
   "keyboardShortcuts.openDirectoryLabel": {
     "defaultMessage": "Buka Direktori"
+  },
+  "keyboardShortcuts.previousSessionDescription": {
+    "defaultMessage": "Buka obrolan di atas obrolan saat ini di bilah samping"
+  },
+  "keyboardShortcuts.previousSessionLabel": {
+    "defaultMessage": "Obrolan sebelumnya"
   },
   "keyboardShortcuts.quickLauncherDescription": {
     "defaultMessage": "Buka lapisan peluncur cepat"
@@ -1789,6 +1801,12 @@
   },
   "keyboardShortcuts.restartRequired": {
     "defaultMessage": "Perlu Memulai Ulang"
+  },
+  "keyboardShortcuts.sessionSwitcherDescription": {
+    "defaultMessage": "Lompat ke obrolan; yang menunggu Anda ditampilkan lebih dulu"
+  },
+  "keyboardShortcuts.sessionSwitcherLabel": {
+    "defaultMessage": "Ganti obrolan"
   },
   "keyboardShortcuts.settingsDescription": {
     "defaultMessage": "Buka panel pengaturan"
@@ -3979,6 +3997,21 @@
   },
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {Bekerja di latar belakang} one {Bekerja di latar belakang (# perintah latar belakang)} other {Bekerja di latar belakang (# perintah latar belakang)}}"
+  },
+  "sessionSwitcher.hint": {
+    "defaultMessage": "↑↓ untuk berpindah · ↵ untuk membuka · esc untuk menutup"
+  },
+  "sessionSwitcher.noMatches": {
+    "defaultMessage": "Tidak ada obrolan yang cocok"
+  },
+  "sessionSwitcher.placeholder": {
+    "defaultMessage": "Lompat ke obrolan…"
+  },
+  "sessionSwitcher.title": {
+    "defaultMessage": "Ganti obrolan"
+  },
+  "sessionSwitcher.untitledSession": {
+    "defaultMessage": "Sesi tanpa judul"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

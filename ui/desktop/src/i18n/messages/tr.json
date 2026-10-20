@@ -1751,11 +1751,23 @@
   "keyboardShortcuts.newChatWindowLabel": {
     "defaultMessage": "Yeni Sohbet Penceresi"
   },
+  "keyboardShortcuts.nextSessionDescription": {
+    "defaultMessage": "Kenar çubuğunda geçerli sohbetin altındaki sohbeti aç"
+  },
+  "keyboardShortcuts.nextSessionLabel": {
+    "defaultMessage": "Sonraki sohbet"
+  },
   "keyboardShortcuts.openDirectoryDescription": {
     "defaultMessage": "Dizin seçimi iletişim kutusunu aç"
   },
   "keyboardShortcuts.openDirectoryLabel": {
     "defaultMessage": "Dizini Aç"
+  },
+  "keyboardShortcuts.previousSessionDescription": {
+    "defaultMessage": "Kenar çubuğunda geçerli sohbetin üstündeki sohbeti aç"
+  },
+  "keyboardShortcuts.previousSessionLabel": {
+    "defaultMessage": "Önceki sohbet"
   },
   "keyboardShortcuts.quickLauncherDescription": {
     "defaultMessage": "Hızlı başlatıcı katmanını aç"
@@ -1789,6 +1801,12 @@
   },
   "keyboardShortcuts.restartRequired": {
     "defaultMessage": "Yeniden Başlatma Gerekli"
+  },
+  "keyboardShortcuts.sessionSwitcherDescription": {
+    "defaultMessage": "Bir sohbete atla; sizi bekleyenler önce listelenir"
+  },
+  "keyboardShortcuts.sessionSwitcherLabel": {
+    "defaultMessage": "Sohbet değiştir"
   },
   "keyboardShortcuts.settingsDescription": {
     "defaultMessage": "Ayarlar panelini aç"
@@ -3979,6 +3997,21 @@
   },
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {Arka planda çalışıyor} one {Arka planda çalışıyor (# arka plan komutu)} other {Arka planda çalışıyor (# arka plan komutu)}}"
+  },
+  "sessionSwitcher.hint": {
+    "defaultMessage": "↑↓ ile gezin · ↵ ile aç · esc ile kapat"
+  },
+  "sessionSwitcher.noMatches": {
+    "defaultMessage": "Eşleşen sohbet yok"
+  },
+  "sessionSwitcher.placeholder": {
+    "defaultMessage": "Bir sohbete atla…"
+  },
+  "sessionSwitcher.title": {
+    "defaultMessage": "Sohbet değiştir"
+  },
+  "sessionSwitcher.untitledSession": {
+    "defaultMessage": "Başlıksız oturum"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

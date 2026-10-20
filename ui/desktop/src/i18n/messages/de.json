@@ -1751,11 +1751,23 @@
   "keyboardShortcuts.newChatWindowLabel": {
     "defaultMessage": "Neues Chat-Fenster"
   },
+  "keyboardShortcuts.nextSessionDescription": {
+    "defaultMessage": "Den Chat unter dem aktuellen in der Seitenleiste öffnen"
+  },
+  "keyboardShortcuts.nextSessionLabel": {
+    "defaultMessage": "Nächster Chat"
+  },
   "keyboardShortcuts.openDirectoryDescription": {
     "defaultMessage": "Dialog zur Verzeichnisauswahl öffnen"
   },
   "keyboardShortcuts.openDirectoryLabel": {
     "defaultMessage": "Verzeichnis öffnen"
+  },
+  "keyboardShortcuts.previousSessionDescription": {
+    "defaultMessage": "Den Chat über dem aktuellen in der Seitenleiste öffnen"
+  },
+  "keyboardShortcuts.previousSessionLabel": {
+    "defaultMessage": "Vorheriger Chat"
   },
   "keyboardShortcuts.quickLauncherDescription": {
     "defaultMessage": "Das Schnellstart-Overlay öffnen"
@@ -1789,6 +1801,12 @@
   },
   "keyboardShortcuts.restartRequired": {
     "defaultMessage": "Neustart erforderlich"
+  },
+  "keyboardShortcuts.sessionSwitcherDescription": {
+    "defaultMessage": "Zu einem Chat springen; Chats, die auf dich warten, stehen oben"
+  },
+  "keyboardShortcuts.sessionSwitcherLabel": {
+    "defaultMessage": "Chat wechseln"
   },
   "keyboardShortcuts.settingsDescription": {
     "defaultMessage": "Einstellungsbereich öffnen"
@@ -3979,6 +3997,21 @@
   },
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {Arbeitet im Hintergrund} one {Arbeitet im Hintergrund (# Hintergrundbefehl)} other {Arbeitet im Hintergrund (# Hintergrundbefehle)}}"
+  },
+  "sessionSwitcher.hint": {
+    "defaultMessage": "↑↓ bewegen · ↵ öffnen · Esc schließen"
+  },
+  "sessionSwitcher.noMatches": {
+    "defaultMessage": "Keine passenden Chats"
+  },
+  "sessionSwitcher.placeholder": {
+    "defaultMessage": "Zu einem Chat springen…"
+  },
+  "sessionSwitcher.title": {
+    "defaultMessage": "Chat wechseln"
+  },
+  "sessionSwitcher.untitledSession": {
+    "defaultMessage": "Unbenannte Sitzung"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

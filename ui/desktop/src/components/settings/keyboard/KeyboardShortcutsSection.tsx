@@ -98,6 +98,30 @@ const i18n = defineMessages({
     id: 'keyboardShortcuts.toggleNavigationDescription',
     defaultMessage: 'Show or hide the navigation menu',
   },
+  sessionSwitcherLabel: {
+    id: 'keyboardShortcuts.sessionSwitcherLabel',
+    defaultMessage: 'Switch Chat',
+  },
+  sessionSwitcherDescription: {
+    id: 'keyboardShortcuts.sessionSwitcherDescription',
+    defaultMessage: 'Jump to a chat, with the ones waiting for you listed first',
+  },
+  nextSessionLabel: {
+    id: 'keyboardShortcuts.nextSessionLabel',
+    defaultMessage: 'Next Chat',
+  },
+  nextSessionDescription: {
+    id: 'keyboardShortcuts.nextSessionDescription',
+    defaultMessage: 'Open the chat below the current one in the sidebar',
+  },
+  previousSessionLabel: {
+    id: 'keyboardShortcuts.previousSessionLabel',
+    defaultMessage: 'Previous Chat',
+  },
+  previousSessionDescription: {
+    id: 'keyboardShortcuts.previousSessionDescription',
+    defaultMessage: 'Open the chat above the current one in the sidebar',
+  },
 
   // Category labels and descriptions
   categoryGlobal: {
@@ -288,6 +312,24 @@ const shortcutConfigs: ShortcutConfig[] = [
     description: i18n.toggleNavigationDescription,
     category: 'application',
   },
+  {
+    key: 'sessionSwitcher',
+    label: i18n.sessionSwitcherLabel,
+    description: i18n.sessionSwitcherDescription,
+    category: 'application',
+  },
+  {
+    key: 'nextSession',
+    label: i18n.nextSessionLabel,
+    description: i18n.nextSessionDescription,
+    category: 'application',
+  },
+  {
+    key: 'previousSession',
+    label: i18n.previousSessionLabel,
+    description: i18n.previousSessionDescription,
+    category: 'application',
+  },
 ];
 
 const needsRestart = new Set<keyof KeyboardShortcuts>([
@@ -314,7 +356,7 @@ export const formatShortcut = (shortcut: string): string => {
   return shortcut
     .replace('CommandOrControl', isMac ? '⌘' : 'Ctrl')
     .replace('Command', '⌘')
-    .replace('Control', 'Ctrl')
+    .replace('Control', isMac ? '⌃' : 'Ctrl')
     .replace('Alt', isMac ? '⌥' : 'Alt')
     .replace('Shift', isMac ? '⇧' : 'Shift');
 };

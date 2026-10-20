@@ -1751,11 +1751,23 @@
   "keyboardShortcuts.newChatWindowLabel": {
     "defaultMessage": "新聊天窗口"
   },
+  "keyboardShortcuts.nextSessionDescription": {
+    "defaultMessage": "打开侧边栏中当前聊天下方的聊天"
+  },
+  "keyboardShortcuts.nextSessionLabel": {
+    "defaultMessage": "下一个聊天"
+  },
   "keyboardShortcuts.openDirectoryDescription": {
     "defaultMessage": "打开目录选择对话框"
   },
   "keyboardShortcuts.openDirectoryLabel": {
     "defaultMessage": "打开目录"
+  },
+  "keyboardShortcuts.previousSessionDescription": {
+    "defaultMessage": "打开侧边栏中当前聊天上方的聊天"
+  },
+  "keyboardShortcuts.previousSessionLabel": {
+    "defaultMessage": "上一个聊天"
   },
   "keyboardShortcuts.quickLauncherDescription": {
     "defaultMessage": "打开快速启动器悬浮窗"
@@ -1789,6 +1801,12 @@
   },
   "keyboardShortcuts.restartRequired": {
     "defaultMessage": "需要重启"
+  },
+  "keyboardShortcuts.sessionSwitcherDescription": {
+    "defaultMessage": "跳转到某个聊天；等待你处理的聊天排在最前"
+  },
+  "keyboardShortcuts.sessionSwitcherLabel": {
+    "defaultMessage": "切换聊天"
   },
   "keyboardShortcuts.settingsDescription": {
     "defaultMessage": "打开设置面板"
@@ -3979,6 +3997,21 @@
   },
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {正在后台工作} one {正在后台工作（# 个后台命令）} other {正在后台工作（# 个后台命令）}}"
+  },
+  "sessionSwitcher.hint": {
+    "defaultMessage": "↑↓ 移动 · ↵ 打开 · esc 关闭"
+  },
+  "sessionSwitcher.noMatches": {
+    "defaultMessage": "没有匹配的聊天"
+  },
+  "sessionSwitcher.placeholder": {
+    "defaultMessage": "跳转到聊天…"
+  },
+  "sessionSwitcher.title": {
+    "defaultMessage": "切换聊天"
+  },
+  "sessionSwitcher.untitledSession": {
+    "defaultMessage": "未命名会话"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

@@ -1751,11 +1751,23 @@
   "keyboardShortcuts.newChatWindowLabel": {
     "defaultMessage": "नई चैट विंडो"
   },
+  "keyboardShortcuts.nextSessionDescription": {
+    "defaultMessage": "साइडबार में मौजूदा चैट के नीचे वाली चैट खोलें"
+  },
+  "keyboardShortcuts.nextSessionLabel": {
+    "defaultMessage": "अगली चैट"
+  },
   "keyboardShortcuts.openDirectoryDescription": {
     "defaultMessage": "निर्देशिका चयन संवाद खोलें"
   },
   "keyboardShortcuts.openDirectoryLabel": {
     "defaultMessage": "निर्देशिका खोलें"
+  },
+  "keyboardShortcuts.previousSessionDescription": {
+    "defaultMessage": "साइडबार में मौजूदा चैट के ऊपर वाली चैट खोलें"
+  },
+  "keyboardShortcuts.previousSessionLabel": {
+    "defaultMessage": "पिछली चैट"
   },
   "keyboardShortcuts.quickLauncherDescription": {
     "defaultMessage": "त्वरित लॉन्चर ओवरले खोलें"
@@ -1789,6 +1801,12 @@
   },
   "keyboardShortcuts.restartRequired": {
     "defaultMessage": "पुनरारंभ आवश्यक"
+  },
+  "keyboardShortcuts.sessionSwitcherDescription": {
+    "defaultMessage": "किसी चैट पर जाएँ; जो चैट आपका इंतज़ार कर रही हैं वे पहले दिखती हैं"
+  },
+  "keyboardShortcuts.sessionSwitcherLabel": {
+    "defaultMessage": "चैट बदलें"
   },
   "keyboardShortcuts.settingsDescription": {
     "defaultMessage": "सेटिंग पैनल खोलें"
@@ -3979,6 +3997,21 @@
   },
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {पृष्ठभूमि में काम कर रहा है} one {पृष्ठभूमि में काम कर रहा है (# पृष्ठभूमि कमांड)} other {पृष्ठभूमि में काम कर रहा है (# पृष्ठभूमि कमांड)}}"
+  },
+  "sessionSwitcher.hint": {
+    "defaultMessage": "↑↓ से चलें · ↵ से खोलें · esc से बंद करें"
+  },
+  "sessionSwitcher.noMatches": {
+    "defaultMessage": "कोई मेल खाती चैट नहीं"
+  },
+  "sessionSwitcher.placeholder": {
+    "defaultMessage": "किसी चैट पर जाएँ…"
+  },
+  "sessionSwitcher.title": {
+    "defaultMessage": "चैट बदलें"
+  },
+  "sessionSwitcher.untitledSession": {
+    "defaultMessage": "शीर्षकहीन सत्र"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

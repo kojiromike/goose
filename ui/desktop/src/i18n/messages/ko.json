@@ -1751,11 +1751,23 @@
   "keyboardShortcuts.newChatWindowLabel": {
     "defaultMessage": "새 채팅 창"
   },
+  "keyboardShortcuts.nextSessionDescription": {
+    "defaultMessage": "사이드바에서 현재 채팅 아래의 채팅 열기"
+  },
+  "keyboardShortcuts.nextSessionLabel": {
+    "defaultMessage": "다음 채팅"
+  },
   "keyboardShortcuts.openDirectoryDescription": {
     "defaultMessage": "디렉터리 선택 대화상자를 엽니다."
   },
   "keyboardShortcuts.openDirectoryLabel": {
     "defaultMessage": "디렉터리 열기"
+  },
+  "keyboardShortcuts.previousSessionDescription": {
+    "defaultMessage": "사이드바에서 현재 채팅 위의 채팅 열기"
+  },
+  "keyboardShortcuts.previousSessionLabel": {
+    "defaultMessage": "이전 채팅"
   },
   "keyboardShortcuts.quickLauncherDescription": {
     "defaultMessage": "빠른 실행기 오버레이를 엽니다."
@@ -1789,6 +1801,12 @@
   },
   "keyboardShortcuts.restartRequired": {
     "defaultMessage": "다시 시작 필요"
+  },
+  "keyboardShortcuts.sessionSwitcherDescription": {
+    "defaultMessage": "채팅으로 이동합니다. 응답을 기다리는 채팅이 먼저 표시됩니다"
+  },
+  "keyboardShortcuts.sessionSwitcherLabel": {
+    "defaultMessage": "채팅 전환"
   },
   "keyboardShortcuts.settingsDescription": {
     "defaultMessage": "설정 패널을 엽니다."
@@ -3979,6 +3997,21 @@
   },
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {백그라운드에서 작업 중} one {백그라운드에서 작업 중(백그라운드 명령 #개)} other {백그라운드에서 작업 중(백그라운드 명령 #개)}}"
+  },
+  "sessionSwitcher.hint": {
+    "defaultMessage": "↑↓ 이동 · ↵ 열기 · esc 닫기"
+  },
+  "sessionSwitcher.noMatches": {
+    "defaultMessage": "일치하는 채팅이 없습니다"
+  },
+  "sessionSwitcher.placeholder": {
+    "defaultMessage": "채팅으로 이동…"
+  },
+  "sessionSwitcher.title": {
+    "defaultMessage": "채팅 전환"
+  },
+  "sessionSwitcher.untitledSession": {
+    "defaultMessage": "제목 없는 세션"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

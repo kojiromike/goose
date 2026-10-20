@@ -1751,11 +1751,23 @@
   "keyboardShortcuts.newChatWindowLabel": {
     "defaultMessage": "Tetingkap Sembang Baharu"
   },
+  "keyboardShortcuts.nextSessionDescription": {
+    "defaultMessage": "Buka sembang di bawah sembang semasa dalam bar sisi"
+  },
+  "keyboardShortcuts.nextSessionLabel": {
+    "defaultMessage": "Sembang seterusnya"
+  },
   "keyboardShortcuts.openDirectoryDescription": {
     "defaultMessage": "Buka dialog pemilihan direktori"
   },
   "keyboardShortcuts.openDirectoryLabel": {
     "defaultMessage": "Buka Direktori"
+  },
+  "keyboardShortcuts.previousSessionDescription": {
+    "defaultMessage": "Buka sembang di atas sembang semasa dalam bar sisi"
+  },
+  "keyboardShortcuts.previousSessionLabel": {
+    "defaultMessage": "Sembang sebelumnya"
   },
   "keyboardShortcuts.quickLauncherDescription": {
     "defaultMessage": "Buka tindanan pelancar pantas"
@@ -1789,6 +1801,12 @@
   },
   "keyboardShortcuts.restartRequired": {
     "defaultMessage": "Mula Semula Diperlukan"
+  },
+  "keyboardShortcuts.sessionSwitcherDescription": {
+    "defaultMessage": "Lompat ke sembang; yang menunggu anda dipaparkan dahulu"
+  },
+  "keyboardShortcuts.sessionSwitcherLabel": {
+    "defaultMessage": "Tukar sembang"
   },
   "keyboardShortcuts.settingsDescription": {
     "defaultMessage": "Buka panel tetapan"
@@ -3979,6 +3997,21 @@
   },
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {Bekerja di latar belakang} one {Bekerja di latar belakang (# arahan latar belakang)} other {Bekerja di latar belakang (# arahan latar belakang)}}"
+  },
+  "sessionSwitcher.hint": {
+    "defaultMessage": "↑↓ untuk bergerak · ↵ untuk membuka · esc untuk menutup"
+  },
+  "sessionSwitcher.noMatches": {
+    "defaultMessage": "Tiada sembang yang sepadan"
+  },
+  "sessionSwitcher.placeholder": {
+    "defaultMessage": "Lompat ke sembang…"
+  },
+  "sessionSwitcher.title": {
+    "defaultMessage": "Tukar sembang"
+  },
+  "sessionSwitcher.untitledSession": {
+    "defaultMessage": "Sesi tanpa tajuk"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

@@ -1751,11 +1751,23 @@
   "keyboardShortcuts.newChatWindowLabel": {
     "defaultMessage": "Новое окно чата"
   },
+  "keyboardShortcuts.nextSessionDescription": {
+    "defaultMessage": "Открыть чат под текущим на боковой панели"
+  },
+  "keyboardShortcuts.nextSessionLabel": {
+    "defaultMessage": "Следующий чат"
+  },
   "keyboardShortcuts.openDirectoryDescription": {
     "defaultMessage": "Открыть диалог выбора каталога"
   },
   "keyboardShortcuts.openDirectoryLabel": {
     "defaultMessage": "Открыть каталог"
+  },
+  "keyboardShortcuts.previousSessionDescription": {
+    "defaultMessage": "Открыть чат над текущим на боковой панели"
+  },
+  "keyboardShortcuts.previousSessionLabel": {
+    "defaultMessage": "Предыдущий чат"
   },
   "keyboardShortcuts.quickLauncherDescription": {
     "defaultMessage": "Открыть всплывающее окно быстрого запуска"
@@ -1789,6 +1801,12 @@
   },
   "keyboardShortcuts.restartRequired": {
     "defaultMessage": "Требуется перезапуск"
+  },
+  "keyboardShortcuts.sessionSwitcherDescription": {
+    "defaultMessage": "Перейти к чату; чаты, которые ждут вас, показаны первыми"
+  },
+  "keyboardShortcuts.sessionSwitcherLabel": {
+    "defaultMessage": "Переключить чат"
   },
   "keyboardShortcuts.settingsDescription": {
     "defaultMessage": "Открыть панель настроек"
@@ -3979,6 +3997,21 @@
   },
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {Работает в фоне} one {Работает в фоне (# фоновая команда)} other {Работает в фоне (фоновых команд: #)}}"
+  },
+  "sessionSwitcher.hint": {
+    "defaultMessage": "↑↓ — перемещение · ↵ — открыть · esc — закрыть"
+  },
+  "sessionSwitcher.noMatches": {
+    "defaultMessage": "Подходящих чатов нет"
+  },
+  "sessionSwitcher.placeholder": {
+    "defaultMessage": "Перейти к чату…"
+  },
+  "sessionSwitcher.title": {
+    "defaultMessage": "Переключить чат"
+  },
+  "sessionSwitcher.untitledSession": {
+    "defaultMessage": "Безымянный сеанс"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

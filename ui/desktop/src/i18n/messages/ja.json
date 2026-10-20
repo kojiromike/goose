@@ -1751,11 +1751,23 @@
   "keyboardShortcuts.newChatWindowLabel": {
     "defaultMessage": "新規チャットウィンドウ"
   },
+  "keyboardShortcuts.nextSessionDescription": {
+    "defaultMessage": "サイドバーで現在のチャットの下にあるチャットを開く"
+  },
+  "keyboardShortcuts.nextSessionLabel": {
+    "defaultMessage": "次のチャット"
+  },
   "keyboardShortcuts.openDirectoryDescription": {
     "defaultMessage": "ディレクトリ選択ダイアログを開く"
   },
   "keyboardShortcuts.openDirectoryLabel": {
     "defaultMessage": "ディレクトリを開く"
+  },
+  "keyboardShortcuts.previousSessionDescription": {
+    "defaultMessage": "サイドバーで現在のチャットの上にあるチャットを開く"
+  },
+  "keyboardShortcuts.previousSessionLabel": {
+    "defaultMessage": "前のチャット"
   },
   "keyboardShortcuts.quickLauncherDescription": {
     "defaultMessage": "クイックランチャーのオーバーレイを開く"
@@ -1789,6 +1801,12 @@
   },
   "keyboardShortcuts.restartRequired": {
     "defaultMessage": "再起動が必要です"
+  },
+  "keyboardShortcuts.sessionSwitcherDescription": {
+    "defaultMessage": "チャットに移動します。あなたを待っているチャットが先頭に表示されます"
+  },
+  "keyboardShortcuts.sessionSwitcherLabel": {
+    "defaultMessage": "チャットを切り替え"
   },
   "keyboardShortcuts.settingsDescription": {
     "defaultMessage": "設定パネルを開く"
@@ -3979,6 +3997,21 @@
   },
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {バックグラウンドで作業中} one {バックグラウンドで作業中（バックグラウンドコマンド #件）} other {バックグラウンドで作業中（バックグラウンドコマンド #件）}}"
+  },
+  "sessionSwitcher.hint": {
+    "defaultMessage": "↑↓ で移動 · ↵ で開く · esc で閉じる"
+  },
+  "sessionSwitcher.noMatches": {
+    "defaultMessage": "一致するチャットはありません"
+  },
+  "sessionSwitcher.placeholder": {
+    "defaultMessage": "チャットに移動…"
+  },
+  "sessionSwitcher.title": {
+    "defaultMessage": "チャットを切り替え"
+  },
+  "sessionSwitcher.untitledSession": {
+    "defaultMessage": "無題のセッション"
   },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"

@@ -31,6 +31,14 @@ import {
 import { AppEvents } from '../../constants/events';
 import { InlineEditText } from '../common/InlineEditText';
 import { describeSessionActivity, SessionIndicators } from '../SessionIndicators';
+import { SessionSwitcher } from '../SessionSwitcher';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
+import { matchesAccelerator } from '../../utils/acceleratorMatch';
+import {
+  adjacentSessionId,
+  noteSessionOpened,
+  rankSwitcherEntries,
+} from '../../utils/sessionSwitcher';
 import {
   acpArchiveSession,
   acpCloseSession,
@@ -646,8 +654,107 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
     }
   }, [isNavExpanded, fetchSessions]);
 
+  // The switcher and next/previous chat work with the sidebar hidden, so load
+  // the list once even when the sidebar starts out closed.
+  const startedCollapsed = useRef(!isNavExpanded);
+  useEffect(() => {
+    if (startedCollapsed.current) fetchSessions();
+  }, [fetchSessions]);
+
   const [isChatsExpanded, setIsChatsExpanded] = useState(true);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
+
+  const openSession = useCallback(
+    (sessionId: string) => {
+      clearUnread(sessionId);
+      handleSessionClick(sessionId);
+    },
+    [clearUnread, handleSessionClick]
+  );
+
+  const [recentlyOpened, setRecentlyOpened] = useState<string[]>([]);
+  useEffect(() => {
+    if (activeSessionId) setRecentlyOpened((prev) => noteSessionOpened(prev, activeSessionId));
+  }, [activeSessionId]);
+
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+
+  const switcherEntries = useMemo(() => {
+    if (!switcherOpen) return [];
+    const now = Date.now();
+    const entries = visibleSessions.map((session) => {
+      const status = getSessionStatus(session);
+      return {
+        session,
+        activity: deriveSessionActivity({
+          live: liveSessions.get(session.id),
+          localStreamState: status?.streamState,
+          hasUnread: status?.hasUnreadActivity ?? false,
+          now,
+        }),
+      };
+    });
+    return rankSwitcherEntries(entries, activeSessionId, recentlyOpened);
+  }, [
+    switcherOpen,
+    visibleSessions,
+    getSessionStatus,
+    liveSessions,
+    activeSessionId,
+    recentlyOpened,
+  ]);
+
+  // Next and previous chat follow the sidebar as drawn, skipping collapsed
+  // projects, so the keys move through what the user can see.
+  const sidebarOrder = useMemo(
+    () =>
+      visibleSessionsByProject.length > 1
+        ? visibleSessionsByProject
+            .filter((group) => !collapsedProjects.has(group.path))
+            .flatMap((group) => group.sessions.map((session) => session.id))
+        : visibleSessions.map((session) => session.id),
+    [visibleSessions, visibleSessionsByProject, collapsedProjects]
+  );
+
+  const shortcuts = useKeyboardShortcuts();
+  useEffect(() => {
+    const isMac = window.electron.platform === 'darwin';
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // A shortcut being recorded in settings must reach the recorder instead.
+      if (event.target instanceof Element && event.target.closest('[data-recording-shortcut]')) {
+        return;
+      }
+      if (matchesAccelerator(event, shortcuts.sessionSwitcher, isMac)) {
+        event.preventDefault();
+        if (!switcherOpen) {
+          void refreshLiveSessions();
+          void fetchSessions();
+        }
+        setSwitcherOpen(!switcherOpen);
+        return;
+      }
+      if (switcherOpen) return;
+      const step = matchesAccelerator(event, shortcuts.nextSession, isMac)
+        ? 1
+        : matchesAccelerator(event, shortcuts.previousSession, isMac)
+          ? -1
+          : 0;
+      if (step === 0) return;
+      event.preventDefault();
+      const target = adjacentSessionId(sidebarOrder, activeSessionId, step);
+      if (target && target !== activeSessionId) openSession(target);
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [
+    shortcuts,
+    switcherOpen,
+    sidebarOrder,
+    activeSessionId,
+    openSession,
+    refreshLiveSessions,
+    fetchSessions,
+  ]);
 
   const toggleProjectCollapsed = useCallback((path: string) => {
     setCollapsedProjects((prev) => {
@@ -691,7 +798,16 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
     }
   }, [sessionPendingDelete, intl]);
 
-  if (!isNavExpanded) return null;
+  const switcher = (
+    <SessionSwitcher
+      open={switcherOpen}
+      onOpenChange={setSwitcherOpen}
+      entries={switcherEntries}
+      onSelect={openSession}
+    />
+  );
+
+  if (!isNavExpanded) return switcher;
 
   return (
     <motion.div
@@ -754,10 +870,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                           active={session.id === activeSessionId}
                           status={getSessionStatus(session)}
                           live={liveSessions.get(session.id)}
-                          onClick={() => {
-                            clearUnread(session.id);
-                            handleSessionClick(session.id);
-                          }}
+                          onClick={() => openSession(session.id)}
                           onRenamed={fetchSessions}
                           onRequestDelete={handleRequestDelete}
                           onEnded={refreshLiveSessions}
@@ -774,10 +887,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                   active={session.id === activeSessionId}
                   status={getSessionStatus(session)}
                   live={liveSessions.get(session.id)}
-                  onClick={() => {
-                    clearUnread(session.id);
-                    handleSessionClick(session.id);
-                  }}
+                  onClick={() => openSession(session.id)}
                   onRenamed={fetchSessions}
                   onRequestDelete={handleRequestDelete}
                   onEnded={refreshLiveSessions}
@@ -807,6 +917,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
         onConfirm={handleConfirmDelete}
         onCancel={() => setSessionPendingDelete(null)}
       />
+      {switcher}
     </motion.div>
   );
 };

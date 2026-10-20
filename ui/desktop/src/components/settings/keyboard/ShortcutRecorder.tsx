@@ -75,7 +75,12 @@ export function ShortcutRecorder({
 
     const parts: string[] = [];
 
-    if (e.ctrlKey || e.metaKey) {
+    // On macOS Control and Command are separate keys, and a shortcut such as
+    // Control+Tab has to stay distinct from Command+Tab.
+    if (window.electron.platform === 'darwin') {
+      if (e.ctrlKey) parts.push('Control');
+      if (e.metaKey) parts.push('CommandOrControl');
+    } else if (e.ctrlKey || e.metaKey) {
       parts.push('CommandOrControl');
     }
     if (e.altKey) {
@@ -161,6 +166,7 @@ export function ShortcutRecorder({
         <div
           ref={inputRef}
           tabIndex={0}
+          data-recording-shortcut={recording || undefined}
           onKeyDown={handleKeyDown}
           onClick={handleStartRecording}
           className={`
