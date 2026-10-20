@@ -20,6 +20,7 @@
 //! that finished unseen left the session "working" until its age limit, long
 //! after the agent had gone idle.
 
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 use agent_client_protocol::schema::v1::{SessionUpdate, ToolCallStatus};
@@ -58,6 +59,10 @@ struct ActivityState {
     exited: bool,
     /// (task id, start time), oldest first.
     background_tasks: Vec<(String, i64)>,
+    /// Open calls that stop a background command, by tool call id. The agent
+    /// announces a call before its input streams in, and the update that
+    /// carries the input does not repeat the title that marks it as a stop.
+    stop_calls: HashSet<String>,
     last_turn_error: Option<String>,
     consecutive_failed_turns: u32,
 }
@@ -111,7 +116,7 @@ impl AcpActivity {
                     }
                 }
             }
-            if let Some(stopped) = stopped_background_task(update) {
+            if let Some(stopped) = stopped_background_task(&mut state.stop_calls, update) {
                 state.background_tasks.retain(|(id, _)| id != &stopped);
             }
             if let Some(task_id) = launched_background_task(update) {
@@ -237,23 +242,55 @@ fn background_task_id(text: &str) -> Option<String> {
 }
 
 /// The task id of a call that stops a background command (KillShell,
-/// TaskStop).
-fn stopped_background_task(update: &SessionUpdate) -> Option<String> {
-    let SessionUpdate::ToolCall(call) = update else {
-        return None;
+/// TaskStop). claude-agent-acp announces the call with an empty input and
+/// sends the input in a later update, so `stop_calls` carries what the
+/// announcement said across to it.
+fn stopped_background_task(
+    stop_calls: &mut HashSet<String>,
+    update: &SessionUpdate,
+) -> Option<String> {
+    let (call_id, title, status, raw_input) = match update {
+        SessionUpdate::ToolCall(call) => (
+            call.tool_call_id.0.to_string(),
+            Some(call.title.as_str()),
+            Some(call.status),
+            call.raw_input.as_ref(),
+        ),
+        SessionUpdate::ToolCallUpdate(update) => (
+            update.tool_call_id.0.to_string(),
+            update.fields.title.as_deref(),
+            update.fields.status,
+            update.fields.raw_input.as_ref(),
+        ),
+        _ => return None,
     };
-    let input = call.raw_input.as_ref()?.as_object()?;
+    if title.is_some_and(is_stop_title) {
+        stop_calls.insert(call_id.clone());
+    }
+    let is_stop = if matches!(
+        status,
+        Some(ToolCallStatus::Completed | ToolCallStatus::Failed)
+    ) {
+        stop_calls.remove(&call_id)
+    } else {
+        stop_calls.contains(&call_id)
+    };
+    let input = raw_input?.as_object()?;
     if let Some(id) = input.get("shell_id").and_then(|v| v.as_str()) {
         return Some(id.to_string());
     }
-    let title = call.title.to_lowercase();
-    if title.contains("stop") || title.contains("kill") {
+    if is_stop {
         return input
             .get("task_id")
             .and_then(|v| v.as_str())
             .map(str::to_string);
     }
     None
+}
+
+fn is_stop_title(title: &str) -> bool {
+    let title = title.to_lowercase();
+    title.contains("stop") || title.contains("kill")
 }
 
 #[cfg(test)]
@@ -463,6 +500,42 @@ mod tests {
         activity.record_update(&SessionUpdate::ToolCall(kill), 2_000);
 
         assert!(activity.snapshot().background_tasks_started_at.is_empty());
+    }
+
+    #[test]
+    fn a_stop_whose_input_arrives_after_the_announcement_forgets_the_command() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.record_update(&background_bash_result("bz5p"), 1_000);
+        let announce = ToolCall::new(ToolCallId::new("toolu_stop"), "TaskStop")
+            .raw_input(serde_json::json!({}));
+        activity.record_update(&SessionUpdate::ToolCall(announce), 2_000);
+        assert_eq!(activity.snapshot().background_tasks_started_at, vec![1_000]);
+
+        let input = ToolCallUpdate::new(
+            ToolCallId::new("toolu_stop"),
+            ToolCallUpdateFields::new().raw_input(serde_json::json!({ "task_id": "bz5p" })),
+        );
+        activity.record_update(&SessionUpdate::ToolCallUpdate(input), 3_000);
+
+        assert!(activity.snapshot().background_tasks_started_at.is_empty());
+    }
+
+    #[test]
+    fn reading_a_command_output_does_not_forget_it() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.record_update(&background_bash_result("b1x9"), 1_000);
+        let read = ToolCall::new(ToolCallId::new("toolu_read"), "TaskOutput")
+            .raw_input(serde_json::json!({}));
+        activity.record_update(&SessionUpdate::ToolCall(read), 2_000);
+        let input = ToolCallUpdate::new(
+            ToolCallId::new("toolu_read"),
+            ToolCallUpdateFields::new().raw_input(serde_json::json!({ "task_id": "b1x9" })),
+        );
+        activity.record_update(&SessionUpdate::ToolCallUpdate(input), 3_000);
+
+        assert_eq!(activity.snapshot().background_tasks_started_at, vec![1_000]);
     }
 
     #[test]
