@@ -8,8 +8,9 @@
 //!
 //! Background commands are the weak spot. claude-agent-acp publishes their
 //! lifecycle only to clients that negotiate its JetBrains AIR `asyncTasks`
-//! extension, which goose does not. What every client sees is the Bash result
-//! announcing the command ("Command running in background with ID: …") and,
+//! extension, which goose does not. What every client sees is the tool result
+//! announcing the command (Bash's "Command running in background with ID: …",
+//! Monitor's "Monitor started (task …") and,
 //! when a command finishes while the agent is idle, the agent resuming
 //! unprompted to report on it. A command that finishes while the agent is busy
 //! is reported inside that run and produces no update at all. So a command
@@ -26,7 +27,10 @@ use std::sync::{Arc, Mutex};
 use agent_client_protocol::schema::v1::{SessionUpdate, ToolCallStatus};
 use goose_providers::base::ProviderActivity;
 
-const BACKGROUND_COMMAND_MARKER: &str = "Command running in background with ID: ";
+const BACKGROUND_COMMAND_MARKERS: [&str; 2] = [
+    "Command running in background with ID: ",
+    "Monitor started (task ",
+];
 
 /// An unprompted run that goes this long without an update is over. Only
 /// matters for an agent that does not report the result of each run.
@@ -204,7 +208,7 @@ fn is_cycle_result(update: &SessionUpdate) -> bool {
     )
 }
 
-/// The task id a finished Bash call handed off to the background.
+/// The task id a finished Bash or Monitor call handed off to the background.
 fn launched_background_task(update: &SessionUpdate) -> Option<String> {
     let (status, content, raw_output) = match update {
         SessionUpdate::ToolCall(call) => (
@@ -233,12 +237,14 @@ fn launched_background_task(update: &SessionUpdate) -> Option<String> {
 }
 
 fn background_task_id(text: &str) -> Option<String> {
-    let (_, rest) = text.split_once(BACKGROUND_COMMAND_MARKER)?;
-    let id: String = rest
-        .chars()
-        .take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
-        .collect();
-    (!id.is_empty()).then_some(id)
+    BACKGROUND_COMMAND_MARKERS.iter().find_map(|marker| {
+        let (_, rest) = text.split_once(marker)?;
+        let id: String = rest
+            .chars()
+            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+            .collect();
+        (!id.is_empty()).then_some(id)
+    })
 }
 
 /// The task id of a call that stops a background command (KillShell,
@@ -313,6 +319,20 @@ mod tests {
         );
         SessionUpdate::ToolCallUpdate(ToolCallUpdate::new(
             ToolCallId::new("toolu_bash"),
+            ToolCallUpdateFields::new()
+                .status(ToolCallStatus::Completed)
+                .content(vec![ToolCallContent::from(ContentBlock::Text(
+                    TextContent::new(text),
+                ))]),
+        ))
+    }
+
+    fn monitor_result(task_id: &str) -> SessionUpdate {
+        let text = format!(
+            "Monitor started (task {task_id}, expires in 30m unless the source ends first; you get one notice at expiry — re-arm if you still need the watch)"
+        );
+        SessionUpdate::ToolCallUpdate(ToolCallUpdate::new(
+            ToolCallId::new("toolu_monitor"),
             ToolCallUpdateFields::new()
                 .status(ToolCallStatus::Completed)
                 .content(vec![ToolCallContent::from(ContentBlock::Text(
@@ -515,6 +535,35 @@ mod tests {
         let input = ToolCallUpdate::new(
             ToolCallId::new("toolu_stop"),
             ToolCallUpdateFields::new().raw_input(serde_json::json!({ "task_id": "bz5p" })),
+        );
+        activity.record_update(&SessionUpdate::ToolCallUpdate(input), 3_000);
+
+        assert!(activity.snapshot().background_tasks_started_at.is_empty());
+    }
+
+    #[test]
+    fn a_monitor_runs_until_the_agent_resumes_to_report_it() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.record_update(&monitor_result("bhrfdag21"), 1_000);
+        activity.turn_finished(None, 2_000);
+        assert_eq!(activity.snapshot().background_tasks_started_at, vec![1_000]);
+
+        activity.record_update(&text_chunk(), 600_000);
+        assert!(activity.snapshot().background_tasks_started_at.is_empty());
+    }
+
+    #[test]
+    fn stopping_a_monitor_forgets_it() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.record_update(&monitor_result("bhrfdag21"), 1_000);
+        let announce = ToolCall::new(ToolCallId::new("toolu_stop"), "TaskStop")
+            .raw_input(serde_json::json!({}));
+        activity.record_update(&SessionUpdate::ToolCall(announce), 2_000);
+        let input = ToolCallUpdate::new(
+            ToolCallId::new("toolu_stop"),
+            ToolCallUpdateFields::new().raw_input(serde_json::json!({ "task_id": "bhrfdag21" })),
         );
         activity.record_update(&SessionUpdate::ToolCallUpdate(input), 3_000);
 
