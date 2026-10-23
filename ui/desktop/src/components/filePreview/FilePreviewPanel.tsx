@@ -297,7 +297,14 @@ export const FilePreviewPanel: React.FC = () => {
               {isCurrentResult && result.status === 'ok' && (
                 <FileContent filePath={result.filePath} content={result.content} />
               )}
-              {isCurrentResult && result.status !== 'ok' && (
+              {isCurrentResult && result.status === 'image' && (
+                <img
+                  src={result.dataUrl}
+                  alt={baseName(result.filePath)}
+                  className="mx-auto h-auto max-w-full"
+                />
+              )}
+              {isCurrentResult && result.status !== 'ok' && result.status !== 'image' && (
                 <p className="text-sm text-text-secondary">
                   {intl.formatMessage(FAILURE_MESSAGES[result.status])}
                 </p>

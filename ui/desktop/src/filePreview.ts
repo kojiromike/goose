@@ -4,11 +4,13 @@ import path from 'node:path';
 import { expandTilde } from './utils/pathUtils';
 
 export const MAX_FILE_PREVIEW_BYTES = 2 * 1024 * 1024;
+export const MAX_IMAGE_PREVIEW_BYTES = 20 * 1024 * 1024;
 
 export type FilePreviewFailure = 'invalid-path' | 'missing' | 'not-file' | 'too-large' | 'binary';
 
 export type FilePreviewResult =
   | { status: 'ok'; filePath: string; content: string }
+  | { status: 'image'; filePath: string; dataUrl: string }
   | { status: FilePreviewFailure | 'error'; filePath: string };
 
 // Accept `path:line` and `path:line:col`, the way compilers and agents cite code.
@@ -26,6 +28,39 @@ export function resolvePreviewPath(rawPath: unknown, baseDir?: unknown): string 
   const expandedBase = expandTilde(baseDir);
   if (!path.isAbsolute(expandedBase)) return null;
   return path.resolve(expandedBase, expanded);
+}
+
+// Identify images by their leading bytes, so a misnamed file still previews and a text
+// file named `.png` still reads as text. BMP is left out: its `BM` magic also starts prose.
+// Each signature lists [offset, bytes] pairs that must all match.
+const IMAGE_SIGNATURES: ReadonlyArray<{
+  mimeType: string;
+  parts: ReadonlyArray<readonly [number, Buffer]>;
+}> = [
+  {
+    mimeType: 'image/png',
+    parts: [[0, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])]],
+  },
+  { mimeType: 'image/jpeg', parts: [[0, Buffer.from([0xff, 0xd8, 0xff])]] },
+  { mimeType: 'image/gif', parts: [[0, Buffer.from('GIF87a', 'latin1')]] },
+  { mimeType: 'image/gif', parts: [[0, Buffer.from('GIF89a', 'latin1')]] },
+  {
+    mimeType: 'image/webp',
+    parts: [
+      [0, Buffer.from('RIFF', 'latin1')],
+      [8, Buffer.from('WEBP', 'latin1')],
+    ],
+  },
+  { mimeType: 'image/avif', parts: [[4, Buffer.from('ftypavif', 'latin1')]] },
+  { mimeType: 'image/x-icon', parts: [[0, Buffer.from([0x00, 0x00, 0x01, 0x00])]] },
+];
+const IMAGE_HEADER_BYTES = 16;
+
+export function sniffImageType(header: Buffer): string | null {
+  const signature = IMAGE_SIGNATURES.find(({ parts }) =>
+    parts.every(([offset, bytes]) => header.subarray(offset, offset + bytes.length).equals(bytes))
+  );
+  return signature?.mimeType ?? null;
 }
 
 function failureForError(error: unknown): FilePreviewFailure | 'error' {
@@ -56,10 +91,23 @@ export async function readFilePreview(filePath: string): Promise<FilePreviewResu
   try {
     const metadata = await handle.stat();
     if (!metadata.isFile()) return { status: 'not-file', filePath };
-    if (metadata.size > MAX_FILE_PREVIEW_BYTES) return { status: 'too-large', filePath };
+
+    // A positional read leaves the file position at 0 for the readFile below.
+    const header = Buffer.alloc(IMAGE_HEADER_BYTES);
+    const { bytesRead } = await handle.read(header, 0, header.length, 0);
+    const mimeType = sniffImageType(header.subarray(0, bytesRead));
+    const maxBytes = mimeType === null ? MAX_FILE_PREVIEW_BYTES : MAX_IMAGE_PREVIEW_BYTES;
+    if (metadata.size > maxBytes) return { status: 'too-large', filePath };
 
     const bytes = await handle.readFile();
-    if (bytes.length > MAX_FILE_PREVIEW_BYTES) return { status: 'too-large', filePath };
+    if (bytes.length > maxBytes) return { status: 'too-large', filePath };
+    if (mimeType !== null) {
+      return {
+        status: 'image',
+        filePath,
+        dataUrl: `data:${mimeType};base64,${bytes.toString('base64')}`,
+      };
+    }
     if (bytes.includes(0)) return { status: 'binary', filePath };
     return { status: 'ok', filePath, content: bytes.toString('utf8') };
   } catch (error) {

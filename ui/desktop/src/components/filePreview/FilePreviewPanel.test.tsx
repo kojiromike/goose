@@ -103,6 +103,23 @@ describe('file preview', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows an image file as an image', async () => {
+    resolveFilePreview.mockResolvedValue('/work/repo/shot-f.png');
+    readFilePreview.mockResolvedValue({
+      status: 'image',
+      filePath: '/work/repo/shot-f.png',
+      dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+    });
+
+    renderChat('Open `shot-f.png`.');
+    fireEvent.click(await screen.findByRole('link', { name: 'shot-f.png' }));
+
+    expect(await screen.findByRole('img', { name: 'shot-f.png' })).toHaveAttribute(
+      'src',
+      'data:image/png;base64,iVBORw0KGgo='
+    );
+  });
+
   it('previews a markdown link to a local file instead of opening it externally', async () => {
     resolveFilePreview.mockImplementation(async (rawPath: string) =>
       rawPath === '/work/repo/linked-e.md' ? rawPath : null
