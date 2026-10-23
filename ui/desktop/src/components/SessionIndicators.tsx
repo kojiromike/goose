@@ -102,9 +102,9 @@ interface SessionIndicatorsProps {
 }
 
 /**
- * One marker per session state: a spinner while it works (slower while the
- * work is in the background), amber when it needs the user, red when it is
- * stuck, nothing when idle.
+ * One marker per session state: a blue spinner while it works, a slower amber
+ * one while the work is in the background, amber when it needs the user, red
+ * when it is stuck, nothing when idle.
  */
 export const SessionIndicators = React.memo<SessionIndicatorsProps>(({ activity, now }) => {
   const intl = useIntl();
@@ -117,7 +117,7 @@ export const SessionIndicators = React.memo<SessionIndicatorsProps>(({ activity,
       case 'background':
         return (
           <Loader2
-            className="w-3 h-3 text-blue-400 animate-spin [animation-duration:2.5s] opacity-70"
+            className="w-3 h-3 text-amber-500 animate-spin [animation-duration:2.5s]"
             aria-label={label}
           />
         );
