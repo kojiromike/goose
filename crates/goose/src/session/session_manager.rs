@@ -9,7 +9,7 @@ use crate::session::export_markdown::export_session_to_markdown;
 use crate::session::extension_data::ExtensionData;
 use crate::session::session_naming::{
     generate_session_name, generate_session_name_with_naming_provider, NamingProvider,
-    MSG_COUNT_FOR_SESSION_NAME_GENERATION,
+    MSG_COUNT_FOR_SESSION_NAME_GENERATION, SESSION_RETITLE_INTERVAL,
 };
 use anyhow::Result;
 use chrono::{DateTime, TimeZone, Utc};
@@ -671,19 +671,26 @@ impl SessionManager {
             .count();
 
         if let Some(naming) = &naming {
-            if user_message_count <= MSG_COUNT_FOR_SESSION_NAME_GENERATION {
-                match generate_session_name_with_naming_provider(
-                    naming,
-                    id,
-                    &conversation,
-                    Some(session.working_dir.as_path()),
-                )
-                .await
-                {
-                    Ok(name) => return self.system_generated_name_update(id, name).await,
-                    Err(e) => {
-                        warn!("Session naming provider failed, using the session provider: {e}")
-                    }
+            // A naming provider keeps retitling the session as the work moves on.
+            if !self
+                .storage
+                .claim_naming_attempt(id, SESSION_RETITLE_INTERVAL)
+            {
+                return Ok(None);
+            }
+            match generate_session_name_with_naming_provider(
+                naming,
+                id,
+                &conversation,
+                Some(session.working_dir.as_path()),
+                &session.name,
+            )
+            .await
+            {
+                Ok(name) if name == session.name => return Ok(None),
+                Ok(name) => return self.system_generated_name_update(id, name).await,
+                Err(e) => {
+                    warn!("Session naming provider failed, using the session provider: {e}")
                 }
             }
         }
@@ -762,6 +769,7 @@ pub struct SessionStorage {
     initialized: tokio::sync::OnceCell<()>,
     session_dir: PathBuf,
     action_required: Arc<crate::action_required_manager::ActionRequiredManager>,
+    naming_attempts: std::sync::Mutex<HashMap<String, tokio::time::Instant>>,
 }
 
 pub(crate) fn role_to_string(role: &Role) -> &'static str {
@@ -1011,6 +1019,24 @@ impl SessionStorage {
             initialized: tokio::sync::OnceCell::new(),
             session_dir,
             action_required: Arc::new(crate::action_required_manager::ActionRequiredManager::new()),
+            naming_attempts: std::sync::Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Records a naming attempt for the session unless one ran within
+    /// `interval`. Returns whether the caller may name the session now.
+    fn claim_naming_attempt(&self, session_id: &str, interval: std::time::Duration) -> bool {
+        let now = tokio::time::Instant::now();
+        let mut attempts = self
+            .naming_attempts
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        match attempts.get(session_id) {
+            Some(last) if now.duration_since(*last) < interval => false,
+            _ => {
+                attempts.insert(session_id.to_string(), now);
+                true
+            }
         }
     }
 
@@ -3068,6 +3094,56 @@ mod tests {
         }
     }
 
+    struct RecordingNamingTestProvider {
+        title: &'static str,
+        requests: Arc<std::sync::Mutex<Vec<String>>>,
+    }
+
+    #[async_trait::async_trait]
+    impl Provider for RecordingNamingTestProvider {
+        fn get_name(&self) -> &str {
+            "recording-naming-test"
+        }
+
+        async fn stream(
+            &self,
+            _model_config: &ModelConfig,
+            _system: &str,
+            _messages: &[Message],
+            _tools: &[Tool],
+        ) -> Result<MessageStream, ProviderError> {
+            unimplemented!("session naming calls complete")
+        }
+
+        async fn complete(
+            &self,
+            _model_config: &ModelConfig,
+            _system: &str,
+            messages: &[Message],
+            _tools: &[Tool],
+        ) -> Result<(Message, ProviderUsage), ProviderError> {
+            self.requests
+                .lock()
+                .unwrap()
+                .extend(messages.iter().map(Message::as_concat_text));
+            Ok((
+                Message::assistant().with_text(self.title),
+                ProviderUsage::new("test".to_string(), Default::default()),
+            ))
+        }
+    }
+
+    fn rewind_naming_attempt(sm: &SessionManager, session_id: &str) {
+        let rewound = tokio::time::Instant::now()
+            .checked_sub(SESSION_RETITLE_INTERVAL)
+            .unwrap();
+        sm.storage
+            .naming_attempts
+            .lock()
+            .unwrap()
+            .insert(session_id.to_string(), rewound);
+    }
+
     fn naming_provider(provider: Arc<dyn Provider>) -> Option<NamingProvider> {
         Some(NamingProvider {
             provider,
@@ -3614,6 +3690,105 @@ mod tests {
 
         assert_eq!(update.name, GENERATED_SESSION_NAME);
         assert!(!update.user_set_name);
+    }
+
+    #[tokio::test]
+    async fn test_naming_provider_retitles_after_interval() {
+        let temp_dir = TempDir::new().unwrap();
+        let sm = SessionManager::new(temp_dir.path().to_path_buf());
+        let id = create_stateful_session_with_prompt(&sm, temp_dir.path()).await;
+        let requests = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let naming = |title| {
+            naming_provider(Arc::new(RecordingNamingTestProvider {
+                title,
+                requests: requests.clone(),
+            }))
+        };
+
+        let first = sm
+            .maybe_update_name_with(
+                &id,
+                Arc::new(StatefulNamingTestProvider),
+                naming("ACP naming"),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(first.name, "ACP naming");
+
+        sm.add_message(
+            &id,
+            &Message::user().with_tool_response(
+                "call-1",
+                Ok(rmcp::model::CallToolResult::success(vec![
+                    rmcp::model::ContentBlock::text("tool output"),
+                ])),
+            ),
+        )
+        .await
+        .unwrap();
+        for prompt in [
+            "second prompt",
+            "third prompt",
+            "now rebuild the desktop app",
+        ] {
+            sm.add_message(&id, &Message::user().with_text(prompt))
+                .await
+                .unwrap();
+        }
+
+        let too_soon = sm
+            .maybe_update_name_with(
+                &id,
+                Arc::new(StatefulNamingTestProvider),
+                naming("Too soon"),
+            )
+            .await
+            .unwrap();
+        assert!(too_soon.is_none());
+        assert_eq!(requests.lock().unwrap().len(), 1);
+
+        rewind_naming_attempt(&sm, &id);
+        let retitled = sm
+            .maybe_update_name_with(
+                &id,
+                Arc::new(StatefulNamingTestProvider),
+                naming("Desktop rebuild"),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(retitled.name, "Desktop rebuild");
+
+        let request = requests.lock().unwrap().last().unwrap().clone();
+        assert!(request.contains("current title: ACP naming"));
+        assert!(request.contains("investigate session naming with ACP providers"));
+        assert!(!request.contains("second prompt"));
+        assert!(request.contains("third prompt\nnow rebuild the desktop app"));
+        assert!(!request.contains("tool output"));
+    }
+
+    #[tokio::test]
+    async fn test_unchanged_retitle_publishes_nothing() {
+        let temp_dir = TempDir::new().unwrap();
+        let sm = SessionManager::new(temp_dir.path().to_path_buf());
+        let id = create_stateful_session_with_prompt(&sm, temp_dir.path()).await;
+        sm.update(&id)
+            .system_generated_name(GENERATED_SESSION_NAME.to_string())
+            .apply()
+            .await
+            .unwrap();
+
+        let update = sm
+            .maybe_update_name_with(
+                &id,
+                Arc::new(StatefulNamingTestProvider),
+                naming_provider(naming_test_provider()),
+            )
+            .await
+            .unwrap();
+
+        assert!(update.is_none());
     }
 
     #[tokio::test]

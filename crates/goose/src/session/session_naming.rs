@@ -19,6 +19,11 @@ pub const SESSION_NAMING_MODEL_KEY: &str = "GOOSE_SESSION_NAMING_MODEL";
 const NAMING_PROVIDER_TIMEOUT: Duration = Duration::from_secs(120);
 // Keep a pasted document from overflowing a small naming model's context.
 const NAMING_PROVIDER_MESSAGE_CHARS: usize = 4000;
+/// How long the naming provider waits before retitling a session again. The
+/// retitle runs on the first prompt after this much time has passed.
+pub(crate) const SESSION_RETITLE_INTERVAL: Duration = Duration::from_secs(180);
+// Prompts after the first that a retitle reads, so the title follows the work.
+const RETITLE_RECENT_PROMPTS: usize = 2;
 
 /// A provider dedicated to titling sessions, so that sessions whose own
 /// provider cannot run a side completion still get a model-written title.
@@ -122,11 +127,12 @@ fn extract_short_title(text: &str) -> String {
     text.to_string()
 }
 
-fn get_initial_user_messages(messages: &Conversation) -> Vec<String> {
+/// The text of each prompt the user typed, skipping tool results, which are
+/// also user-visible user messages but carry no text.
+fn user_prompts(messages: &Conversation) -> Vec<String> {
     messages
         .iter()
         .filter(|m| m.role == rmcp::model::Role::User && m.is_user_visible())
-        .take(MSG_COUNT_FOR_SESSION_NAME_GENERATION)
         .map(|m| {
             m.content
                 .iter()
@@ -135,7 +141,24 @@ fn get_initial_user_messages(messages: &Conversation) -> Vec<String> {
                 .collect::<Vec<_>>()
                 .join("\n")
         })
+        .filter(|text| !text.trim().is_empty())
         .collect()
+}
+
+fn get_initial_user_messages(messages: &Conversation) -> Vec<String> {
+    let mut prompts = user_prompts(messages);
+    prompts.truncate(MSG_COUNT_FOR_SESSION_NAME_GENERATION);
+    prompts
+}
+
+/// The first prompt, which usually states the task, plus the latest ones,
+/// which say where the work has gone since.
+fn retitle_prompts(messages: &Conversation) -> Vec<String> {
+    let mut prompts = user_prompts(messages);
+    if prompts.len() > RETITLE_RECENT_PROMPTS + 1 {
+        prompts.drain(1..prompts.len() - RETITLE_RECENT_PROMPTS);
+    }
+    prompts
 }
 
 fn naming_system_prompt() -> Result<String> {
@@ -145,21 +168,28 @@ fn naming_system_prompt() -> Result<String> {
     )?)
 }
 
-fn naming_request(context: &[String], working_dir: Option<&Path>) -> Message {
+fn naming_request(
+    context: &[String],
+    working_dir: Option<&Path>,
+    current_title: Option<&str>,
+) -> Message {
     use crate::providers::cli_common::{
         SESSION_NAME_BEGIN_MARKER, SESSION_NAME_END_MARKER, SESSION_NAME_SUFFIX,
     };
 
-    let hint = working_dir
+    let hints: Vec<String> = working_dir
         .and_then(Path::file_name)
         .and_then(|folder| folder.to_str())
         .map(|folder| format!("working folder: {folder}"))
-        .unwrap_or_default();
-    let hints_section = if hint.is_empty() {
+        .into_iter()
+        .chain(current_title.map(|title| format!("current title: {title}")))
+        .collect();
+    let hints_section = if hints.is_empty() {
         String::new()
     } else {
         format!(
-            "---BEGIN HINTS (optional signals like the working folder; use them only when they match the subject of the messages)---\n{hint}\n---END HINTS---\n\n"
+            "---BEGIN HINTS (optional signals like the working folder; use them only when they match the subject of the messages)---\n{}\n---END HINTS---\n\n",
+            hints.join("\n")
         )
     };
     let user_text = format!(
@@ -194,7 +224,7 @@ pub(crate) async fn generate_session_name(
     messages: &Conversation,
     working_dir: Option<&Path>,
 ) -> Result<String> {
-    let message = naming_request(&get_initial_user_messages(messages), working_dir);
+    let message = naming_request(&get_initial_user_messages(messages), working_dir, None);
     let result = if provider.uses_local_session_naming() {
         crate::providers::cli_common::generate_simple_session_description(
             provider.get_name(),
@@ -220,12 +250,15 @@ pub(crate) async fn generate_session_name_with_naming_provider(
     session_id: &str,
     messages: &Conversation,
     working_dir: Option<&Path>,
+    current_title: &str,
 ) -> Result<String> {
-    let context: Vec<String> = get_initial_user_messages(messages)
+    let context: Vec<String> = retitle_prompts(messages)
         .iter()
         .map(|message| safe_truncate(message, NAMING_PROVIDER_MESSAGE_CHARS))
         .collect();
-    let message = naming_request(&context, working_dir);
+    // A first prompt has only the placeholder title to go on.
+    let current_title = (context.len() > 1).then_some(current_title);
+    let message = naming_request(&context, working_dir, current_title);
     let system = naming_system_prompt()?;
     let result = tokio::time::timeout(
         NAMING_PROVIDER_TIMEOUT,
@@ -251,6 +284,46 @@ pub(crate) async fn generate_session_name_with_naming_provider(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn conversation_of(messages: Vec<Message>) -> Conversation {
+        Conversation::new_unvalidated(messages)
+    }
+
+    #[test]
+    fn retitle_prompts_keep_the_first_and_latest_prompts() {
+        let messages = conversation_of(
+            ["one", "two", "three", "four", "five"]
+                .into_iter()
+                .map(|text| Message::user().with_text(text))
+                .collect(),
+        );
+        assert_eq!(retitle_prompts(&messages), ["one", "four", "five"]);
+    }
+
+    #[test]
+    fn retitle_prompts_keep_short_sessions_whole() {
+        let messages = conversation_of(vec![
+            Message::user().with_text("one"),
+            Message::assistant().with_text("reply"),
+            Message::user().with_text("two"),
+        ]);
+        assert_eq!(retitle_prompts(&messages), ["one", "two"]);
+    }
+
+    #[test]
+    fn user_prompts_skip_tool_results() {
+        let messages = conversation_of(vec![
+            Message::user().with_text("the task"),
+            Message::user().with_tool_response(
+                "call-1",
+                Ok(rmcp::model::CallToolResult::success(vec![
+                    rmcp::model::ContentBlock::text("tool output"),
+                ])),
+            ),
+            Message::user().with_text("the follow-up"),
+        ]);
+        assert_eq!(user_prompts(&messages), ["the task", "the follow-up"]);
+    }
 
     #[test]
     fn test_strip_xml_tags() {
