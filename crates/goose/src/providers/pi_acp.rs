@@ -80,6 +80,7 @@ impl PiAcpProvider {
                 llm_backend: None,
                 spawn_backend: None,
                 notification_callback: None,
+                negotiate_terminal_output: false,
             };
 
             let metadata = Self::metadata();

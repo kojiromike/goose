@@ -72,9 +72,9 @@ export interface SessionActivityInput {
 export const STALL_AFTER_MS = 10 * 60_000;
 
 /**
- * How long a background command is assumed to still be running. Nothing tells
- * goose when one finishes except the agent resuming to report on it, so this
- * bounds a missed report instead of spinning forever.
+ * How long background work is assumed to still be running. Nothing tells goose
+ * when a Monitor ends except the agent resuming to report on it, so this bounds
+ * a missed report instead of spinning forever.
  */
 export const BACKGROUND_TASK_MAX_AGE_MS = 30 * 60_000;
 

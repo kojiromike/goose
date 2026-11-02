@@ -6,31 +6,33 @@
 //! say about that, so a client can tell "working", "waiting for the user", and
 //! "stuck" apart.
 //!
-//! Background commands are the weak spot. claude-agent-acp publishes their
-//! lifecycle only to clients that negotiate its JetBrains AIR `asyncTasks`
-//! extension, which goose does not. What every client sees is the tool result
-//! announcing the command (Bash's "Command running in background with ID: …",
-//! Monitor's "Monitor started (task …") and,
-//! when a command finishes while the agent is idle, the agent resuming
-//! unprompted to report on it. A command that finishes while the agent is busy
-//! is reported inside that run and produces no update at all. So a command
-//! counts as running from its announcement until the agent next resumes
-//! unprompted or stops it. That forgets a command still running beside the one
-//! that finished, which then shows as waiting until it brings the agent back.
-//! Counting one command per run erred the other way, and worse: every command
-//! that finished unseen left the session "working" until its age limit, long
-//! after the agent had gone idle.
+//! Background work comes in two kinds. A backgrounded Bash command keeps its
+//! display terminal open until its task ends, so claude-agent-acp reports the
+//! real end with `_meta.terminal_exit`, on the tool result if the command has
+//! already finished or in an update of its own later on, whether or not the
+//! agent is busy. The announcement arrives first, in `_meta.terminal_output`.
+//!
+//! A Monitor has no terminal, and its lifecycle reaches only clients that
+//! negotiate the JetBrains AIR `asyncTasks` extension, which also switches the
+//! adapter's subagent and metadata handling to AIR's. What goose sees is the
+//! tool result ("Monitor started (task …") and, when one ends while the agent
+//! is idle, the agent resuming unprompted to report on it. One that ends while
+//! the agent is busy produces no update at all. So a Monitor counts as running
+//! from its announcement until the agent next resumes unprompted or stops it,
+//! and a missed report lasts until the client's age limit.
 
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
-use agent_client_protocol::schema::v1::{SessionUpdate, ToolCallStatus};
+use agent_client_protocol::schema::v1::{
+    Content, ContentBlock, SessionUpdate, ToolCallContent, ToolCallStatus, ToolCallUpdate,
+};
 use goose_providers::base::ProviderActivity;
 
-const BACKGROUND_COMMAND_MARKERS: [&str; 2] = [
-    "Command running in background with ID: ",
-    "Monitor started (task ",
-];
+const BACKGROUND_COMMAND_MARKER: &str = "Command running in background with ID: ";
+const MONITOR_MARKER: &str = "Monitor started (task ";
+const TERMINAL_OUTPUT_META_KEY: &str = "terminal_output";
+const TERMINAL_EXIT_META_KEY: &str = "terminal_exit";
 
 /// An unprompted run that goes this long without an update is over. Only
 /// matters for an agent that does not report the result of each run.
@@ -61,14 +63,21 @@ struct ActivityState {
     last_unprompted_update_at: Option<i64>,
     pending_permissions: u32,
     exited: bool,
-    /// (task id, start time), oldest first.
-    background_tasks: Vec<(String, i64)>,
+    /// Oldest first.
+    background_tasks: Vec<BackgroundTask>,
     /// Open calls that stop a background command, by tool call id. The agent
     /// announces a call before its input streams in, and the update that
     /// carries the input does not repeat the title that marks it as a stop.
     stop_calls: HashSet<String>,
     last_turn_error: Option<String>,
     consecutive_failed_turns: u32,
+}
+
+struct BackgroundTask {
+    id: String,
+    started_at: i64,
+    /// Set when the agent will report the task's end with `terminal_exit`.
+    terminal_id: Option<String>,
 }
 
 pub(crate) fn now_ms() -> i64 {
@@ -90,7 +99,7 @@ impl AcpActivity {
             background_tasks_started_at: state
                 .background_tasks
                 .iter()
-                .map(|(_, started)| *started)
+                .map(|task| task.started_at)
                 .collect(),
             last_turn_error: state.last_turn_error.clone(),
             consecutive_failed_turns: state.consecutive_failed_turns,
@@ -109,7 +118,9 @@ impl AcpActivity {
                     previous_update.is_some_and(|previous| now - previous > UNPROMPTED_RUN_GAP_MS);
                 if is_agent_output(update) && (!state.unprompted_run_open || after_silence) {
                     state.unprompted_run_open = true;
-                    state.background_tasks.clear();
+                    state
+                        .background_tasks
+                        .retain(|task| task.terminal_id.is_some());
                 }
                 if state.unprompted_run_open {
                     if is_cycle_result(update) {
@@ -121,14 +132,26 @@ impl AcpActivity {
                 }
             }
             if let Some(stopped) = stopped_background_task(&mut state.stop_calls, update) {
-                state.background_tasks.retain(|(id, _)| id != &stopped);
+                state.background_tasks.retain(|task| task.id != stopped);
             }
-            if let Some(task_id) = launched_background_task(update) {
-                if !state.background_tasks.iter().any(|(id, _)| id == &task_id)
+            if let Some(launched) = launched_background_task(update) {
+                if !state
+                    .background_tasks
+                    .iter()
+                    .any(|task| task.id == launched.id)
                     && state.background_tasks.len() < MAX_TRACKED_BACKGROUND_TASKS
                 {
-                    state.background_tasks.push((task_id, now));
+                    state.background_tasks.push(BackgroundTask {
+                        id: launched.id,
+                        started_at: now,
+                        terminal_id: launched.terminal_id,
+                    });
                 }
+            }
+            if let Some(exited) = exited_terminal(update) {
+                state
+                    .background_tasks
+                    .retain(|task| task.terminal_id.as_deref() != Some(exited));
             }
         });
     }
@@ -208,43 +231,71 @@ fn is_cycle_result(update: &SessionUpdate) -> bool {
     )
 }
 
-/// The task id a finished Bash or Monitor call handed off to the background.
-fn launched_background_task(update: &SessionUpdate) -> Option<String> {
-    let (status, content, raw_output) = match update {
-        SessionUpdate::ToolCall(call) => (
-            Some(call.status),
-            serde_json::to_string(&call.content).ok(),
-            call.raw_output.as_ref().map(|v| v.to_string()),
-        ),
-        SessionUpdate::ToolCallUpdate(update) => (
-            update.fields.status,
-            update
-                .fields
-                .content
-                .as_ref()
-                .and_then(|content| serde_json::to_string(content).ok()),
-            update.fields.raw_output.as_ref().map(|v| v.to_string()),
-        ),
-        _ => return None,
-    };
-    if status != Some(ToolCallStatus::Completed) {
-        return None;
-    }
-    [content, raw_output]
-        .into_iter()
-        .flatten()
-        .find_map(|text| background_task_id(&text))
+struct LaunchedTask {
+    id: String,
+    terminal_id: Option<String>,
 }
 
-fn background_task_id(text: &str) -> Option<String> {
-    BACKGROUND_COMMAND_MARKERS.iter().find_map(|marker| {
-        let (_, rest) = text.split_once(marker)?;
-        let id: String = rest
-            .chars()
-            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
-            .collect();
-        (!id.is_empty()).then_some(id)
+fn launched_background_task(update: &SessionUpdate) -> Option<LaunchedTask> {
+    match update {
+        SessionUpdate::ToolCall(call) => {
+            launched_monitor(call.status, Some(call.content.as_slice()))
+        }
+        SessionUpdate::ToolCallUpdate(update) => launched_command(update)
+            .or_else(|| launched_monitor(update.fields.status?, update.fields.content.as_deref())),
+        _ => None,
+    }
+}
+
+fn launched_command(update: &ToolCallUpdate) -> Option<LaunchedTask> {
+    let output = update.meta.as_ref()?.get(TERMINAL_OUTPUT_META_KEY)?;
+    let data = output.get("data")?.as_str()?;
+    Some(LaunchedTask {
+        id: task_id_after_marker(data, BACKGROUND_COMMAND_MARKER)?,
+        terminal_id: Some(output.get("terminal_id")?.as_str()?.to_string()),
     })
+}
+
+/// Only the start of a block counts: a read of a log or of this file quotes
+/// the marker without starting anything.
+fn launched_monitor(
+    status: ToolCallStatus,
+    content: Option<&[ToolCallContent]>,
+) -> Option<LaunchedTask> {
+    if status != ToolCallStatus::Completed {
+        return None;
+    }
+    content?.iter().find_map(|block| match block {
+        ToolCallContent::Content(Content {
+            content: ContentBlock::Text(text),
+            ..
+        }) => task_id_after_marker(&text.text, MONITOR_MARKER).map(|id| LaunchedTask {
+            id,
+            terminal_id: None,
+        }),
+        _ => None,
+    })
+}
+
+fn task_id_after_marker(text: &str, marker: &str) -> Option<String> {
+    let rest = text.trim_start().strip_prefix(marker)?;
+    let id: String = rest
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+        .collect();
+    (!id.is_empty()).then_some(id)
+}
+
+fn exited_terminal(update: &SessionUpdate) -> Option<&str> {
+    let SessionUpdate::ToolCallUpdate(update) = update else {
+        return None;
+    };
+    update
+        .meta
+        .as_ref()?
+        .get(TERMINAL_EXIT_META_KEY)?
+        .get("terminal_id")?
+        .as_str()
 }
 
 /// The task id of a call that stops a background command (KillShell,
@@ -303,8 +354,7 @@ fn is_stop_title(title: &str) -> bool {
 mod tests {
     use super::*;
     use agent_client_protocol::schema::v1::{
-        ContentBlock, ContentChunk, TextContent, ToolCall, ToolCallContent, ToolCallId,
-        ToolCallUpdate, ToolCallUpdateFields, UsageUpdate,
+        ContentChunk, TextContent, ToolCall, ToolCallId, ToolCallUpdateFields, UsageUpdate,
     };
 
     fn text_chunk() -> SessionUpdate {
@@ -313,18 +363,74 @@ mod tests {
         ))))
     }
 
-    fn background_bash_result(task_id: &str) -> SessionUpdate {
-        let text = format!(
-            "Command running in background with ID: {task_id}. Output is being written to: /tmp/tasks/{task_id}.output"
-        );
+    fn terminal_meta(
+        key: &str,
+        value: serde_json::Value,
+    ) -> serde_json::Map<String, serde_json::Value> {
+        let mut meta = serde_json::Map::new();
+        meta.insert(key.to_string(), value);
+        meta
+    }
+
+    fn command_output(terminal_id: &str, data: &str) -> SessionUpdate {
+        SessionUpdate::ToolCallUpdate(
+            ToolCallUpdate::new(
+                ToolCallId::new(terminal_id.to_string()),
+                ToolCallUpdateFields::new(),
+            )
+            .meta(terminal_meta(
+                "terminal_output",
+                serde_json::json!({ "terminal_id": terminal_id, "data": data }),
+            )),
+        )
+    }
+
+    fn background_announcement(task_id: &str) -> SessionUpdate {
+        command_output(
+            task_id,
+            &format!(
+                "Command running in background with ID: {task_id}. Output is being written to: /tmp/tasks/{task_id}.output"
+            ),
+        )
+    }
+
+    fn command_result_without_exit(terminal_id: &str) -> SessionUpdate {
         SessionUpdate::ToolCallUpdate(ToolCallUpdate::new(
-            ToolCallId::new("toolu_bash"),
-            ToolCallUpdateFields::new()
-                .status(ToolCallStatus::Completed)
-                .content(vec![ToolCallContent::from(ContentBlock::Text(
-                    TextContent::new(text),
-                ))]),
+            ToolCallId::new(terminal_id.to_string()),
+            ToolCallUpdateFields::new().status(ToolCallStatus::Completed),
         ))
+    }
+
+    fn command_result_with_exit(terminal_id: &str) -> SessionUpdate {
+        SessionUpdate::ToolCallUpdate(
+            ToolCallUpdate::new(
+                ToolCallId::new(terminal_id.to_string()),
+                ToolCallUpdateFields::new().status(ToolCallStatus::Completed),
+            )
+            .meta(terminal_meta(
+                "terminal_exit",
+                serde_json::json!({ "terminal_id": terminal_id, "exit_code": null, "signal": null }),
+            )),
+        )
+    }
+
+    fn terminal_exit(terminal_id: &str) -> SessionUpdate {
+        SessionUpdate::ToolCallUpdate(
+            ToolCallUpdate::new(
+                ToolCallId::new(terminal_id.to_string()),
+                ToolCallUpdateFields::new(),
+            )
+            .meta(terminal_meta(
+                "terminal_exit",
+                serde_json::json!({ "terminal_id": terminal_id, "exit_code": null, "signal": null }),
+            )),
+        )
+    }
+
+    /// A command still running when its Bash call returned.
+    fn launch_command(activity: &AcpActivity, task_id: &str, at: i64) {
+        activity.record_update(&background_announcement(task_id), at);
+        activity.record_update(&command_result_without_exit(task_id), at);
     }
 
     fn monitor_result(task_id: &str) -> SessionUpdate {
@@ -358,30 +464,98 @@ mod tests {
     }
 
     #[test]
-    fn background_command_runs_until_the_agent_resumes_to_report_it() {
+    fn a_command_finishing_before_its_result_never_counts() {
         let activity = AcpActivity::default();
         activity.turn_started(0);
-        activity.record_update(&background_bash_result("b1x9"), 1_000);
-        activity.record_update(&text_chunk(), 2_000);
-        activity.turn_finished(None, 3_000);
+        activity.record_update(&background_announcement("fast"), 1_000);
+        activity.record_update(&command_result_with_exit("fast"), 1_000);
+        activity.turn_finished(None, 2_000);
 
-        assert_eq!(activity.snapshot().background_tasks_started_at, vec![1_000]);
-
-        activity.record_update(&text_chunk(), 600_000);
-        activity.record_update(&text_chunk(), 601_000);
-        let snapshot = activity.snapshot();
-        assert!(snapshot.background_tasks_started_at.is_empty());
-        assert_eq!(snapshot.last_unprompted_update_at, Some(601_000));
+        assert!(activity.snapshot().background_tasks_started_at.is_empty());
     }
 
     #[test]
-    fn an_unprompted_run_forgets_the_commands_launched_before_it() {
+    fn a_command_finishing_during_the_turn_is_gone_when_the_turn_ends() {
         let activity = AcpActivity::default();
         activity.turn_started(0);
-        // "first" finishes while the turn is still running, which no update
-        // reports; "second" finishing is what brings the agent back.
-        activity.record_update(&background_bash_result("first"), 1_000);
-        activity.record_update(&background_bash_result("second"), 2_000);
+        launch_command(&activity, "build", 1_000);
+        assert_eq!(activity.snapshot().background_tasks_started_at, vec![1_000]);
+
+        activity.record_update(&text_chunk(), 2_000);
+        activity.record_update(&terminal_exit("build"), 3_000);
+        activity.turn_finished(None, 4_000);
+
+        assert!(activity.snapshot().background_tasks_started_at.is_empty());
+    }
+
+    #[test]
+    fn a_command_runs_until_it_exits_after_the_turn() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        launch_command(&activity, "build", 1_000);
+        activity.turn_finished(None, 2_000);
+        assert_eq!(activity.snapshot().background_tasks_started_at, vec![1_000]);
+
+        activity.record_update(&terminal_exit("build"), 600_000);
+        assert!(activity.snapshot().background_tasks_started_at.is_empty());
+    }
+
+    #[test]
+    fn an_unprompted_run_for_one_command_keeps_the_one_still_running() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        launch_command(&activity, "first", 1_000);
+        launch_command(&activity, "second", 2_000);
+        activity.turn_finished(None, 3_000);
+
+        activity.record_update(&terminal_exit("first"), 100_000);
+        activity.record_update(&text_chunk(), 101_000);
+        activity.record_update(&unprompted_run_result(), 102_000);
+
+        let snapshot = activity.snapshot();
+        assert_eq!(snapshot.background_tasks_started_at, vec![2_000]);
+        assert_eq!(snapshot.last_unprompted_update_at, None);
+    }
+
+    #[test]
+    fn foreground_output_quoting_the_marker_does_not_count() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.record_update(
+            &command_output(
+                "grep",
+                "main.log: Command running in background with ID: old123",
+            ),
+            1_000,
+        );
+        activity.record_update(&command_result_with_exit("grep"), 1_000);
+
+        assert!(activity.snapshot().background_tasks_started_at.is_empty());
+    }
+
+    #[test]
+    fn a_read_quoting_a_marker_does_not_count() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        let read = SessionUpdate::ToolCallUpdate(ToolCallUpdate::new(
+            ToolCallId::new("toolu_read"),
+            ToolCallUpdateFields::new()
+                .status(ToolCallStatus::Completed)
+                .content(vec![ToolCallContent::from(ContentBlock::Text(
+                    TextContent::new("```\n1\tMonitor started (task old123, expires in 30m"),
+                ))]),
+        ));
+        activity.record_update(&read, 1_000);
+
+        assert!(activity.snapshot().background_tasks_started_at.is_empty());
+    }
+
+    #[test]
+    fn an_unprompted_run_forgets_the_monitors_launched_before_it() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.record_update(&monitor_result("first"), 1_000);
+        activity.record_update(&monitor_result("second"), 2_000);
         activity.turn_finished(None, 3_000);
         assert_eq!(
             activity.snapshot().background_tasks_started_at,
@@ -393,14 +567,14 @@ mod tests {
     }
 
     #[test]
-    fn a_command_an_unprompted_run_launches_outlives_the_run() {
+    fn a_monitor_an_unprompted_run_launches_outlives_the_run() {
         let activity = AcpActivity::default();
         activity.turn_started(0);
-        activity.record_update(&background_bash_result("first"), 1_000);
+        activity.record_update(&monitor_result("first"), 1_000);
         activity.turn_finished(None, 2_000);
 
         activity.record_update(&text_chunk(), 100_000);
-        activity.record_update(&background_bash_result("second"), 101_000);
+        activity.record_update(&monitor_result("second"), 101_000);
         activity.record_update(&text_chunk(), 102_000);
         activity.record_update(&unprompted_run_result(), 103_000);
 
@@ -413,21 +587,17 @@ mod tests {
     fn nothing_is_in_flight_once_the_last_unprompted_run_ends() {
         let activity = AcpActivity::default();
         activity.turn_started(0);
-        activity.record_update(&background_bash_result("a"), 1_000);
+        activity.record_update(&monitor_result("a"), 1_000);
         activity.turn_finished(None, 2_000);
 
-        // The agent comes back for "a" and starts two more. "b" finishes
-        // before this run does, so nothing ever reports it.
         activity.record_update(&text_chunk(), 100_000);
-        activity.record_update(&background_bash_result("b"), 110_000);
-        activity.record_update(&background_bash_result("c"), 120_000);
+        activity.record_update(&monitor_result("b"), 110_000);
         activity.record_update(&unprompted_run_result(), 130_000);
         assert_eq!(
             activity.snapshot().background_tasks_started_at,
-            vec![110_000, 120_000]
+            vec![110_000]
         );
 
-        // It comes back for "c" and starts nothing.
         activity.record_update(&text_chunk(), 300_000);
         assert_eq!(activity.snapshot().last_unprompted_update_at, Some(300_000));
         activity.record_update(&unprompted_run_result(), 310_000);
@@ -446,7 +616,7 @@ mod tests {
         activity.turn_finished(None, 1_000);
 
         activity.record_update(&text_chunk(), 100_000);
-        activity.record_update(&background_bash_result("build"), 110_000);
+        activity.record_update(&monitor_result("watch"), 110_000);
         for at in [140_000, 170_000, 200_000] {
             activity.record_update(&tool_progress(), at);
         }
@@ -466,7 +636,7 @@ mod tests {
         activity.turn_finished(None, 1_000);
 
         activity.record_update(&text_chunk(), 100_000);
-        activity.record_update(&background_bash_result("build"), 101_000);
+        activity.record_update(&monitor_result("watch"), 101_000);
         activity.record_update(&text_chunk(), 102_000);
         assert_eq!(
             activity.snapshot().background_tasks_started_at,
@@ -499,7 +669,7 @@ mod tests {
     fn a_result_inside_a_prompt_is_not_an_unprompted_run_ending() {
         let activity = AcpActivity::default();
         activity.turn_started(0);
-        activity.record_update(&background_bash_result("build"), 1_000);
+        launch_command(&activity, "build", 1_000);
         // The agent holds the prompt open for a background subagent and reports
         // on it before the prompt returns.
         activity.record_update(&text_chunk(), 100_000);
@@ -514,7 +684,7 @@ mod tests {
     fn stopping_a_background_command_forgets_it() {
         let activity = AcpActivity::default();
         activity.turn_started(0);
-        activity.record_update(&background_bash_result("b1x9"), 1_000);
+        launch_command(&activity, "b1x9", 1_000);
         let kill = ToolCall::new(ToolCallId::new("toolu_kill"), "Kill Shell")
             .raw_input(serde_json::json!({ "shell_id": "b1x9" }));
         activity.record_update(&SessionUpdate::ToolCall(kill), 2_000);
@@ -526,7 +696,7 @@ mod tests {
     fn a_stop_whose_input_arrives_after_the_announcement_forgets_the_command() {
         let activity = AcpActivity::default();
         activity.turn_started(0);
-        activity.record_update(&background_bash_result("bz5p"), 1_000);
+        launch_command(&activity, "bz5p", 1_000);
         let announce = ToolCall::new(ToolCallId::new("toolu_stop"), "TaskStop")
             .raw_input(serde_json::json!({}));
         activity.record_update(&SessionUpdate::ToolCall(announce), 2_000);
@@ -574,7 +744,7 @@ mod tests {
     fn reading_a_command_output_does_not_forget_it() {
         let activity = AcpActivity::default();
         activity.turn_started(0);
-        activity.record_update(&background_bash_result("b1x9"), 1_000);
+        launch_command(&activity, "b1x9", 1_000);
         let read = ToolCall::new(ToolCallId::new("toolu_read"), "TaskOutput")
             .raw_input(serde_json::json!({}));
         activity.record_update(&SessionUpdate::ToolCall(read), 2_000);
@@ -623,7 +793,7 @@ mod tests {
     #[test]
     fn history_replayed_before_the_first_prompt_is_ignored() {
         let activity = AcpActivity::default();
-        activity.record_update(&background_bash_result("old"), 1_000);
+        launch_command(&activity, "old", 1_000);
         activity.record_update(&text_chunk(), 2_000);
         let snapshot = activity.snapshot();
         assert!(snapshot.background_tasks_started_at.is_empty());

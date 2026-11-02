@@ -101,6 +101,7 @@ async fn bootstrap_config_option_response_refreshes_the_effort_mirror() {
         llm_backend: None,
         spawn_backend: None,
         notification_callback: None,
+        negotiate_terminal_output: false,
     };
 
     let provider = AcpProvider::connect_with_transport(
@@ -188,6 +189,7 @@ async fn new_session_preserves_pre_response_effort_update() {
             llm_backend: None,
             spawn_backend: None,
             notification_callback: None,
+            negotiate_terminal_output: false,
         },
         ByteStreams::new(client_write.compat_write(), client_read.compat()),
         None,
@@ -296,6 +298,7 @@ async fn loaded_session_refreshes_the_effort_mirror() {
                 callback_active_update_received.notify_one();
             }
         })),
+        negotiate_terminal_output: false,
     };
 
     let provider = AcpProvider::connect_with_transport(

@@ -124,6 +124,10 @@ pub struct AcpProviderConfig {
     /// even after the saved selection moves on.
     pub spawn_backend: Option<LlmBackendKind>,
     pub notification_callback: Option<Arc<dyn Fn(SessionNotification) + Send + Sync>>,
+    /// Ask the agent for command output and exits in `_meta.terminal_output`
+    /// and `_meta.terminal_exit`. It reports the end of a background command
+    /// no other way, but it stops sending that output in `content`.
+    pub negotiate_terminal_output: bool,
 }
 
 enum ClientRequest {
@@ -328,12 +332,39 @@ fn provider_error_from_acp(error: agent_client_protocol::Error) -> ProviderError
 struct AccumulatedToolCall {
     raw_output: Option<serde_json::Value>,
     content: Vec<ToolCallContent>,
+    terminal_output: String,
     /// An announcement held back because the agent had not finished streaming
     /// the call's input when it made it. See [`PendingToolCallStart`].
     pending_start: Option<PendingToolCallStart>,
     /// Remembered from the call's announcement so its result stays attributed
     /// even if a later update omits the meta.
     parent_tool_call_id: Option<String>,
+}
+
+impl AccumulatedToolCall {
+    /// The call's content, with terminal output as the code block the agent
+    /// sends to a client that did not negotiate terminals.
+    fn into_result_parts(
+        mut self,
+    ) -> (
+        Option<serde_json::Value>,
+        Option<Vec<ToolCallContent>>,
+        Option<String>,
+    ) {
+        let output = self.terminal_output.trim_end();
+        if !output.is_empty() {
+            self.content
+                .push(ToolCallContent::from(ContentBlock::Text(TextContent::new(
+                    format!("```console\n{output}\n```"),
+                ))));
+        }
+        let content = (!self.content.is_empty()).then_some(self.content);
+        (self.raw_output, content, self.parent_tool_call_id)
+    }
+}
+
+fn terminal_output_data(meta: Option<&agent_client_protocol::schema::v1::Meta>) -> Option<&str> {
+    meta?.get("terminal_output")?.get("data")?.as_str()
 }
 
 /// The Agent/Task tool call of the subagent that made this call, if any.
@@ -2447,6 +2478,16 @@ impl AcpClientLoop {
                             }
                             SessionUpdate::ToolCallUpdate(update) => {
                                 let id = update.tool_call_id.0.to_string();
+                                // A background command exits long after its call
+                                // was drained, so this must not start a new entry.
+                                if update.fields.status.is_none()
+                                    && update
+                                        .meta
+                                        .as_ref()
+                                        .is_some_and(|meta| meta.contains_key("terminal_exit"))
+                                {
+                                    return Ok(());
+                                }
                                 // Merge patch-like fields; only emit the result on
                                 // terminal status, but release a held announcement as
                                 // soon as this update describes the call.
@@ -2456,41 +2497,46 @@ impl AcpClientLoop {
                                 let carries_output = update.fields.raw_output.is_some()
                                     || update.fields.content.is_some();
                                 let mut released_start = None;
-                                let accumulated =
-                                    if let Ok(mut buffer) = pending_tool_updates.lock() {
-                                        let entry = buffer.entry(id.clone()).or_default();
-                                        if let Some(raw_output) = update.fields.raw_output.clone() {
-                                            entry.raw_output = Some(raw_output);
+                                let accumulated = if let Ok(mut buffer) =
+                                    pending_tool_updates.lock()
+                                {
+                                    let entry = buffer.entry(id.clone()).or_default();
+                                    if let Some(raw_output) = update.fields.raw_output.clone() {
+                                        entry.raw_output = Some(raw_output);
+                                    }
+                                    if let Some(content) = update.fields.content.clone() {
+                                        entry.content.extend(content);
+                                    }
+                                    if let Some(output) = terminal_output_data(update.meta.as_ref())
+                                    {
+                                        entry.terminal_output.push_str(output);
+                                    }
+                                    if entry.parent_tool_call_id.is_none() {
+                                        entry.parent_tool_call_id =
+                                            subagent_parent_tool_call_id(update.meta.as_ref());
+                                    }
+                                    if let Some(start) = entry.pending_start.as_mut() {
+                                        start.refine(&update.fields);
+                                        // Release once the call is described, and
+                                        // unconditionally once it produces output or
+                                        // ends — a response must never reach the turn
+                                        // without its request, and work in flight is
+                                        // worth showing even undescribed.
+                                        if start.is_described()
+                                            || carries_output
+                                            || terminal_status.is_some()
+                                        {
+                                            released_start = entry.pending_start.take();
                                         }
-                                        if let Some(content) = update.fields.content.clone() {
-                                            entry.content.extend(content);
-                                        }
-                                        if entry.parent_tool_call_id.is_none() {
-                                            entry.parent_tool_call_id =
-                                                subagent_parent_tool_call_id(update.meta.as_ref());
-                                        }
-                                        if let Some(start) = entry.pending_start.as_mut() {
-                                            start.refine(&update.fields);
-                                            // Release once the call is described, and
-                                            // unconditionally once it produces output or
-                                            // ends — a response must never reach the turn
-                                            // without its request, and work in flight is
-                                            // worth showing even undescribed.
-                                            if start.is_described()
-                                                || carries_output
-                                                || terminal_status.is_some()
-                                            {
-                                                released_start = entry.pending_start.take();
-                                            }
-                                        }
-                                        if terminal_status.is_some() {
-                                            buffer.remove(&id)
-                                        } else {
-                                            None
-                                        }
+                                    }
+                                    if terminal_status.is_some() {
+                                        buffer.remove(&id)
                                     } else {
                                         None
-                                    };
+                                    }
+                                } else {
+                                    None
+                                };
                                 if let Some(start) = released_start {
                                     deliver_or_publish(
                                         tx.as_ref(),
@@ -2502,20 +2548,17 @@ impl AcpClientLoop {
                                 if let (Some(accumulated), Some(status)) =
                                     (accumulated, terminal_status)
                                 {
-                                    let content = if accumulated.content.is_empty() {
-                                        None
-                                    } else {
-                                        Some(accumulated.content)
-                                    };
+                                    let (raw_output, content, parent_tool_call_id) =
+                                        accumulated.into_result_parts();
                                     deliver_or_publish(
                                         tx.as_ref(),
                                         &out_of_band_publisher,
                                         AcpUpdate::ToolCallComplete {
                                             id,
-                                            raw_output: accumulated.raw_output,
+                                            raw_output,
                                             content,
                                             is_error: matches!(status, ToolCallStatus::Failed),
-                                            parent_tool_call_id: accumulated.parent_tool_call_id,
+                                            parent_tool_call_id,
                                         },
                                     )
                                     .await;
@@ -2761,7 +2804,12 @@ async fn handle_requests(
 ) -> Result<(), agent_client_protocol::Error> {
     let mut init_tx = Some(init_tx);
 
-    let client_capabilities = ClientCapabilities::new();
+    let mut client_capabilities = ClientCapabilities::new();
+    if config.negotiate_terminal_output {
+        let mut meta = agent_client_protocol::schema::v1::Meta::new();
+        meta.insert("terminal_output".to_string(), serde_json::Value::Bool(true));
+        client_capabilities = client_capabilities.meta(meta);
+    }
     let initialized = tokio::time::timeout(
         STARTUP_TIMEOUT,
         cx.send_request(
@@ -6362,6 +6410,7 @@ mod tests {
             llm_backend: None,
             spawn_backend: None,
             notification_callback: None,
+            negotiate_terminal_output: false,
         }
     }
 
@@ -7635,6 +7684,40 @@ mod tests {
         } else {
             assert_eq!(result, expected);
         }
+    }
+
+    #[test]
+    fn terminal_output_becomes_the_console_block_of_a_plain_client() {
+        let accumulated = AccumulatedToolCall {
+            terminal_output: "hello from shell\n".to_string(),
+            content: vec![ToolCallContent::Terminal(
+                agent_client_protocol::schema::v1::Terminal::new(
+                    agent_client_protocol::schema::v1::TerminalId::new("toolu_1"),
+                ),
+            )],
+            ..Default::default()
+        };
+
+        let (raw_output, content, _) = accumulated.into_result_parts();
+        let out = acp_tool_call_content_to_rmcp(content, raw_output);
+
+        assert_eq!(out.len(), 1);
+        assert_eq!(
+            out[0].as_text().map(|text| text.text.as_str()),
+            Some("```console\nhello from shell\n```")
+        );
+    }
+
+    #[test]
+    fn a_command_with_no_output_has_no_result_text() {
+        let accumulated = AccumulatedToolCall {
+            terminal_output: "\n".to_string(),
+            ..Default::default()
+        };
+
+        let (raw_output, content, _) = accumulated.into_result_parts();
+
+        assert!(acp_tool_call_content_to_rmcp(content, raw_output).is_empty());
     }
 
     #[test]

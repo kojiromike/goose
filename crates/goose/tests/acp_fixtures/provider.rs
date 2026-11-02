@@ -60,6 +60,7 @@ fn provider_config(
             .collect(),
         llm_backend: None,
         spawn_backend: None,
+        negotiate_terminal_output: false,
         notification_callback: Some(Arc::new(move |n| {
             sink.lock().unwrap().push(n.update.clone());
         })),

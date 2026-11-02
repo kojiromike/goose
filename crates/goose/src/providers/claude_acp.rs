@@ -114,6 +114,7 @@ fn provider_config(
         llm_backend,
         spawn_backend: settings.active,
         notification_callback: None,
+        negotiate_terminal_output: true,
     })
 }
 

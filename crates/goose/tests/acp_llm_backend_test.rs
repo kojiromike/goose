@@ -46,6 +46,7 @@ fn provider_config_started_on(
         llm_backend,
         spawn_backend,
         notification_callback: None,
+        negotiate_terminal_output: false,
     }
 }
 
