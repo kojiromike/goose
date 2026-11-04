@@ -33,6 +33,7 @@ import { InlineEditText } from '../common/InlineEditText';
 import { describeSessionActivity, SessionIndicators } from '../SessionIndicators';
 import { SessionSwitcher } from '../SessionSwitcher';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
+import { useFrozenWhile } from '../../hooks/useFrozenWhile';
 import { matchesAccelerator } from '../../utils/acceleratorMatch';
 import {
   adjacentSessionId,
@@ -77,6 +78,9 @@ import {
 type StreamState = LocalStreamState;
 
 const LIVE_REFRESH_INTERVAL_MS = 5000;
+
+/** Freezes the chat list's order until the returned release is called. */
+type HoldLayout = () => () => void;
 
 interface SessionStatus {
   streamState: StreamState;
@@ -222,6 +226,7 @@ interface SessionRowProps {
   onRenamed: () => void;
   onRequestDelete: (session: SessionListItem) => void;
   onEnded: () => void;
+  holdLayout: HoldLayout;
 }
 
 const formatTimestamp = (value?: string): string | null => {
@@ -280,11 +285,14 @@ const SessionRow: React.FC<SessionRowProps> = ({
   onRenamed,
   onRequestDelete,
   onEnded,
+  holdLayout,
 }) => {
   const intl = useIntl();
   const [isEditing, setIsEditing] = useState(false);
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const holdingLayout = menuOpen || isEditing;
+  useEffect(() => (holdingLayout ? holdLayout() : undefined), [holdingLayout, holdLayout]);
   const [editSignal, setEditSignal] = useState(0);
   const [isEnding, setIsEnding] = useState(false);
   const renameRequested = useRef(false);
@@ -451,6 +459,7 @@ interface ProjectHeaderProps {
   onToggleCollapsed: () => void;
   onNewChat: () => void;
   onNewChatWindow: () => void;
+  holdLayout: HoldLayout;
 }
 
 const ProjectHeader: React.FC<ProjectHeaderProps> = ({
@@ -459,9 +468,11 @@ const ProjectHeader: React.FC<ProjectHeaderProps> = ({
   onToggleCollapsed,
   onNewChat,
   onNewChatWindow,
+  holdLayout,
 }) => {
   const intl = useIntl();
   const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => (menuOpen ? holdLayout() : undefined), [menuOpen, holdLayout]);
 
   return (
     <div
@@ -531,8 +542,8 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
 
   const {
     recentSessions,
-    visibleSessions,
-    visibleSessionsByProject,
+    visibleSessions: liveVisibleSessions,
+    visibleSessionsByProject: liveVisibleSessionsByProject,
     liveSessions,
     activeSessionId,
     fetchSessions,
@@ -541,6 +552,26 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
     handleSessionClick,
     handleProjectNewChat,
   } = useNavigationSessions();
+
+  // Polls and status events reorder the list (recency) and add or drop rows
+  // (the recent window), which slides an open menu's row, and the menu with it,
+  // out from under the pointer. Hold the order while a menu or rename is open
+  // and catch up when it closes; activity indicators keep updating in place.
+  const [layoutHolds, setLayoutHolds] = useState(0);
+  const holdLayout = useCallback<HoldLayout>(() => {
+    setLayoutHolds((n) => n + 1);
+    // Release a frame late so handoffs (menu → rename, one row's menu to
+    // another's) do not let the list jump in between.
+    return () => requestAnimationFrame(() => setLayoutHolds((n) => n - 1));
+  }, []);
+  const liveLayout = useMemo(
+    () => ({
+      visibleSessions: liveVisibleSessions,
+      visibleSessionsByProject: liveVisibleSessionsByProject,
+    }),
+    [liveVisibleSessions, liveVisibleSessionsByProject]
+  );
+  const { visibleSessions, visibleSessionsByProject } = useFrozenWhile(liveLayout, layoutHolds > 0);
 
   const [sessionStatuses, setSessionStatuses] = useState<Map<string, SessionStatus>>(new Map());
   const [lastViewed, setLastViewed] = useState<LastViewedMap>(loadLastViewedMap);
@@ -861,6 +892,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                       onToggleCollapsed={() => toggleProjectCollapsed(group.path)}
                       onNewChat={() => handleProjectNewChat(group.path)}
                       onNewChatWindow={() => window.electron.createChatWindow({ dir: group.path })}
+                      holdLayout={holdLayout}
                     />
                     {!isCollapsed &&
                       group.sessions.map((session) => (
@@ -874,6 +906,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                           onRenamed={fetchSessions}
                           onRequestDelete={handleRequestDelete}
                           onEnded={refreshLiveSessions}
+                          holdLayout={holdLayout}
                         />
                       ))}
                   </React.Fragment>
@@ -891,6 +924,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                   onRenamed={fetchSessions}
                   onRequestDelete={handleRequestDelete}
                   onEnded={refreshLiveSessions}
+                  holdLayout={holdLayout}
                 />
               ))
             )}
