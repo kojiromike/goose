@@ -1,4 +1,4 @@
-import { AlertCircle, AlertTriangle, Hand, Loader2 } from 'lucide-react';
+import { AlertCircle, AlertTriangle, BellOff, Hand, Loader2 } from 'lucide-react';
 import React from 'react';
 import type { IntlShape } from 'react-intl';
 import { defineMessages, useIntl } from '../i18n';
@@ -50,7 +50,19 @@ const i18n = defineMessages({
     id: 'sessionIndicators.idle',
     defaultMessage: 'Idle',
   },
+  snoozed: {
+    id: 'sessionIndicators.snoozed',
+    defaultMessage: 'Snoozed until there is new activity',
+  },
 });
+
+/**
+ * Snoozing quiets a session that is only waiting for the user. A stuck or
+ * blocked one keeps its marker so the user still sees what is wrong.
+ */
+function showsSnoozed(activity: SessionActivity, snoozed: boolean): boolean {
+  return snoozed && (activity.reason === 'turnEnded' || activity.reason === 'none');
+}
 
 const MAX_ERROR_LENGTH = 160;
 
@@ -62,8 +74,10 @@ function truncate(text: string): string {
 export function describeSessionActivity(
   intl: IntlShape,
   activity: SessionActivity,
-  now: number
+  now: number,
+  snoozed = false
 ): string {
+  if (showsSnoozed(activity, snoozed)) return intl.formatMessage(i18n.snoozed);
   switch (activity.reason) {
     case 'turn':
       return intl.formatMessage(i18n.working);
@@ -99,53 +113,60 @@ export function describeSessionActivity(
 interface SessionIndicatorsProps {
   activity: SessionActivity;
   now: number;
+  snoozed?: boolean;
 }
 
 /**
  * One marker per session state: a blue spinner while it works, a slower amber
  * one while the work is in the background, amber when it needs the user, red
- * when it is stuck, nothing when idle.
+ * when it is stuck, nothing when idle, and a muted bell when the user snoozed
+ * it.
  */
-export const SessionIndicators = React.memo<SessionIndicatorsProps>(({ activity, now }) => {
-  const intl = useIntl();
-  const label = describeSessionActivity(intl, activity, now);
+export const SessionIndicators = React.memo<SessionIndicatorsProps>(
+  ({ activity, now, snoozed = false }) => {
+    const intl = useIntl();
+    const label = describeSessionActivity(intl, activity, now, snoozed);
 
-  const marker = (() => {
-    switch (activity.reason) {
-      case 'turn':
-        return <Loader2 className="w-3 h-3 text-blue-500 animate-spin" aria-label={label} />;
-      case 'background':
-        return (
-          <Loader2
-            className="w-3 h-3 text-amber-500 animate-spin [animation-duration:2.5s]"
-            aria-label={label}
-          />
-        );
-      case 'approval':
-        return <Hand className="w-3.5 h-3.5 text-amber-500" aria-label={label} />;
-      case 'turnEnded':
-        return activity.unread ? (
-          <div className="w-2 h-2 bg-amber-500 rounded-full" aria-label={label} />
-        ) : (
-          <div className="w-2 h-2 rounded-full border border-amber-500/70" aria-label={label} />
-        );
-      case 'stalled':
-      case 'exited':
-        return <AlertTriangle className="w-3.5 h-3.5 text-red-500" aria-label={label} />;
-      case 'failed':
-      case 'failing':
-        return <AlertCircle className="w-3.5 h-3.5 text-red-500" aria-label={label} />;
-      case 'none':
-        return null;
-    }
-  })();
+    const marker = (() => {
+      if (showsSnoozed(activity, snoozed)) {
+        return <BellOff className="w-3 h-3 text-text-tertiary" aria-label={label} />;
+      }
+      switch (activity.reason) {
+        case 'turn':
+          return <Loader2 className="w-3 h-3 text-blue-500 animate-spin" aria-label={label} />;
+        case 'background':
+          return (
+            <Loader2
+              className="w-3 h-3 text-amber-500 animate-spin [animation-duration:2.5s]"
+              aria-label={label}
+            />
+          );
+        case 'approval':
+          return <Hand className="w-3.5 h-3.5 text-amber-500" aria-label={label} />;
+        case 'turnEnded':
+          return activity.unread ? (
+            <div className="w-2 h-2 bg-amber-500 rounded-full" aria-label={label} />
+          ) : (
+            <div className="w-2 h-2 rounded-full border border-amber-500/70" aria-label={label} />
+          );
+        case 'stalled':
+        case 'exited':
+          return <AlertTriangle className="w-3.5 h-3.5 text-red-500" aria-label={label} />;
+        case 'failed':
+        case 'failing':
+          return <AlertCircle className="w-3.5 h-3.5 text-red-500" aria-label={label} />;
+        case 'none':
+          return null;
+      }
+    })();
 
-  if (!marker) return null;
-  return (
-    <div className="flex items-center gap-1" data-session-state={activity.state}>
-      {marker}
-    </div>
-  );
-});
+    if (!marker) return null;
+    return (
+      <div className="flex items-center gap-1" data-session-state={activity.state}>
+        {marker}
+      </div>
+    );
+  }
+);
 
 SessionIndicators.displayName = 'SessionIndicators';

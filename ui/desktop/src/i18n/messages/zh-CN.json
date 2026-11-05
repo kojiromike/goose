@@ -2546,6 +2546,12 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "会话操作"
   },
+  "navigationPanel.snooze": {
+    "defaultMessage": "暂停提醒，直到有新动态"
+  },
+  "navigationPanel.unsnooze": {
+    "defaultMessage": "恢复提醒"
+  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "未命名会话"
   },
@@ -3983,6 +3989,9 @@
   "sessionIndicators.needsApproval": {
     "defaultMessage": "需要你批准"
   },
+  "sessionIndicators.snoozed": {
+    "defaultMessage": "已暂停提醒，直到有新动态"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "卡住：已 {minutes, plural, one {# 分钟没有进展} other {# 分钟没有进展}}"
   },
@@ -4002,7 +4011,7 @@
     "defaultMessage": "{count, plural, =0 {正在后台工作} one {正在后台工作（# 个后台命令）} other {正在后台工作（# 个后台命令）}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ 移动 · ↵ 打开 · esc 关闭"
+    "defaultMessage": "↑↓ 移动 · ↵ 打开 · {snoozeKey} 暂停提醒 · esc 关闭"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "没有匹配的聊天"

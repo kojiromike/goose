@@ -2546,6 +2546,12 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "工作階段動作"
   },
+  "navigationPanel.snooze": {
+    "defaultMessage": "暫停提醒，直到有新動態"
+  },
+  "navigationPanel.unsnooze": {
+    "defaultMessage": "恢復提醒"
+  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "未命名工作階段"
   },
@@ -3983,6 +3989,9 @@
   "sessionIndicators.needsApproval": {
     "defaultMessage": "需要你核准"
   },
+  "sessionIndicators.snoozed": {
+    "defaultMessage": "已暫停提醒，直到有新動態"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "卡住：已 {minutes, plural, one {# 分鐘沒有進展} other {# 分鐘沒有進展}}"
   },
@@ -4002,7 +4011,7 @@
     "defaultMessage": "{count, plural, =0 {正在背景工作} one {正在背景工作（# 個背景命令）} other {正在背景工作（# 個背景命令）}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ 移動 · ↵ 開啟 · esc 關閉"
+    "defaultMessage": "↑↓ 移動 · ↵ 開啟 · {snoozeKey} 暫停提醒 · esc 關閉"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "沒有符合的聊天"

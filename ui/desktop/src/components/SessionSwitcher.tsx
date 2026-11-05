@@ -26,7 +26,7 @@ const i18n = defineMessages({
   },
   hint: {
     id: 'sessionSwitcher.hint',
-    defaultMessage: '↑↓ to move · ↵ to open · esc to close',
+    defaultMessage: '↑↓ to move · ↵ to open · {snoozeKey} to snooze · esc to close',
   },
 });
 
@@ -36,13 +36,18 @@ interface SessionSwitcherProps {
   /** Already ranked; the first entry is the default choice. */
   entries: readonly SwitcherEntry[];
   onSelect: (sessionId: string) => void;
+  /** Snooze the session, or wake it if it is snoozed. */
+  onToggleSnooze: (sessionId: string) => void;
 }
+
+const isMac = () => window.electron.platform === 'darwin';
 
 export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
   open,
   onOpenChange,
   entries,
   onSelect,
+  onToggleSnooze,
 }) => {
   const intl = useIntl();
   const [query, setQuery] = useState('');
@@ -88,6 +93,14 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
       event.preventDefault();
       const match = matches[selectedIndex];
       if (match) choose(match.session.id);
+    } else if (event.key.toLowerCase() === 's' && (isMac() ? event.metaKey : event.ctrlKey)) {
+      event.preventDefault();
+      const match = matches[selectedIndex];
+      if (!match) return;
+      // The toggled row moves to its new rank; keep the cursor where it was.
+      const neighbor = matches[selectedIndex + 1] ?? matches[selectedIndex - 1];
+      if (neighbor) setSelectedId(neighbor.session.id);
+      onToggleSnooze(match.session.id);
     }
   };
 
@@ -128,7 +141,7 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
                 {intl.formatMessage(i18n.noMatches)}
               </div>
             ) : (
-              matches.map(({ session, activity }, index) => (
+              matches.map(({ session, activity, snoozed = false }, index) => (
                 <div
                   key={session.id}
                   data-index={index}
@@ -150,19 +163,19 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
                     </span>
                   )}
                   <span className="ml-auto flex flex-shrink-0 items-center gap-2">
-                    {activity.state !== 'idle' && (
+                    {(activity.state !== 'idle' || snoozed) && (
                       <span className="text-xs text-text-secondary">
-                        {describeSessionActivity(intl, activity, now)}
+                        {describeSessionActivity(intl, activity, now, snoozed)}
                       </span>
                     )}
-                    <SessionIndicators activity={activity} now={now} />
+                    <SessionIndicators activity={activity} now={now} snoozed={snoozed} />
                   </span>
                 </div>
               ))
             )}
           </div>
           <div className="border-t border-border-secondary px-3 py-1.5 text-xs text-text-tertiary">
-            {intl.formatMessage(i18n.hint)}
+            {intl.formatMessage(i18n.hint, { snoozeKey: isMac() ? '⌘S' : 'Ctrl+S' })}
           </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

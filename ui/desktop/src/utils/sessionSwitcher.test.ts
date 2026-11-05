@@ -68,6 +68,39 @@ describe('rankSwitcherEntries', () => {
     expect(ids(rankSwitcherEntries(entries, 'a', ['a', 'c', 'b']))).toEqual(['c', 'b']);
   });
 
+  it('ranks a working session with unread output below every session waiting for the user', () => {
+    const entries = [
+      entry('busy', 0, { state: 'working', reason: 'turn', unread: true }),
+      entry('background', 1, { state: 'working', reason: 'background', unread: true }),
+      entry('read', 30, { state: 'waiting', reason: 'turnEnded' }),
+    ];
+    expect(ids(rankSwitcherEntries(entries, undefined, []))).toEqual([
+      'read',
+      'busy',
+      'background',
+    ]);
+  });
+
+  it('ranks snoozed sessions below working ones, unless they need approval', () => {
+    const entries = [
+      {
+        ...entry('snoozed', 0, { state: 'waiting', reason: 'turnEnded', unread: true }),
+        snoozed: true,
+      },
+      { ...entry('snoozedStuck', 0, { state: 'stuck', reason: 'failed' }), snoozed: true },
+      { ...entry('snoozedApproval', 40, { state: 'waiting', reason: 'approval' }), snoozed: true },
+      entry('working', 10, { state: 'working', reason: 'turn' }),
+      entry('read', 30, { state: 'waiting', reason: 'turnEnded' }),
+    ];
+    expect(ids(rankSwitcherEntries(entries, undefined, []))).toEqual([
+      'snoozedApproval',
+      'read',
+      'working',
+      'snoozed',
+      'snoozedStuck',
+    ]);
+  });
+
   it('leaves out the active session', () => {
     const entries = [entry('a', 0, { unread: true }), entry('b', 10)];
     expect(ids(rankSwitcherEntries(entries, 'a', []))).toEqual(['b']);

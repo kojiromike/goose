@@ -2546,6 +2546,12 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "सत्र क्रियाएँ"
   },
+  "navigationPanel.snooze": {
+    "defaultMessage": "नई गतिविधि तक स्नूज़ करें"
+  },
+  "navigationPanel.unsnooze": {
+    "defaultMessage": "स्नूज़ हटाएँ"
+  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "शीर्षकहीन सत्र"
   },
@@ -3983,6 +3989,9 @@
   "sessionIndicators.needsApproval": {
     "defaultMessage": "आपकी स्वीकृति चाहिए"
   },
+  "sessionIndicators.snoozed": {
+    "defaultMessage": "नई गतिविधि तक स्नूज़ किया गया"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "अटका हुआ: कोई प्रगति नहीं, {minutes, plural, one {# मिनट से} other {# मिनट से}}"
   },
@@ -4002,7 +4011,7 @@
     "defaultMessage": "{count, plural, =0 {पृष्ठभूमि में काम कर रहा है} one {पृष्ठभूमि में काम कर रहा है (# पृष्ठभूमि कमांड)} other {पृष्ठभूमि में काम कर रहा है (# पृष्ठभूमि कमांड)}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ से चलें · ↵ से खोलें · esc से बंद करें"
+    "defaultMessage": "↑↓ से चलें · ↵ से खोलें · {snoozeKey} से स्नूज़ करें · esc से बंद करें"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "कोई मेल खाती चैट नहीं"

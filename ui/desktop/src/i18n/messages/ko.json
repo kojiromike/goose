@@ -2546,6 +2546,12 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "세션 작업"
   },
+  "navigationPanel.snooze": {
+    "defaultMessage": "새 활동이 있을 때까지 다시 알림"
+  },
+  "navigationPanel.unsnooze": {
+    "defaultMessage": "다시 알림 해제"
+  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "제목 없는 세션"
   },
@@ -3983,6 +3989,9 @@
   "sessionIndicators.needsApproval": {
     "defaultMessage": "승인이 필요합니다"
   },
+  "sessionIndicators.snoozed": {
+    "defaultMessage": "새 활동이 있을 때까지 다시 알림 설정됨"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "멈춤: {minutes, plural, one {# 분 동안 진행 없음} other {# 분 동안 진행 없음}}"
   },
@@ -4002,7 +4011,7 @@
     "defaultMessage": "{count, plural, =0 {백그라운드에서 작업 중} one {백그라운드에서 작업 중(백그라운드 명령 #개)} other {백그라운드에서 작업 중(백그라운드 명령 #개)}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ 이동 · ↵ 열기 · esc 닫기"
+    "defaultMessage": "↑↓ 이동 · ↵ 열기 · {snoozeKey} 다시 알림 · esc 닫기"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "일치하는 채팅이 없습니다"

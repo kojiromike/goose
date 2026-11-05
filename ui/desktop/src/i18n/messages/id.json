@@ -2546,6 +2546,12 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "Tindakan sesi"
   },
+  "navigationPanel.snooze": {
+    "defaultMessage": "Tunda hingga ada aktivitas baru"
+  },
+  "navigationPanel.unsnooze": {
+    "defaultMessage": "Batalkan tunda"
+  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Sesi tanpa judul"
   },
@@ -3983,6 +3989,9 @@
   "sessionIndicators.needsApproval": {
     "defaultMessage": "Menunggu persetujuan Anda"
   },
+  "sessionIndicators.snoozed": {
+    "defaultMessage": "Ditunda hingga ada aktivitas baru"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "Macet: tidak ada kemajuan selama {minutes, plural, one {# menit} other {# menit}}"
   },
@@ -4002,7 +4011,7 @@
     "defaultMessage": "{count, plural, =0 {Bekerja di latar belakang} one {Bekerja di latar belakang (# perintah latar belakang)} other {Bekerja di latar belakang (# perintah latar belakang)}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ untuk berpindah · ↵ untuk membuka · esc untuk menutup"
+    "defaultMessage": "↑↓ untuk berpindah · ↵ untuk membuka · {snoozeKey} untuk menunda · esc untuk menutup"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "Tidak ada obrolan yang cocok"

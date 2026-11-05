@@ -2546,6 +2546,12 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "Действия с сеансом"
   },
+  "navigationPanel.snooze": {
+    "defaultMessage": "Отложить до новой активности"
+  },
+  "navigationPanel.unsnooze": {
+    "defaultMessage": "Не откладывать"
+  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Безымянный сеанс"
   },
@@ -3983,6 +3989,9 @@
   "sessionIndicators.needsApproval": {
     "defaultMessage": "Нужно ваше одобрение"
   },
+  "sessionIndicators.snoozed": {
+    "defaultMessage": "Отложено до новой активности"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "Зависла: нет прогресса {minutes, plural, one {# минуту} few {# минуты} many {# минут} other {# минуты}}"
   },
@@ -4002,7 +4011,7 @@
     "defaultMessage": "{count, plural, =0 {Работает в фоне} one {Работает в фоне (# фоновая команда)} other {Работает в фоне (фоновых команд: #)}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ — перемещение · ↵ — открыть · esc — закрыть"
+    "defaultMessage": "↑↓ — перемещение · ↵ — открыть · {snoozeKey} — отложить · esc — закрыть"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "Подходящих чатов нет"

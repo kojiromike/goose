@@ -2546,6 +2546,12 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "セッションの操作"
   },
+  "navigationPanel.snooze": {
+    "defaultMessage": "新しいアクティビティまでスヌーズ"
+  },
+  "navigationPanel.unsnooze": {
+    "defaultMessage": "スヌーズを解除"
+  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "無題のセッション"
   },
@@ -3983,6 +3989,9 @@
   "sessionIndicators.needsApproval": {
     "defaultMessage": "承認が必要です"
   },
+  "sessionIndicators.snoozed": {
+    "defaultMessage": "新しいアクティビティまでスヌーズ中"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "停止中: {minutes, plural, one {# 分間進捗なし} other {# 分間進捗なし}}"
   },
@@ -4002,7 +4011,7 @@
     "defaultMessage": "{count, plural, =0 {バックグラウンドで作業中} one {バックグラウンドで作業中（バックグラウンドコマンド #件）} other {バックグラウンドで作業中（バックグラウンドコマンド #件）}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ で移動 · ↵ で開く · esc で閉じる"
+    "defaultMessage": "↑↓ で移動 · ↵ で開く · {snoozeKey} でスヌーズ · esc で閉じる"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "一致するチャットはありません"

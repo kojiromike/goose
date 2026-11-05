@@ -2546,6 +2546,12 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "Tác vụ phiên"
   },
+  "navigationPanel.snooze": {
+    "defaultMessage": "Tạm ẩn cho đến khi có hoạt động mới"
+  },
+  "navigationPanel.unsnooze": {
+    "defaultMessage": "Bỏ tạm ẩn"
+  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Phiên chưa đặt tên"
   },
@@ -3983,6 +3989,9 @@
   "sessionIndicators.needsApproval": {
     "defaultMessage": "Cần bạn phê duyệt"
   },
+  "sessionIndicators.snoozed": {
+    "defaultMessage": "Đã tạm ẩn cho đến khi có hoạt động mới"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "Bị kẹt: không có tiến triển trong {minutes, plural, one {# phút} other {# phút}}"
   },
@@ -4002,7 +4011,7 @@
     "defaultMessage": "{count, plural, =0 {Đang làm việc trong nền} one {Đang làm việc trong nền (# lệnh chạy nền)} other {Đang làm việc trong nền (# lệnh chạy nền)}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ để di chuyển · ↵ để mở · esc để đóng"
+    "defaultMessage": "↑↓ để di chuyển · ↵ để mở · {snoozeKey} để tạm ẩn · esc để đóng"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "Không có cuộc trò chuyện phù hợp"

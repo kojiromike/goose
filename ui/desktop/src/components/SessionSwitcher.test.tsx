@@ -26,6 +26,7 @@ function renderSwitcher(
 ) {
   const onSelect = vi.fn();
   const onOpenChange = vi.fn();
+  const onToggleSnooze = vi.fn();
   const view = render(
     <IntlTestWrapper>
       <SessionSwitcher
@@ -33,11 +34,18 @@ function renderSwitcher(
         onOpenChange={onOpenChange}
         entries={entries}
         onSelect={onSelect}
+        onToggleSnooze={onToggleSnooze}
         {...props}
       />
     </IntlTestWrapper>
   );
-  return { ...view, onSelect, onOpenChange, input: screen.getByRole('textbox') };
+  return {
+    ...view,
+    onSelect,
+    onOpenChange,
+    onToggleSnooze,
+    input: screen.getByRole('textbox'),
+  };
 }
 
 describe('SessionSwitcher', () => {
@@ -69,7 +77,7 @@ describe('SessionSwitcher', () => {
   });
 
   it('keeps the selected session when the list reorders while open', () => {
-    const { input, onSelect, rerender, onOpenChange } = renderSwitcher();
+    const { input, onSelect, rerender, onOpenChange, onToggleSnooze } = renderSwitcher();
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     rerender(
       <IntlTestWrapper>
@@ -78,9 +86,31 @@ describe('SessionSwitcher', () => {
           onOpenChange={onOpenChange}
           entries={[entries[2], entries[0], entries[1]]}
           onSelect={onSelect}
+          onToggleSnooze={onToggleSnooze}
         />
       </IntlTestWrapper>
     );
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onSelect).toHaveBeenCalledWith('b');
+  });
+
+  it('snoozes the selected session on ⌘S and keeps the cursor on the next row', () => {
+    const { input, onSelect, onToggleSnooze, rerender, onOpenChange } = renderSwitcher();
+    fireEvent.keyDown(input, { key: 's', metaKey: true });
+    expect(onToggleSnooze).toHaveBeenCalledWith('a');
+    expect(onOpenChange).not.toHaveBeenCalled();
+    rerender(
+      <IntlTestWrapper>
+        <SessionSwitcher
+          open
+          onOpenChange={onOpenChange}
+          entries={[entries[1], entries[2], { ...entries[0], snoozed: true }]}
+          onSelect={onSelect}
+          onToggleSnooze={onToggleSnooze}
+        />
+      </IntlTestWrapper>
+    );
+    expect(screen.getByText('Snoozed until there is new activity')).toBeInTheDocument();
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(onSelect).toHaveBeenCalledWith('b');
   });

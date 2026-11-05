@@ -2552,6 +2552,12 @@
   "navigationPanel.sessionActions": {
     "defaultMessage": "Session actions"
   },
+  "navigationPanel.snooze": {
+    "defaultMessage": "Snooze until new activity"
+  },
+  "navigationPanel.unsnooze": {
+    "defaultMessage": "Unsnooze"
+  },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Untitled session"
   },
@@ -3989,6 +3995,9 @@
   "sessionIndicators.needsApproval": {
     "defaultMessage": "Needs your approval"
   },
+  "sessionIndicators.snoozed": {
+    "defaultMessage": "Snoozed until there is new activity"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "{minutes,plural,one{Stuck: no progress for # minute} other{Stuck: no progress for # minutes}}"
   },
@@ -4008,7 +4017,7 @@
     "defaultMessage": "{count,plural,=0{Working in the background} one{Working in the background (# background command)} other{Working in the background (# background commands)}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ to move · ↵ to open · esc to close"
+    "defaultMessage": "↑↓ to move · ↵ to open · {snoozeKey} to snooze · esc to close"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "No matching chats"

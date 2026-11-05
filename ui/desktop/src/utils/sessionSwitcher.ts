@@ -4,22 +4,27 @@ import type { SessionActivity } from './sessionActivity';
 export interface SwitcherEntry {
   session: SessionListItem;
   activity: SessionActivity;
+  /** The user snoozed it, and nothing has happened in it since. */
+  snoozed?: boolean;
 }
 
 const WORKING_TIER = 4;
+const SNOOZED_TIER = 5;
 
 /**
  * How urgently a session wants the user, lowest first: an open permission
  * request blocks the agent outright, a stuck session needs a decision, an
  * unread one has news, and an idle one is waiting on the user's next prompt.
- * A session that is still working needs nothing yet.
+ * A session that is still working needs nothing yet, however much unread
+ * output it has, and one the user snoozed is waiting on something else.
  */
-function attentionTier(activity: SessionActivity): number {
+function attentionTier({ activity, snoozed }: SwitcherEntry): number {
   if (activity.reason === 'approval') return 0;
+  if (snoozed) return SNOOZED_TIER;
   if (activity.state === 'stuck') return 1;
+  if (activity.state === 'working') return WORKING_TIER;
   if (activity.unread) return 2;
-  if (activity.state !== 'working') return 3;
-  return WORKING_TIER;
+  return 3;
 }
 
 function activityAt(session: SessionListItem): number {
@@ -29,8 +34,9 @@ function activityAt(session: SessionListItem): number {
 
 /**
  * Order sessions for the switcher so that its first row is the best place to
- * go next: the session that most needs the user. Working sessions come last,
- * the ones the user was in most recently first. `recentlyOpened` lists session
+ * go next: the session that most needs the user. Working sessions come after
+ * every session that needs the user, the ones the user was in most recently
+ * first, and snoozed sessions come last. `recentlyOpened` lists session
  * ids most recent first.
  */
 export function rankSwitcherEntries(
@@ -41,7 +47,7 @@ export function rankSwitcherEntries(
   const openedRank = new Map(recentlyOpened.map((id, index) => [id, index]));
   return entries
     .filter((entry) => entry.session.id !== activeSessionId)
-    .map((entry) => ({ entry, tier: attentionTier(entry.activity) }))
+    .map((entry) => ({ entry, tier: attentionTier(entry) }))
     .sort((a, b) => {
       if (a.tier !== b.tier) return a.tier - b.tier;
       if (a.tier === WORKING_TIER) {
