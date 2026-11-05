@@ -2547,7 +2547,7 @@
     "defaultMessage": "세션 작업"
   },
   "navigationPanel.snooze": {
-    "defaultMessage": "새 활동이 있을 때까지 다시 알림"
+    "defaultMessage": "다시 알림"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "다시 알림 해제"
@@ -3992,6 +3992,9 @@
   "sessionIndicators.snoozed": {
     "defaultMessage": "새 활동이 있을 때까지 다시 알림 설정됨"
   },
+  "sessionIndicators.snoozedUntil": {
+    "defaultMessage": "{time} 또는 새 활동이 있을 때까지 다시 알림 설정됨"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "멈춤: {minutes, plural, one {# 분 동안 진행 없음} other {# 분 동안 진행 없음}}"
   },
@@ -4011,13 +4014,19 @@
     "defaultMessage": "{count, plural, =0 {백그라운드에서 작업 중} one {백그라운드에서 작업 중(백그라운드 명령 #개)} other {백그라운드에서 작업 중(백그라운드 명령 #개)}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ 이동 · ↵ 열기 · {snoozeKey} 다시 알림 · esc 닫기"
+    "defaultMessage": "↑↓ 이동 · ↵ 열기 · {snoozeKey} 다시 알림 ({snoozeUntilKey} 시간 지정) · esc 닫기"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "일치하는 채팅이 없습니다"
   },
   "sessionSwitcher.placeholder": {
     "defaultMessage": "채팅으로 이동…"
+  },
+  "sessionSwitcher.snoozeHint": {
+    "defaultMessage": "↑↓ 이동 · ↵ 다시 알림 · esc 뒤로"
+  },
+  "sessionSwitcher.snoozeTitle": {
+    "defaultMessage": "“{name}” 다시 알림"
   },
   "sessionSwitcher.title": {
     "defaultMessage": "채팅 전환"
@@ -4456,6 +4465,21 @@
   },
   "skillsView.tryAgain": {
     "defaultMessage": "다시 시도"
+  },
+  "snoozeChoices.monday": {
+    "defaultMessage": "월요일까지 ({time})"
+  },
+  "snoozeChoices.oneHour": {
+    "defaultMessage": "1시간 동안 ({time})"
+  },
+  "snoozeChoices.threeHours": {
+    "defaultMessage": "3시간 동안 ({time})"
+  },
+  "snoozeChoices.tomorrow": {
+    "defaultMessage": "내일까지 ({time})"
+  },
+  "snoozeChoices.untilActivity": {
+    "defaultMessage": "새 활동이 있을 때까지"
   },
   "spellcheckToggle.description": {
     "defaultMessage": "채팅 입력창의 맞춤법을 검사합니다. 적용하려면 다시 시작해야 합니다."

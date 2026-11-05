@@ -2547,7 +2547,7 @@
     "defaultMessage": "Acciones de sesión"
   },
   "navigationPanel.snooze": {
-    "defaultMessage": "Posponer hasta que haya actividad"
+    "defaultMessage": "Posponer"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Dejar de posponer"
@@ -3992,6 +3992,9 @@
   "sessionIndicators.snoozed": {
     "defaultMessage": "Pospuesto hasta que haya actividad"
   },
+  "sessionIndicators.snoozedUntil": {
+    "defaultMessage": "Pospuesto hasta {time} o hasta que haya actividad"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "Atascada: sin avances desde hace {minutes, plural, one {# minuto} other {# minutos}}"
   },
@@ -4011,13 +4014,19 @@
     "defaultMessage": "{count, plural, =0 {Trabajando en segundo plano} one {Trabajando en segundo plano (# comando en segundo plano)} other {Trabajando en segundo plano (# comandos en segundo plano)}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ para moverte · ↵ para abrir · {snoozeKey} para posponer · esc para cerrar"
+    "defaultMessage": "↑↓ para moverte · ↵ para abrir · {snoozeKey} para posponer ({snoozeUntilKey} con hora) · esc para cerrar"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "No hay chats que coincidan"
   },
   "sessionSwitcher.placeholder": {
     "defaultMessage": "Ir a un chat…"
+  },
+  "sessionSwitcher.snoozeHint": {
+    "defaultMessage": "↑↓ para moverte · ↵ para posponer · esc para volver"
+  },
+  "sessionSwitcher.snoozeTitle": {
+    "defaultMessage": "Posponer «{name}»"
   },
   "sessionSwitcher.title": {
     "defaultMessage": "Cambiar de chat"
@@ -4456,6 +4465,21 @@
   },
   "skillsView.tryAgain": {
     "defaultMessage": "Intentar de nuevo"
+  },
+  "snoozeChoices.monday": {
+    "defaultMessage": "Hasta el lunes ({time})"
+  },
+  "snoozeChoices.oneHour": {
+    "defaultMessage": "Durante 1 hora ({time})"
+  },
+  "snoozeChoices.threeHours": {
+    "defaultMessage": "Durante 3 horas ({time})"
+  },
+  "snoozeChoices.tomorrow": {
+    "defaultMessage": "Hasta mañana ({time})"
+  },
+  "snoozeChoices.untilActivity": {
+    "defaultMessage": "Hasta que haya actividad"
   },
   "spellcheckToggle.description": {
     "defaultMessage": "Revisa la ortografía en la entrada del chat. Requiere reiniciar para que tenga efecto."

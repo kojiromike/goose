@@ -2553,7 +2553,7 @@
     "defaultMessage": "Session actions"
   },
   "navigationPanel.snooze": {
-    "defaultMessage": "Snooze until new activity"
+    "defaultMessage": "Snooze"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Unsnooze"
@@ -3998,6 +3998,9 @@
   "sessionIndicators.snoozed": {
     "defaultMessage": "Snoozed until there is new activity"
   },
+  "sessionIndicators.snoozedUntil": {
+    "defaultMessage": "Snoozed until {time} or new activity"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "{minutes,plural,one{Stuck: no progress for # minute} other{Stuck: no progress for # minutes}}"
   },
@@ -4017,13 +4020,19 @@
     "defaultMessage": "{count,plural,=0{Working in the background} one{Working in the background (# background command)} other{Working in the background (# background commands)}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ to move · ↵ to open · {snoozeKey} to snooze · esc to close"
+    "defaultMessage": "↑↓ to move · ↵ to open · {snoozeKey} to snooze ({snoozeUntilKey} for a time) · esc to close"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "No matching chats"
   },
   "sessionSwitcher.placeholder": {
     "defaultMessage": "Jump to a chat…"
+  },
+  "sessionSwitcher.snoozeHint": {
+    "defaultMessage": "↑↓ to move · ↵ to snooze · esc to go back"
+  },
+  "sessionSwitcher.snoozeTitle": {
+    "defaultMessage": "Snooze “{name}”"
   },
   "sessionSwitcher.title": {
     "defaultMessage": "Switch chat"
@@ -4462,6 +4471,21 @@
   },
   "skillsView.tryAgain": {
     "defaultMessage": "Try Again"
+  },
+  "snoozeChoices.monday": {
+    "defaultMessage": "Until Monday ({time})"
+  },
+  "snoozeChoices.oneHour": {
+    "defaultMessage": "For 1 hour ({time})"
+  },
+  "snoozeChoices.threeHours": {
+    "defaultMessage": "For 3 hours ({time})"
+  },
+  "snoozeChoices.tomorrow": {
+    "defaultMessage": "Until tomorrow ({time})"
+  },
+  "snoozeChoices.untilActivity": {
+    "defaultMessage": "Until new activity"
   },
   "spellcheckToggle.description": {
     "defaultMessage": "Check spelling in the chat input. Requires restart to take effect."

@@ -1,11 +1,12 @@
 import type { SessionListItem } from '../acp/sessions';
 import type { SessionActivity } from './sessionActivity';
+import type { SessionSnooze } from './sessionSnooze';
 
 export interface SwitcherEntry {
   session: SessionListItem;
   activity: SessionActivity;
-  /** The user snoozed it, and nothing has happened in it since. */
-  snoozed?: boolean;
+  /** Present while the user's snooze holds: no new activity, not yet due. */
+  snooze?: SessionSnooze;
 }
 
 const WORKING_TIER = 4;
@@ -18,9 +19,9 @@ const SNOOZED_TIER = 5;
  * A session that is still working needs nothing yet, however much unread
  * output it has, and one the user snoozed is waiting on something else.
  */
-function attentionTier({ activity, snoozed }: SwitcherEntry): number {
+function attentionTier({ activity, snooze }: SwitcherEntry): number {
   if (activity.reason === 'approval') return 0;
-  if (snoozed) return SNOOZED_TIER;
+  if (snooze) return SNOOZED_TIER;
   if (activity.state === 'stuck') return 1;
   if (activity.state === 'working') return WORKING_TIER;
   if (activity.unread) return 2;

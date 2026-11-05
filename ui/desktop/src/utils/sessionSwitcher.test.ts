@@ -85,10 +85,13 @@ describe('rankSwitcherEntries', () => {
     const entries = [
       {
         ...entry('snoozed', 0, { state: 'waiting', reason: 'turnEnded', unread: true }),
-        snoozed: true,
+        snooze: { at: 0 },
       },
-      { ...entry('snoozedStuck', 0, { state: 'stuck', reason: 'failed' }), snoozed: true },
-      { ...entry('snoozedApproval', 40, { state: 'waiting', reason: 'approval' }), snoozed: true },
+      { ...entry('snoozedStuck', 0, { state: 'stuck', reason: 'failed' }), snooze: { at: 0 } },
+      {
+        ...entry('snoozedApproval', 40, { state: 'waiting', reason: 'approval' }),
+        snooze: { at: 0 },
+      },
       entry('working', 10, { state: 'working', reason: 'turn' }),
       entry('read', 30, { state: 'waiting', reason: 'turnEnded' }),
     ];

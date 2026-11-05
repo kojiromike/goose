@@ -2547,7 +2547,7 @@
     "defaultMessage": "सत्र क्रियाएँ"
   },
   "navigationPanel.snooze": {
-    "defaultMessage": "नई गतिविधि तक स्नूज़ करें"
+    "defaultMessage": "स्नूज़ करें"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "स्नूज़ हटाएँ"
@@ -3992,6 +3992,9 @@
   "sessionIndicators.snoozed": {
     "defaultMessage": "नई गतिविधि तक स्नूज़ किया गया"
   },
+  "sessionIndicators.snoozedUntil": {
+    "defaultMessage": "{time} तक या नई गतिविधि तक स्नूज़ किया गया"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "अटका हुआ: कोई प्रगति नहीं, {minutes, plural, one {# मिनट से} other {# मिनट से}}"
   },
@@ -4011,13 +4014,19 @@
     "defaultMessage": "{count, plural, =0 {पृष्ठभूमि में काम कर रहा है} one {पृष्ठभूमि में काम कर रहा है (# पृष्ठभूमि कमांड)} other {पृष्ठभूमि में काम कर रहा है (# पृष्ठभूमि कमांड)}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ से चलें · ↵ से खोलें · {snoozeKey} से स्नूज़ करें · esc से बंद करें"
+    "defaultMessage": "↑↓ से चलें · ↵ से खोलें · {snoozeKey} से स्नूज़ करें ({snoozeUntilKey} समय के साथ) · esc से बंद करें"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "कोई मेल खाती चैट नहीं"
   },
   "sessionSwitcher.placeholder": {
     "defaultMessage": "किसी चैट पर जाएँ…"
+  },
+  "sessionSwitcher.snoozeHint": {
+    "defaultMessage": "↑↓ से चलें · ↵ से स्नूज़ करें · esc से वापस जाएँ"
+  },
+  "sessionSwitcher.snoozeTitle": {
+    "defaultMessage": "“{name}” को स्नूज़ करें"
   },
   "sessionSwitcher.title": {
     "defaultMessage": "चैट बदलें"
@@ -4456,6 +4465,21 @@
   },
   "skillsView.tryAgain": {
     "defaultMessage": "पुनः प्रयास करें"
+  },
+  "snoozeChoices.monday": {
+    "defaultMessage": "सोमवार तक ({time})"
+  },
+  "snoozeChoices.oneHour": {
+    "defaultMessage": "1 घंटे के लिए ({time})"
+  },
+  "snoozeChoices.threeHours": {
+    "defaultMessage": "3 घंटे के लिए ({time})"
+  },
+  "snoozeChoices.tomorrow": {
+    "defaultMessage": "कल तक ({time})"
+  },
+  "snoozeChoices.untilActivity": {
+    "defaultMessage": "नई गतिविधि तक"
   },
   "spellcheckToggle.description": {
     "defaultMessage": "चैट इनपुट में वर्तनी जांचें. प्रभावी होने के लिए पुनरारंभ की आवश्यकता है।"

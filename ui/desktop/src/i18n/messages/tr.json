@@ -2547,7 +2547,7 @@
     "defaultMessage": "Oturum işlemleri"
   },
   "navigationPanel.snooze": {
-    "defaultMessage": "Yeni etkinliğe kadar ertele"
+    "defaultMessage": "Ertele"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Ertelemeyi kaldır"
@@ -3992,6 +3992,9 @@
   "sessionIndicators.snoozed": {
     "defaultMessage": "Yeni etkinliğe kadar ertelendi"
   },
+  "sessionIndicators.snoozedUntil": {
+    "defaultMessage": "{time} saatine veya yeni etkinliğe kadar ertelendi"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "Takıldı: {minutes, plural, one {# dakikadır ilerleme yok} other {# dakikadır ilerleme yok}}"
   },
@@ -4011,13 +4014,19 @@
     "defaultMessage": "{count, plural, =0 {Arka planda çalışıyor} one {Arka planda çalışıyor (# arka plan komutu)} other {Arka planda çalışıyor (# arka plan komutu)}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ ile gezin · ↵ ile aç · {snoozeKey} ile ertele · esc ile kapat"
+    "defaultMessage": "↑↓ ile gezin · ↵ ile aç · {snoozeKey} ile ertele ({snoozeUntilKey} ile saat seç) · esc ile kapat"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "Eşleşen sohbet yok"
   },
   "sessionSwitcher.placeholder": {
     "defaultMessage": "Bir sohbete atla…"
+  },
+  "sessionSwitcher.snoozeHint": {
+    "defaultMessage": "↑↓ ile gezin · ↵ ile ertele · esc ile geri dön"
+  },
+  "sessionSwitcher.snoozeTitle": {
+    "defaultMessage": "“{name}” sohbetini ertele"
   },
   "sessionSwitcher.title": {
     "defaultMessage": "Sohbet değiştir"
@@ -4456,6 +4465,21 @@
   },
   "skillsView.tryAgain": {
     "defaultMessage": "Tekrar Deneyin"
+  },
+  "snoozeChoices.monday": {
+    "defaultMessage": "Pazartesiye kadar ({time})"
+  },
+  "snoozeChoices.oneHour": {
+    "defaultMessage": "1 saat ({time})"
+  },
+  "snoozeChoices.threeHours": {
+    "defaultMessage": "3 saat ({time})"
+  },
+  "snoozeChoices.tomorrow": {
+    "defaultMessage": "Yarına kadar ({time})"
+  },
+  "snoozeChoices.untilActivity": {
+    "defaultMessage": "Yeni etkinliğe kadar"
   },
   "spellcheckToggle.description": {
     "defaultMessage": "Sohbet girişinde yazımı kontrol edin. Etkili olması için yeniden başlatma gerekir."

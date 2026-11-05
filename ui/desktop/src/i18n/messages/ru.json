@@ -2547,7 +2547,7 @@
     "defaultMessage": "Действия с сеансом"
   },
   "navigationPanel.snooze": {
-    "defaultMessage": "Отложить до новой активности"
+    "defaultMessage": "Отложить"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Не откладывать"
@@ -3992,6 +3992,9 @@
   "sessionIndicators.snoozed": {
     "defaultMessage": "Отложено до новой активности"
   },
+  "sessionIndicators.snoozedUntil": {
+    "defaultMessage": "Отложено до {time} или новой активности"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "Зависла: нет прогресса {minutes, plural, one {# минуту} few {# минуты} many {# минут} other {# минуты}}"
   },
@@ -4011,13 +4014,19 @@
     "defaultMessage": "{count, plural, =0 {Работает в фоне} one {Работает в фоне (# фоновая команда)} other {Работает в фоне (фоновых команд: #)}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ — перемещение · ↵ — открыть · {snoozeKey} — отложить · esc — закрыть"
+    "defaultMessage": "↑↓ — перемещение · ↵ — открыть · {snoozeKey} — отложить ({snoozeUntilKey} — на время) · esc — закрыть"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "Подходящих чатов нет"
   },
   "sessionSwitcher.placeholder": {
     "defaultMessage": "Перейти к чату…"
+  },
+  "sessionSwitcher.snoozeHint": {
+    "defaultMessage": "↑↓ — перемещение · ↵ — отложить · esc — назад"
+  },
+  "sessionSwitcher.snoozeTitle": {
+    "defaultMessage": "Отложить «{name}»"
   },
   "sessionSwitcher.title": {
     "defaultMessage": "Переключить чат"
@@ -4456,6 +4465,21 @@
   },
   "skillsView.tryAgain": {
     "defaultMessage": "Повторить попытку"
+  },
+  "snoozeChoices.monday": {
+    "defaultMessage": "До понедельника ({time})"
+  },
+  "snoozeChoices.oneHour": {
+    "defaultMessage": "На 1 час ({time})"
+  },
+  "snoozeChoices.threeHours": {
+    "defaultMessage": "На 3 часа ({time})"
+  },
+  "snoozeChoices.tomorrow": {
+    "defaultMessage": "До завтра ({time})"
+  },
+  "snoozeChoices.untilActivity": {
+    "defaultMessage": "До новой активности"
   },
   "spellcheckToggle.description": {
     "defaultMessage": "Проверять орфографию в поле ввода чата. Для применения требуется перезапуск."

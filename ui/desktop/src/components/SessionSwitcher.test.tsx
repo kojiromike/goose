@@ -27,6 +27,7 @@ function renderSwitcher(
   const onSelect = vi.fn();
   const onOpenChange = vi.fn();
   const onToggleSnooze = vi.fn();
+  const onSnooze = vi.fn();
   const view = render(
     <IntlTestWrapper>
       <SessionSwitcher
@@ -35,6 +36,7 @@ function renderSwitcher(
         entries={entries}
         onSelect={onSelect}
         onToggleSnooze={onToggleSnooze}
+        onSnooze={onSnooze}
         {...props}
       />
     </IntlTestWrapper>
@@ -44,6 +46,7 @@ function renderSwitcher(
     onSelect,
     onOpenChange,
     onToggleSnooze,
+    onSnooze,
     input: screen.getByRole('textbox'),
   };
 }
@@ -87,6 +90,7 @@ describe('SessionSwitcher', () => {
           entries={[entries[2], entries[0], entries[1]]}
           onSelect={onSelect}
           onToggleSnooze={onToggleSnooze}
+          onSnooze={vi.fn()}
         />
       </IntlTestWrapper>
     );
@@ -104,15 +108,35 @@ describe('SessionSwitcher', () => {
         <SessionSwitcher
           open
           onOpenChange={onOpenChange}
-          entries={[entries[1], entries[2], { ...entries[0], snoozed: true }]}
+          entries={[entries[1], entries[2], { ...entries[0], snooze: { at: 0 } }]}
           onSelect={onSelect}
           onToggleSnooze={onToggleSnooze}
+          onSnooze={vi.fn()}
         />
       </IntlTestWrapper>
     );
     expect(screen.getByText('Snoozed until there is new activity')).toBeInTheDocument();
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(onSelect).toHaveBeenCalledWith('b');
+  });
+
+  it('picks a wake time on ⌘⇧S, and esc backs out without closing', () => {
+    const { input, onSnooze, onSelect, onOpenChange } = renderSwitcher();
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'S', metaKey: true, shiftKey: true });
+    expect(screen.getByText('Snooze “Release notes”')).toBeInTheDocument();
+    expect(screen.getByText('Until new activity')).toBeInTheDocument();
+
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.queryByText('Until new activity')).not.toBeInTheDocument();
+
+    fireEvent.keyDown(input, { key: 'S', metaKey: true, shiftKey: true });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onSnooze).toHaveBeenCalledWith('b', expect.any(Number));
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(screen.queryByText('Until new activity')).not.toBeInTheDocument();
   });
 
   it('says so when nothing matches', () => {

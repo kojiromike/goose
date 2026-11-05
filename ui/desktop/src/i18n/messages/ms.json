@@ -2547,7 +2547,7 @@
     "defaultMessage": "Tindakan sesi"
   },
   "navigationPanel.snooze": {
-    "defaultMessage": "Tunda sehingga ada aktiviti baharu"
+    "defaultMessage": "Tunda"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Batalkan tunda"
@@ -3992,6 +3992,9 @@
   "sessionIndicators.snoozed": {
     "defaultMessage": "Ditunda sehingga ada aktiviti baharu"
   },
+  "sessionIndicators.snoozedUntil": {
+    "defaultMessage": "Ditunda sehingga {time} atau ada aktiviti baharu"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "Tersekat: tiada kemajuan selama {minutes, plural, one {# minit} other {# minit}}"
   },
@@ -4011,13 +4014,19 @@
     "defaultMessage": "{count, plural, =0 {Bekerja di latar belakang} one {Bekerja di latar belakang (# arahan latar belakang)} other {Bekerja di latar belakang (# arahan latar belakang)}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ untuk bergerak · ↵ untuk membuka · {snoozeKey} untuk menunda · esc untuk menutup"
+    "defaultMessage": "↑↓ untuk bergerak · ↵ untuk membuka · {snoozeKey} untuk menunda ({snoozeUntilKey} dengan masa) · esc untuk menutup"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "Tiada sembang yang sepadan"
   },
   "sessionSwitcher.placeholder": {
     "defaultMessage": "Lompat ke sembang…"
+  },
+  "sessionSwitcher.snoozeHint": {
+    "defaultMessage": "↑↓ untuk bergerak · ↵ untuk menunda · esc untuk kembali"
+  },
+  "sessionSwitcher.snoozeTitle": {
+    "defaultMessage": "Tunda “{name}”"
   },
   "sessionSwitcher.title": {
     "defaultMessage": "Tukar sembang"
@@ -4456,6 +4465,21 @@
   },
   "skillsView.tryAgain": {
     "defaultMessage": "Cuba Lagi"
+  },
+  "snoozeChoices.monday": {
+    "defaultMessage": "Sehingga Isnin ({time})"
+  },
+  "snoozeChoices.oneHour": {
+    "defaultMessage": "Selama 1 jam ({time})"
+  },
+  "snoozeChoices.threeHours": {
+    "defaultMessage": "Selama 3 jam ({time})"
+  },
+  "snoozeChoices.tomorrow": {
+    "defaultMessage": "Sehingga esok ({time})"
+  },
+  "snoozeChoices.untilActivity": {
+    "defaultMessage": "Sehingga ada aktiviti baharu"
   },
   "spellcheckToggle.description": {
     "defaultMessage": "Semak ejaan dalam input sembang. Memerlukan mula semula untuk berkuat kuasa."

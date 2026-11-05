@@ -2547,7 +2547,7 @@
     "defaultMessage": "Sitzungsaktionen"
   },
   "navigationPanel.snooze": {
-    "defaultMessage": "Schlummern bis zu neuer Aktivität"
+    "defaultMessage": "Schlummern"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Schlummern beenden"
@@ -3992,6 +3992,9 @@
   "sessionIndicators.snoozed": {
     "defaultMessage": "Schlummert bis zu neuer Aktivität"
   },
+  "sessionIndicators.snoozedUntil": {
+    "defaultMessage": "Schlummert bis {time} oder zu neuer Aktivität"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "Hängt: kein Fortschritt seit {minutes, plural, one {# Minute} other {# Minuten}}"
   },
@@ -4011,13 +4014,19 @@
     "defaultMessage": "{count, plural, =0 {Arbeitet im Hintergrund} one {Arbeitet im Hintergrund (# Hintergrundbefehl)} other {Arbeitet im Hintergrund (# Hintergrundbefehle)}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ bewegen · ↵ öffnen · {snoozeKey} schlummern · Esc schließen"
+    "defaultMessage": "↑↓ bewegen · ↵ öffnen · {snoozeKey} schlummern ({snoozeUntilKey} mit Zeit) · Esc schließen"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "Keine passenden Chats"
   },
   "sessionSwitcher.placeholder": {
     "defaultMessage": "Zu einem Chat springen…"
+  },
+  "sessionSwitcher.snoozeHint": {
+    "defaultMessage": "↑↓ bewegen · ↵ schlummern · Esc zurück"
+  },
+  "sessionSwitcher.snoozeTitle": {
+    "defaultMessage": "„{name}“ schlummern"
   },
   "sessionSwitcher.title": {
     "defaultMessage": "Chat wechseln"
@@ -4456,6 +4465,21 @@
   },
   "skillsView.tryAgain": {
     "defaultMessage": "Erneut versuchen"
+  },
+  "snoozeChoices.monday": {
+    "defaultMessage": "Bis Montag ({time})"
+  },
+  "snoozeChoices.oneHour": {
+    "defaultMessage": "1 Stunde ({time})"
+  },
+  "snoozeChoices.threeHours": {
+    "defaultMessage": "3 Stunden ({time})"
+  },
+  "snoozeChoices.tomorrow": {
+    "defaultMessage": "Bis morgen ({time})"
+  },
+  "snoozeChoices.untilActivity": {
+    "defaultMessage": "Bis zu neuer Aktivität"
   },
   "spellcheckToggle.description": {
     "defaultMessage": "Rechtschreibung in der Chat-Eingabe prüfen. Erfordert einen Neustart, um wirksam zu werden."

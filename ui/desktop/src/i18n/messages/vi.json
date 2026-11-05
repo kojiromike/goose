@@ -2547,7 +2547,7 @@
     "defaultMessage": "Tác vụ phiên"
   },
   "navigationPanel.snooze": {
-    "defaultMessage": "Tạm ẩn cho đến khi có hoạt động mới"
+    "defaultMessage": "Tạm ẩn"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Bỏ tạm ẩn"
@@ -3992,6 +3992,9 @@
   "sessionIndicators.snoozed": {
     "defaultMessage": "Đã tạm ẩn cho đến khi có hoạt động mới"
   },
+  "sessionIndicators.snoozedUntil": {
+    "defaultMessage": "Đã tạm ẩn đến {time} hoặc khi có hoạt động mới"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "Bị kẹt: không có tiến triển trong {minutes, plural, one {# phút} other {# phút}}"
   },
@@ -4011,13 +4014,19 @@
     "defaultMessage": "{count, plural, =0 {Đang làm việc trong nền} one {Đang làm việc trong nền (# lệnh chạy nền)} other {Đang làm việc trong nền (# lệnh chạy nền)}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ để di chuyển · ↵ để mở · {snoozeKey} để tạm ẩn · esc để đóng"
+    "defaultMessage": "↑↓ để di chuyển · ↵ để mở · {snoozeKey} để tạm ẩn ({snoozeUntilKey} để chọn giờ) · esc để đóng"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "Không có cuộc trò chuyện phù hợp"
   },
   "sessionSwitcher.placeholder": {
     "defaultMessage": "Chuyển đến cuộc trò chuyện…"
+  },
+  "sessionSwitcher.snoozeHint": {
+    "defaultMessage": "↑↓ để di chuyển · ↵ để tạm ẩn · esc để quay lại"
+  },
+  "sessionSwitcher.snoozeTitle": {
+    "defaultMessage": "Tạm ẩn “{name}”"
   },
   "sessionSwitcher.title": {
     "defaultMessage": "Chuyển cuộc trò chuyện"
@@ -4456,6 +4465,21 @@
   },
   "skillsView.tryAgain": {
     "defaultMessage": "Thử lại"
+  },
+  "snoozeChoices.monday": {
+    "defaultMessage": "Đến thứ Hai ({time})"
+  },
+  "snoozeChoices.oneHour": {
+    "defaultMessage": "Trong 1 giờ ({time})"
+  },
+  "snoozeChoices.threeHours": {
+    "defaultMessage": "Trong 3 giờ ({time})"
+  },
+  "snoozeChoices.tomorrow": {
+    "defaultMessage": "Đến ngày mai ({time})"
+  },
+  "snoozeChoices.untilActivity": {
+    "defaultMessage": "Cho đến khi có hoạt động mới"
   },
   "spellcheckToggle.description": {
     "defaultMessage": "Kiểm tra chính tả trong ô nhập trò chuyện. Cần khởi động lại để có hiệu lực."

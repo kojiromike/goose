@@ -2547,7 +2547,7 @@
     "defaultMessage": "工作階段動作"
   },
   "navigationPanel.snooze": {
-    "defaultMessage": "暫停提醒，直到有新動態"
+    "defaultMessage": "暫停提醒"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "恢復提醒"
@@ -3992,6 +3992,9 @@
   "sessionIndicators.snoozed": {
     "defaultMessage": "已暫停提醒，直到有新動態"
   },
+  "sessionIndicators.snoozedUntil": {
+    "defaultMessage": "已暫停提醒，直到 {time} 或有新動態"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "卡住：已 {minutes, plural, one {# 分鐘沒有進展} other {# 分鐘沒有進展}}"
   },
@@ -4011,13 +4014,19 @@
     "defaultMessage": "{count, plural, =0 {正在背景工作} one {正在背景工作（# 個背景命令）} other {正在背景工作（# 個背景命令）}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ 移動 · ↵ 開啟 · {snoozeKey} 暫停提醒 · esc 關閉"
+    "defaultMessage": "↑↓ 移動 · ↵ 開啟 · {snoozeKey} 暫停提醒（{snoozeUntilKey} 指定時間） · esc 關閉"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "沒有符合的聊天"
   },
   "sessionSwitcher.placeholder": {
     "defaultMessage": "跳至聊天…"
+  },
+  "sessionSwitcher.snoozeHint": {
+    "defaultMessage": "↑↓ 移動 · ↵ 暫停提醒 · esc 返回"
+  },
+  "sessionSwitcher.snoozeTitle": {
+    "defaultMessage": "暫停提醒「{name}」"
   },
   "sessionSwitcher.title": {
     "defaultMessage": "切換聊天"
@@ -4456,6 +4465,21 @@
   },
   "skillsView.tryAgain": {
     "defaultMessage": "重試"
+  },
+  "snoozeChoices.monday": {
+    "defaultMessage": "直到週一（{time}）"
+  },
+  "snoozeChoices.oneHour": {
+    "defaultMessage": "1 小時（{time}）"
+  },
+  "snoozeChoices.threeHours": {
+    "defaultMessage": "3 小時（{time}）"
+  },
+  "snoozeChoices.tomorrow": {
+    "defaultMessage": "直到明天（{time}）"
+  },
+  "snoozeChoices.untilActivity": {
+    "defaultMessage": "直到有新動態"
   },
   "spellcheckToggle.description": {
     "defaultMessage": "檢查聊天輸入中的拼字。需重新啟動才會生效。"

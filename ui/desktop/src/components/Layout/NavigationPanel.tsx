@@ -57,8 +57,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
+import { snoozeChoices } from '../snoozeChoices';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { errorMessage } from '../../utils/conversionUtils';
 import {
@@ -74,6 +78,7 @@ import {
   pruneSnoozedMap,
   snoozeSession,
   unsnoozeSession,
+  type SessionSnooze,
   type SnoozedMap,
 } from '../../utils/sessionSnooze';
 import { cn } from '../../utils';
@@ -144,7 +149,7 @@ const i18n = defineMessages({
   },
   snooze: {
     id: 'navigationPanel.snooze',
-    defaultMessage: 'Snooze until new activity',
+    defaultMessage: 'Snooze',
   },
   unsnooze: {
     id: 'navigationPanel.unsnooze',
@@ -240,8 +245,10 @@ interface SessionRowProps {
   /** Present when the server is holding an agent open for this session. */
   /** Present when the server is holding an agent open for this session. */
   live: LiveSession | undefined;
-  snoozed: boolean;
-  onToggleSnooze: () => void;
+  /** Present while the user's snooze holds. */
+  snooze: SessionSnooze | undefined;
+  onSnooze: (until?: number) => void;
+  onUnsnooze: () => void;
   onClick: () => void;
   onRenamed: () => void;
   onRequestDelete: (session: SessionListItem) => void;
@@ -301,8 +308,9 @@ const SessionRow: React.FC<SessionRowProps> = ({
   active,
   status,
   live,
-  snoozed,
-  onToggleSnooze,
+  snooze,
+  onSnooze,
+  onUnsnooze,
   onClick,
   onRenamed,
   onRequestDelete,
@@ -339,7 +347,7 @@ const SessionRow: React.FC<SessionRowProps> = ({
     hasUnread: status?.hasUnreadActivity ?? false,
     now,
   });
-  const statusLabel = describeSessionActivity(intl, activity, now, snoozed);
+  const statusLabel = describeSessionActivity(intl, activity, now, snooze);
   const localStreamState = status?.streamState;
   const listedActiveRun = session.activeRun;
   useEffect(() => {
@@ -409,7 +417,7 @@ const SessionRow: React.FC<SessionRowProps> = ({
             onEditStart={() => setIsEditing(true)}
             onEditEnd={() => setIsEditing(false)}
           />
-          <SessionIndicators activity={activity} now={now} snoozed={snoozed} />
+          <SessionIndicators activity={activity} now={now} snooze={snooze} />
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
               <button
@@ -445,10 +453,26 @@ const SessionRow: React.FC<SessionRowProps> = ({
                 <Pencil className="w-4 h-4" />
                 {intl.formatMessage(i18n.rename)}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={onToggleSnooze}>
-                {snoozed ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
-                {intl.formatMessage(snoozed ? i18n.unsnooze : i18n.snooze)}
-              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <BellOff className="w-4 h-4" />
+                  {intl.formatMessage(i18n.snooze)}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent onClick={(e) => e.stopPropagation()}>
+                  {menuOpen &&
+                    snoozeChoices(intl, now).map((choice) => (
+                      <DropdownMenuItem key={choice.key} onSelect={() => onSnooze(choice.until)}>
+                        {choice.label}
+                      </DropdownMenuItem>
+                    ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              {snooze && (
+                <DropdownMenuItem onSelect={onUnsnooze}>
+                  <Bell className="w-4 h-4" />
+                  {intl.formatMessage(i18n.unsnooze)}
+                </DropdownMenuItem>
+              )}
               {isLive && (
                 <DropdownMenuItem disabled={isBusy || isEnding} onSelect={() => void handleEnd()}>
                   <Power className="w-4 h-4" />
@@ -601,7 +625,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
 
   const [sessionStatuses, setSessionStatuses] = useState<Map<string, SessionStatus>>(new Map());
   const [lastViewed, setLastViewed] = useState<LastViewedMap>(loadLastViewedMap);
-  const [snoozedAt, setSnoozedAt] = useState<SnoozedMap>(loadSnoozedMap);
+  const [snoozes, setSnoozes] = useState<SnoozedMap>(loadSnoozedMap);
 
   const activeSessionIdRef = useRef<string | undefined>(activeSessionId);
   activeSessionIdRef.current = activeSessionId;
@@ -661,28 +685,43 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
   // in other windows.
   useEffect(() => {
     if (recentSessions.length === 0) return;
-    setSnoozedAt(pruneSnoozedMap(recentSessions));
+    setSnoozes(pruneSnoozedMap(recentSessions));
   }, [recentSessions]);
 
   useEffect(() => {
-    const onStorage = () => setSnoozedAt(loadSnoozedMap());
+    const onStorage = () => setSnoozes(loadSnoozedMap());
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  const isSnoozed = useCallback(
-    (session: SessionListItem) => isSessionSnoozed(session.lastMessageAt, snoozedAt[session.id]),
-    [snoozedAt]
+  // A timed snooze runs out between polls; the panel re-renders on every
+  // live-session poll, so reading the clock here keeps the expiry current.
+  const activeSnooze = useCallback(
+    (session: SessionListItem): SessionSnooze | undefined => {
+      const snooze = snoozes[session.id];
+      return isSessionSnoozed(session.lastMessageAt, snooze) ? snooze : undefined;
+    },
+    [snoozes]
   );
+
+  const snooze = useCallback((sessionId: string, until?: number) => {
+    setSnoozes(snoozeSession(sessionId, until));
+  }, []);
+
+  const unsnooze = useCallback((sessionId: string) => {
+    setSnoozes(unsnoozeSession(sessionId));
+  }, []);
 
   const toggleSnooze = useCallback(
     (sessionId: string) => {
       const session = recentSessions.find(({ id }) => id === sessionId);
-      setSnoozedAt(
-        session && isSnoozed(session) ? unsnoozeSession(sessionId) : snoozeSession(sessionId)
-      );
+      if (session && activeSnooze(session)) {
+        unsnooze(sessionId);
+      } else {
+        snooze(sessionId);
+      }
     },
-    [recentSessions, isSnoozed]
+    [recentSessions, activeSnooze, snooze, unsnooze]
   );
 
   // Opening a session marks it viewed, however the user navigated to it.
@@ -772,7 +811,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
       const status = getSessionStatus(session);
       return {
         session,
-        snoozed: isSnoozed(session),
+        snooze: activeSnooze(session),
         activity: deriveSessionActivity({
           live: liveSessions.get(session.id),
           localStreamState: status?.streamState,
@@ -786,7 +825,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
     switcherOpen,
     visibleSessions,
     getSessionStatus,
-    isSnoozed,
+    activeSnooze,
     liveSessions,
     activeSessionId,
     recentlyOpened,
@@ -893,6 +932,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
       entries={switcherEntries}
       onSelect={openSession}
       onToggleSnooze={toggleSnooze}
+      onSnooze={snooze}
     />
   );
 
@@ -960,8 +1000,9 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                           active={session.id === activeSessionId}
                           status={getSessionStatus(session)}
                           live={liveSessions.get(session.id)}
-                          snoozed={isSnoozed(session)}
-                          onToggleSnooze={() => toggleSnooze(session.id)}
+                          snooze={activeSnooze(session)}
+                          onSnooze={(until) => snooze(session.id, until)}
+                          onUnsnooze={() => unsnooze(session.id)}
                           onClick={() => openSession(session.id)}
                           onRenamed={fetchSessions}
                           onRequestDelete={handleRequestDelete}
@@ -980,8 +1021,9 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                   active={session.id === activeSessionId}
                   status={getSessionStatus(session)}
                   live={liveSessions.get(session.id)}
-                  snoozed={isSnoozed(session)}
-                  onToggleSnooze={() => toggleSnooze(session.id)}
+                  snooze={activeSnooze(session)}
+                  onSnooze={(until) => snooze(session.id, until)}
+                  onUnsnooze={() => unsnooze(session.id)}
                   onClick={() => openSession(session.id)}
                   onRenamed={fetchSessions}
                   onRequestDelete={handleRequestDelete}

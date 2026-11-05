@@ -2547,7 +2547,7 @@
     "defaultMessage": "セッションの操作"
   },
   "navigationPanel.snooze": {
-    "defaultMessage": "新しいアクティビティまでスヌーズ"
+    "defaultMessage": "スヌーズ"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "スヌーズを解除"
@@ -3992,6 +3992,9 @@
   "sessionIndicators.snoozed": {
     "defaultMessage": "新しいアクティビティまでスヌーズ中"
   },
+  "sessionIndicators.snoozedUntil": {
+    "defaultMessage": "{time} または新しいアクティビティまでスヌーズ中"
+  },
   "sessionIndicators.stalled": {
     "defaultMessage": "停止中: {minutes, plural, one {# 分間進捗なし} other {# 分間進捗なし}}"
   },
@@ -4011,13 +4014,19 @@
     "defaultMessage": "{count, plural, =0 {バックグラウンドで作業中} one {バックグラウンドで作業中（バックグラウンドコマンド #件）} other {バックグラウンドで作業中（バックグラウンドコマンド #件）}}"
   },
   "sessionSwitcher.hint": {
-    "defaultMessage": "↑↓ で移動 · ↵ で開く · {snoozeKey} でスヌーズ · esc で閉じる"
+    "defaultMessage": "↑↓ で移動 · ↵ で開く · {snoozeKey} でスヌーズ（{snoozeUntilKey} で時間指定） · esc で閉じる"
   },
   "sessionSwitcher.noMatches": {
     "defaultMessage": "一致するチャットはありません"
   },
   "sessionSwitcher.placeholder": {
     "defaultMessage": "チャットに移動…"
+  },
+  "sessionSwitcher.snoozeHint": {
+    "defaultMessage": "↑↓ で移動 · ↵ でスヌーズ · esc で戻る"
+  },
+  "sessionSwitcher.snoozeTitle": {
+    "defaultMessage": "「{name}」をスヌーズ"
   },
   "sessionSwitcher.title": {
     "defaultMessage": "チャットを切り替え"
@@ -4456,6 +4465,21 @@
   },
   "skillsView.tryAgain": {
     "defaultMessage": "再試行"
+  },
+  "snoozeChoices.monday": {
+    "defaultMessage": "月曜日まで（{time}）"
+  },
+  "snoozeChoices.oneHour": {
+    "defaultMessage": "1 時間（{time}）"
+  },
+  "snoozeChoices.threeHours": {
+    "defaultMessage": "3 時間（{time}）"
+  },
+  "snoozeChoices.tomorrow": {
+    "defaultMessage": "明日まで（{time}）"
+  },
+  "snoozeChoices.untilActivity": {
+    "defaultMessage": "新しいアクティビティまで"
   },
   "spellcheckToggle.description": {
     "defaultMessage": "チャット入力のスペルをチェックします。反映するには再起動が必要です。"
