@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
+import type { IntlShape } from 'react-intl';
 import { useNavigationContext } from './NavigationContext';
 import { useConfig } from '../ConfigContext';
 import { useNavigationSessions } from '../../hooks/useNavigationSessions';
@@ -35,6 +36,8 @@ import { InlineEditText } from '../common/InlineEditText';
 import { describeSessionActivity, SessionIndicators } from '../SessionIndicators';
 import { SessionSwitcher } from '../SessionSwitcher';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
+import { formatShortcut } from '../settings/keyboard/KeyboardShortcutsSection';
+import type { KeyboardShortcuts } from '../../utils/settings';
 import { useFrozenWhile } from '../../hooks/useFrozenWhile';
 import { matchesAccelerator } from '../../utils/acceleratorMatch';
 import {
@@ -195,6 +198,22 @@ const i18n = defineMessages({
     id: 'navigationPanel.endSession',
     defaultMessage: 'End session',
   },
+  endSuccess: {
+    id: 'navigationPanel.endSuccess',
+    defaultMessage: 'Ended “{name}”',
+  },
+  endFailed: {
+    id: 'navigationPanel.endFailed',
+    defaultMessage: 'Failed to end session: {error}',
+  },
+  notLive: {
+    id: 'navigationPanel.notLive',
+    defaultMessage: '“{name}” has no running agent to end',
+  },
+  stillBusy: {
+    id: 'navigationPanel.stillBusy',
+    defaultMessage: '“{name}” is still working; stop it first',
+  },
   projectActions: {
     id: 'navigationPanel.projectActions',
     defaultMessage: 'Actions for {project}',
@@ -208,6 +227,23 @@ const i18n = defineMessages({
     defaultMessage: 'New chat in this project (new window)',
   },
 });
+
+async function archiveSession(intl: IntlShape, session: SessionListItem): Promise<boolean> {
+  try {
+    await acpArchiveSession(session.id);
+  } catch (error) {
+    toast.error(
+      intl.formatMessage(i18n.archiveFailed, { error: errorMessage(error, 'Unknown error') })
+    );
+    return false;
+  }
+  dispatchSessionLifecycleEvent(AppEvents.SESSION_ARCHIVED, {
+    sessionId: session.id,
+    archived: true,
+  });
+  toast.success(intl.formatMessage(i18n.archiveSuccess, { name: session.name }));
+  return true;
+}
 
 const navItemClass = (active: boolean) =>
   cn(
@@ -254,7 +290,14 @@ interface SessionRowProps {
   onRequestDelete: (session: SessionListItem) => void;
   onEnded: () => void;
   holdLayout: HoldLayout;
+  /** Present on the open chat's row, which the end and archive shortcuts act on. */
+  shortcuts?: Pick<KeyboardShortcuts, 'endSession' | 'archiveSession'>;
 }
+
+const ShortcutHint: React.FC<{ accelerator: string | null | undefined }> = ({ accelerator }) =>
+  accelerator ? (
+    <span className="ml-auto pl-4 text-xs text-text-secondary">{formatShortcut(accelerator)}</span>
+  ) : null;
 
 const formatTimestamp = (value?: string): string | null => {
   if (!value) return null;
@@ -316,6 +359,7 @@ const SessionRow: React.FC<SessionRowProps> = ({
   onRequestDelete,
   onEnded,
   holdLayout,
+  shortcuts,
 }) => {
   const intl = useIntl();
   const [isEditing, setIsEditing] = useState(false);
@@ -364,20 +408,7 @@ const SessionRow: React.FC<SessionRowProps> = ({
     }
   };
 
-  const handleArchive = useCallback(async () => {
-    try {
-      await acpArchiveSession(session.id);
-      dispatchSessionLifecycleEvent(AppEvents.SESSION_ARCHIVED, {
-        sessionId: session.id,
-        archived: true,
-      });
-      toast.success(intl.formatMessage(i18n.archiveSuccess, { name: session.name }));
-    } catch (error) {
-      toast.error(
-        intl.formatMessage(i18n.archiveFailed, { error: errorMessage(error, 'Unknown error') })
-      );
-    }
-  }, [session.id, session.name, intl]);
+  const handleArchive = useCallback(() => archiveSession(intl, session), [intl, session]);
 
   return (
     <Tooltip
@@ -477,11 +508,13 @@ const SessionRow: React.FC<SessionRowProps> = ({
                 <DropdownMenuItem disabled={isBusy || isEnding} onSelect={() => void handleEnd()}>
                   <Power className="w-4 h-4" />
                   {intl.formatMessage(i18n.endSession)}
+                  <ShortcutHint accelerator={shortcuts?.endSession} />
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem disabled={isBusy} onSelect={() => void handleArchive()}>
                 <Archive className="w-4 h-4" />
                 {intl.formatMessage(i18n.archive)}
+                <ShortcutHint accelerator={shortcuts?.archiveSession} />
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -843,6 +876,51 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
     [visibleSessions, visibleSessionsByProject, collapsedProjects]
   );
 
+  // Act on the open chat from the keyboard. Archiving tears down the loaded
+  // agent the same way ending does, so it needs no separate end first.
+  const endOrArchiveActive = useCallback(
+    async (action: 'end' | 'archive') => {
+      const session = recentSessions.find(({ id }) => id === activeSessionId);
+      if (!session) return;
+      const name = session.name || intl.formatMessage(i18n.untitledSession);
+      const live = liveSessions.get(session.id);
+      if (isSessionBusy(session.id) || live?.runningTurn) {
+        toast.info(intl.formatMessage(i18n.stillBusy, { name }));
+        return;
+      }
+      if (action === 'archive') {
+        const next = adjacentSessionId(sidebarOrder, session.id, 1);
+        if ((await archiveSession(intl, session)) && next && next !== session.id) {
+          openSession(next);
+        }
+        return;
+      }
+      if (!live) {
+        toast.info(intl.formatMessage(i18n.notLive, { name }));
+        return;
+      }
+      try {
+        await acpCloseSession(session.id);
+      } catch (error) {
+        toast.error(
+          intl.formatMessage(i18n.endFailed, { error: errorMessage(error, 'Unknown error') })
+        );
+        return;
+      }
+      toast.success(intl.formatMessage(i18n.endSuccess, { name }));
+      void refreshLiveSessions();
+    },
+    [
+      recentSessions,
+      activeSessionId,
+      liveSessions,
+      sidebarOrder,
+      intl,
+      openSession,
+      refreshLiveSessions,
+    ]
+  );
+
   const shortcuts = useKeyboardShortcuts();
   useEffect(() => {
     const isMac = window.electron.platform === 'darwin';
@@ -861,6 +939,16 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
         return;
       }
       if (switcherOpen) return;
+      const action = matchesAccelerator(event, shortcuts.endSession, isMac)
+        ? 'end'
+        : matchesAccelerator(event, shortcuts.archiveSession, isMac)
+          ? 'archive'
+          : undefined;
+      if (action) {
+        event.preventDefault();
+        void endOrArchiveActive(action);
+        return;
+      }
       const step = matchesAccelerator(event, shortcuts.nextSession, isMac)
         ? 1
         : matchesAccelerator(event, shortcuts.previousSession, isMac)
@@ -881,6 +969,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
     openSession,
     refreshLiveSessions,
     fetchSessions,
+    endOrArchiveActive,
   ]);
 
   const toggleProjectCollapsed = useCallback((path: string) => {
@@ -1008,6 +1097,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                           onRequestDelete={handleRequestDelete}
                           onEnded={refreshLiveSessions}
                           holdLayout={holdLayout}
+                          shortcuts={session.id === activeSessionId ? shortcuts : undefined}
                         />
                       ))}
                   </React.Fragment>
@@ -1029,6 +1119,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                   onRequestDelete={handleRequestDelete}
                   onEnded={refreshLiveSessions}
                   holdLayout={holdLayout}
+                  shortcuts={session.id === activeSessionId ? shortcuts : undefined}
                 />
               ))
             )}

@@ -1679,6 +1679,12 @@
   "keyboardShortcuts.alwaysOnTopLabel": {
     "defaultMessage": "窗口置顶"
   },
+  "keyboardShortcuts.archiveSessionDescription": {
+    "defaultMessage": "结束并归档当前聊天，然后打开下一个"
+  },
+  "keyboardShortcuts.archiveSessionLabel": {
+    "defaultMessage": "归档聊天"
+  },
   "keyboardShortcuts.cancel": {
     "defaultMessage": "取消"
   },
@@ -1714,6 +1720,12 @@
   },
   "keyboardShortcuts.dismiss": {
     "defaultMessage": "关闭"
+  },
+  "keyboardShortcuts.endSessionDescription": {
+    "defaultMessage": "停止当前聊天的代理；聊天仍保留在侧边栏中"
+  },
+  "keyboardShortcuts.endSessionLabel": {
+    "defaultMessage": "结束会话"
   },
   "keyboardShortcuts.findDescription": {
     "defaultMessage": "在对话中打开搜索"
@@ -2510,8 +2522,14 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "删除聊天"
   },
+  "navigationPanel.endFailed": {
+    "defaultMessage": "结束会话失败：{error}"
+  },
   "navigationPanel.endSession": {
     "defaultMessage": "结束会话"
+  },
+  "navigationPanel.endSuccess": {
+    "defaultMessage": "已结束“{name}”"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "创建时间"
@@ -2531,6 +2549,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "没有最近的聊天"
   },
+  "navigationPanel.notLive": {
+    "defaultMessage": "“{name}”没有可结束的运行中代理"
+  },
   "navigationPanel.projectActions": {
     "defaultMessage": "{project} 的操作"
   },
@@ -2548,6 +2569,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "暂停提醒"
+  },
+  "navigationPanel.stillBusy": {
+    "defaultMessage": "“{name}”仍在运行；请先停止"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "恢复提醒"

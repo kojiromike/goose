@@ -1679,6 +1679,12 @@
   "keyboardShortcuts.alwaysOnTopLabel": {
     "defaultMessage": "Always on Top"
   },
+  "keyboardShortcuts.archiveSessionDescription": {
+    "defaultMessage": "End and archive the current chat, then open the next one"
+  },
+  "keyboardShortcuts.archiveSessionLabel": {
+    "defaultMessage": "Archive Chat"
+  },
   "keyboardShortcuts.cancel": {
     "defaultMessage": "Cancel"
   },
@@ -1714,6 +1720,12 @@
   },
   "keyboardShortcuts.dismiss": {
     "defaultMessage": "Dismiss"
+  },
+  "keyboardShortcuts.endSessionDescription": {
+    "defaultMessage": "Stop the current chat’s agent; the chat stays in the sidebar"
+  },
+  "keyboardShortcuts.endSessionLabel": {
+    "defaultMessage": "End Session"
   },
   "keyboardShortcuts.findDescription": {
     "defaultMessage": "Open search in conversation"
@@ -2516,8 +2528,14 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "Delete chat"
   },
+  "navigationPanel.endFailed": {
+    "defaultMessage": "Failed to end session: {error}"
+  },
   "navigationPanel.endSession": {
     "defaultMessage": "End session"
+  },
+  "navigationPanel.endSuccess": {
+    "defaultMessage": "Ended “{name}”"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Created"
@@ -2537,6 +2555,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "No recent chats"
   },
+  "navigationPanel.notLive": {
+    "defaultMessage": "“{name}” has no running agent to end"
+  },
   "navigationPanel.projectActions": {
     "defaultMessage": "Actions for {project}"
   },
@@ -2554,6 +2575,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Snooze"
+  },
+  "navigationPanel.stillBusy": {
+    "defaultMessage": "“{name}” is still working; stop it first"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Unsnooze"

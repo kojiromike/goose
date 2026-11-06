@@ -1679,6 +1679,12 @@
   "keyboardShortcuts.alwaysOnTopLabel": {
     "defaultMessage": "항상 위에 표시"
   },
+  "keyboardShortcuts.archiveSessionDescription": {
+    "defaultMessage": "현재 채팅을 종료하고 보관한 다음 다음 채팅 열기"
+  },
+  "keyboardShortcuts.archiveSessionLabel": {
+    "defaultMessage": "채팅 보관"
+  },
   "keyboardShortcuts.cancel": {
     "defaultMessage": "취소"
   },
@@ -1714,6 +1720,12 @@
   },
   "keyboardShortcuts.dismiss": {
     "defaultMessage": "닫기"
+  },
+  "keyboardShortcuts.endSessionDescription": {
+    "defaultMessage": "현재 채팅의 에이전트를 중지합니다. 채팅은 사이드바에 남아 있습니다"
+  },
+  "keyboardShortcuts.endSessionLabel": {
+    "defaultMessage": "세션 종료"
   },
   "keyboardShortcuts.findDescription": {
     "defaultMessage": "대화 내 검색을 엽니다."
@@ -2510,8 +2522,14 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "채팅 삭제"
   },
+  "navigationPanel.endFailed": {
+    "defaultMessage": "세션을 종료하지 못했습니다: {error}"
+  },
   "navigationPanel.endSession": {
     "defaultMessage": "세션 종료"
+  },
+  "navigationPanel.endSuccess": {
+    "defaultMessage": "“{name}” 종료됨"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "생성됨"
@@ -2531,6 +2549,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "최근 채팅 없음"
   },
+  "navigationPanel.notLive": {
+    "defaultMessage": "“{name}”에는 종료할 실행 중인 에이전트가 없습니다"
+  },
   "navigationPanel.projectActions": {
     "defaultMessage": "{project} 작업"
   },
@@ -2548,6 +2569,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "다시 알림"
+  },
+  "navigationPanel.stillBusy": {
+    "defaultMessage": "“{name}”이(가) 아직 작업 중입니다. 먼저 중지하세요"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "다시 알림 해제"

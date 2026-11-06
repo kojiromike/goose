@@ -26,6 +26,8 @@ export interface KeyboardShortcuts {
   sessionSwitcher: string | null;
   nextSession: string | null;
   previousSession: string | null;
+  endSession: string | null;
+  archiveSession: string | null;
 }
 
 export type DefaultKeyboardShortcuts = {
@@ -80,6 +82,8 @@ export const defaultKeyboardShortcuts: DefaultKeyboardShortcuts = {
   sessionSwitcher: 'CommandOrControl+K',
   nextSession: 'Control+Tab',
   previousSession: 'Control+Shift+Tab',
+  endSession: 'CommandOrControl+Shift+E',
+  archiveSession: 'CommandOrControl+Shift+A',
 };
 
 export const defaultSettings: Settings = {

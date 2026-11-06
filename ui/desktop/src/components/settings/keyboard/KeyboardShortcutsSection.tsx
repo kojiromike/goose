@@ -122,6 +122,22 @@ const i18n = defineMessages({
     id: 'keyboardShortcuts.previousSessionDescription',
     defaultMessage: 'Open the chat above the current one in the sidebar',
   },
+  endSessionLabel: {
+    id: 'keyboardShortcuts.endSessionLabel',
+    defaultMessage: 'End Session',
+  },
+  endSessionDescription: {
+    id: 'keyboardShortcuts.endSessionDescription',
+    defaultMessage: 'Stop the current chat’s agent; the chat stays in the sidebar',
+  },
+  archiveSessionLabel: {
+    id: 'keyboardShortcuts.archiveSessionLabel',
+    defaultMessage: 'Archive Chat',
+  },
+  archiveSessionDescription: {
+    id: 'keyboardShortcuts.archiveSessionDescription',
+    defaultMessage: 'End and archive the current chat, then open the next one',
+  },
 
   // Category labels and descriptions
   categoryGlobal: {
@@ -203,8 +219,7 @@ const i18n = defineMessages({
   },
   shortcutConflictToggleMessage: {
     id: 'keyboardShortcuts.shortcutConflictToggleMessage',
-    defaultMessage:
-      'The shortcut {shortcut} is already assigned to "{conflictLabel}".',
+    defaultMessage: 'The shortcut {shortcut} is already assigned to "{conflictLabel}".',
   },
   shortcutConflictToggleDetail: {
     id: 'keyboardShortcuts.shortcutConflictToggleDetail',
@@ -330,6 +345,18 @@ const shortcutConfigs: ShortcutConfig[] = [
     description: i18n.previousSessionDescription,
     category: 'application',
   },
+  {
+    key: 'endSession',
+    label: i18n.endSessionLabel,
+    description: i18n.endSessionDescription,
+    category: 'application',
+  },
+  {
+    key: 'archiveSession',
+    label: i18n.archiveSessionLabel,
+    description: i18n.archiveSessionDescription,
+    category: 'application',
+  },
 ];
 
 const needsRestart = new Set<keyof KeyboardShortcuts>([
@@ -413,10 +440,7 @@ export default function KeyboardShortcutsSection() {
             conflictLabel: getShortcutLabel(conflictingKey, intl.formatMessage),
             targetLabel: getShortcutLabel(key, intl.formatMessage),
           }),
-          buttons: [
-            intl.formatMessage(i18n.reassignShortcut),
-            intl.formatMessage(i18n.cancel),
-          ],
+          buttons: [intl.formatMessage(i18n.reassignShortcut), intl.formatMessage(i18n.cancel)],
           defaultId: 1,
         });
 
@@ -463,10 +487,7 @@ export default function KeyboardShortcutsSection() {
           conflictLabel: getShortcutLabel(conflictingKey, intl.formatMessage),
           targetLabel: getShortcutLabel(editingKey, intl.formatMessage),
         }),
-        buttons: [
-          intl.formatMessage(i18n.reassignShortcut),
-          intl.formatMessage(i18n.cancel),
-        ],
+        buttons: [intl.formatMessage(i18n.reassignShortcut), intl.formatMessage(i18n.cancel)],
         defaultId: 1,
       });
 
@@ -501,10 +522,7 @@ export default function KeyboardShortcutsSection() {
       title: intl.formatMessage(i18n.resetShortcutsTitle),
       message: intl.formatMessage(i18n.resetShortcutsMessage),
       detail: intl.formatMessage(i18n.resetShortcutsDetail),
-      buttons: [
-        intl.formatMessage(i18n.resetToDefaultsHeading),
-        intl.formatMessage(i18n.cancel),
-      ],
+      buttons: [intl.formatMessage(i18n.resetToDefaultsHeading), intl.formatMessage(i18n.cancel)],
       defaultId: 1,
     });
 

@@ -1679,6 +1679,12 @@
   "keyboardShortcuts.alwaysOnTopLabel": {
     "defaultMessage": "常に手前に表示"
   },
+  "keyboardShortcuts.archiveSessionDescription": {
+    "defaultMessage": "現在のチャットを終了してアーカイブし、次のチャットを開く"
+  },
+  "keyboardShortcuts.archiveSessionLabel": {
+    "defaultMessage": "チャットをアーカイブ"
+  },
   "keyboardShortcuts.cancel": {
     "defaultMessage": "キャンセル"
   },
@@ -1714,6 +1720,12 @@
   },
   "keyboardShortcuts.dismiss": {
     "defaultMessage": "閉じる"
+  },
+  "keyboardShortcuts.endSessionDescription": {
+    "defaultMessage": "現在のチャットのエージェントを停止します。チャットはサイドバーに残ります"
+  },
+  "keyboardShortcuts.endSessionLabel": {
+    "defaultMessage": "セッションを終了"
   },
   "keyboardShortcuts.findDescription": {
     "defaultMessage": "会話内検索を開く"
@@ -2510,8 +2522,14 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "チャットを削除"
   },
+  "navigationPanel.endFailed": {
+    "defaultMessage": "セッションを終了できませんでした: {error}"
+  },
   "navigationPanel.endSession": {
     "defaultMessage": "セッションを終了"
+  },
+  "navigationPanel.endSuccess": {
+    "defaultMessage": "「{name}」を終了しました"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "作成"
@@ -2531,6 +2549,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "最近のチャットはありません"
   },
+  "navigationPanel.notLive": {
+    "defaultMessage": "「{name}」には終了できる実行中のエージェントがありません"
+  },
   "navigationPanel.projectActions": {
     "defaultMessage": "{project} の操作"
   },
@@ -2548,6 +2569,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "スヌーズ"
+  },
+  "navigationPanel.stillBusy": {
+    "defaultMessage": "「{name}」はまだ作業中です。先に停止してください"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "スヌーズを解除"

@@ -1679,6 +1679,12 @@
   "keyboardShortcuts.alwaysOnTopLabel": {
     "defaultMessage": "Toujours au premier plan"
   },
+  "keyboardShortcuts.archiveSessionDescription": {
+    "defaultMessage": "Terminer et archiver la discussion actuelle, puis ouvrir la suivante"
+  },
+  "keyboardShortcuts.archiveSessionLabel": {
+    "defaultMessage": "Archiver la discussion"
+  },
   "keyboardShortcuts.cancel": {
     "defaultMessage": "Annuler"
   },
@@ -1714,6 +1720,12 @@
   },
   "keyboardShortcuts.dismiss": {
     "defaultMessage": "Ignorer"
+  },
+  "keyboardShortcuts.endSessionDescription": {
+    "defaultMessage": "Arrêter l’agent de la discussion actuelle ; la discussion reste dans la barre latérale"
+  },
+  "keyboardShortcuts.endSessionLabel": {
+    "defaultMessage": "Terminer la session"
   },
   "keyboardShortcuts.findDescription": {
     "defaultMessage": "Ouvrir la recherche dans la conversation"
@@ -2510,8 +2522,14 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "Supprimer la conversation"
   },
+  "navigationPanel.endFailed": {
+    "defaultMessage": "Échec de la fermeture de la session : {error}"
+  },
   "navigationPanel.endSession": {
     "defaultMessage": "Terminer la session"
+  },
+  "navigationPanel.endSuccess": {
+    "defaultMessage": "“{name}” terminée"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Créé"
@@ -2531,6 +2549,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Aucune discussion récente"
   },
+  "navigationPanel.notLive": {
+    "defaultMessage": "“{name}” n’a aucun agent en cours à terminer"
+  },
   "navigationPanel.projectActions": {
     "defaultMessage": "Actions pour {project}"
   },
@@ -2548,6 +2569,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Mettre en veille"
+  },
+  "navigationPanel.stillBusy": {
+    "defaultMessage": "“{name}” est toujours en cours ; arrêtez-la d’abord"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Réactiver"

@@ -1679,6 +1679,12 @@
   "keyboardShortcuts.alwaysOnTopLabel": {
     "defaultMessage": "Поверх всех окон"
   },
+  "keyboardShortcuts.archiveSessionDescription": {
+    "defaultMessage": "Завершить и архивировать текущий чат, затем открыть следующий"
+  },
+  "keyboardShortcuts.archiveSessionLabel": {
+    "defaultMessage": "Архивировать чат"
+  },
   "keyboardShortcuts.cancel": {
     "defaultMessage": "Отмена"
   },
@@ -1714,6 +1720,12 @@
   },
   "keyboardShortcuts.dismiss": {
     "defaultMessage": "Закрыть"
+  },
+  "keyboardShortcuts.endSessionDescription": {
+    "defaultMessage": "Остановить агента текущего чата; чат остаётся на боковой панели"
+  },
+  "keyboardShortcuts.endSessionLabel": {
+    "defaultMessage": "Завершить сессию"
   },
   "keyboardShortcuts.findDescription": {
     "defaultMessage": "Открыть поиск в разговоре"
@@ -2510,8 +2522,14 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "Удалить чат"
   },
+  "navigationPanel.endFailed": {
+    "defaultMessage": "Не удалось завершить сеанс: {error}"
+  },
   "navigationPanel.endSession": {
     "defaultMessage": "Завершить сессию"
+  },
+  "navigationPanel.endSuccess": {
+    "defaultMessage": "«{name}» завершён"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Создано"
@@ -2531,6 +2549,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Нет недавних чатов"
   },
+  "navigationPanel.notLive": {
+    "defaultMessage": "У «{name}» нет запущенного агента, который можно завершить"
+  },
   "navigationPanel.projectActions": {
     "defaultMessage": "Действия для {project}"
   },
@@ -2548,6 +2569,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Отложить"
+  },
+  "navigationPanel.stillBusy": {
+    "defaultMessage": "«{name}» ещё работает; сначала остановите его"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Не откладывать"

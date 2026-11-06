@@ -1679,6 +1679,12 @@
   "keyboardShortcuts.alwaysOnTopLabel": {
     "defaultMessage": "हमेशा शीर्ष पर"
   },
+  "keyboardShortcuts.archiveSessionDescription": {
+    "defaultMessage": "मौजूदा चैट समाप्त और संग्रहित करें, फिर अगली चैट खोलें"
+  },
+  "keyboardShortcuts.archiveSessionLabel": {
+    "defaultMessage": "चैट संग्रहित करें"
+  },
   "keyboardShortcuts.cancel": {
     "defaultMessage": "रद्द करें"
   },
@@ -1714,6 +1720,12 @@
   },
   "keyboardShortcuts.dismiss": {
     "defaultMessage": "ख़ारिज करें"
+  },
+  "keyboardShortcuts.endSessionDescription": {
+    "defaultMessage": "मौजूदा चैट का एजेंट रोकें; चैट साइडबार में बनी रहती है"
+  },
+  "keyboardShortcuts.endSessionLabel": {
+    "defaultMessage": "सत्र समाप्त करें"
   },
   "keyboardShortcuts.findDescription": {
     "defaultMessage": "बातचीत में खोज खोलें"
@@ -2510,8 +2522,14 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "चैट हटाएँ"
   },
+  "navigationPanel.endFailed": {
+    "defaultMessage": "सत्र समाप्त नहीं किया जा सका: {error}"
+  },
   "navigationPanel.endSession": {
     "defaultMessage": "सत्र समाप्त करें"
+  },
+  "navigationPanel.endSuccess": {
+    "defaultMessage": "“{name}” समाप्त किया गया"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "बनाया गया"
@@ -2531,6 +2549,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "कोई हालिया चैट नहीं"
   },
+  "navigationPanel.notLive": {
+    "defaultMessage": "“{name}” में समाप्त करने के लिए कोई चालू एजेंट नहीं है"
+  },
   "navigationPanel.projectActions": {
     "defaultMessage": "{project} के लिए क्रियाएँ"
   },
@@ -2548,6 +2569,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "स्नूज़ करें"
+  },
+  "navigationPanel.stillBusy": {
+    "defaultMessage": "“{name}” अभी भी काम कर रहा है; पहले उसे रोकें"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "स्नूज़ हटाएँ"

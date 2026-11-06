@@ -1679,6 +1679,12 @@
   "keyboardShortcuts.alwaysOnTopLabel": {
     "defaultMessage": "Luôn ở trên cùng"
   },
+  "keyboardShortcuts.archiveSessionDescription": {
+    "defaultMessage": "Kết thúc và lưu trữ cuộc trò chuyện hiện tại, rồi mở cuộc tiếp theo"
+  },
+  "keyboardShortcuts.archiveSessionLabel": {
+    "defaultMessage": "Lưu trữ cuộc trò chuyện"
+  },
   "keyboardShortcuts.cancel": {
     "defaultMessage": "Hủy"
   },
@@ -1714,6 +1720,12 @@
   },
   "keyboardShortcuts.dismiss": {
     "defaultMessage": "Bỏ qua"
+  },
+  "keyboardShortcuts.endSessionDescription": {
+    "defaultMessage": "Dừng tác nhân của cuộc trò chuyện hiện tại; cuộc trò chuyện vẫn ở thanh bên"
+  },
+  "keyboardShortcuts.endSessionLabel": {
+    "defaultMessage": "Kết thúc phiên"
   },
   "keyboardShortcuts.findDescription": {
     "defaultMessage": "Mở tìm kiếm trong cuộc trò chuyện"
@@ -2510,8 +2522,14 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "Xóa cuộc trò chuyện"
   },
+  "navigationPanel.endFailed": {
+    "defaultMessage": "Không thể kết thúc phiên: {error}"
+  },
   "navigationPanel.endSession": {
     "defaultMessage": "Kết thúc phiên"
+  },
+  "navigationPanel.endSuccess": {
+    "defaultMessage": "Đã kết thúc “{name}”"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Đã tạo"
@@ -2531,6 +2549,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Không có cuộc trò chuyện gần đây"
   },
+  "navigationPanel.notLive": {
+    "defaultMessage": "“{name}” không có tác nhân đang chạy để kết thúc"
+  },
   "navigationPanel.projectActions": {
     "defaultMessage": "Hành động cho {project}"
   },
@@ -2548,6 +2569,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Tạm ẩn"
+  },
+  "navigationPanel.stillBusy": {
+    "defaultMessage": "“{name}” vẫn đang hoạt động; hãy dừng trước"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Bỏ tạm ẩn"

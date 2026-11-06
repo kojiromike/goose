@@ -1679,6 +1679,12 @@
   "keyboardShortcuts.alwaysOnTopLabel": {
     "defaultMessage": "Her Zaman Zirvede"
   },
+  "keyboardShortcuts.archiveSessionDescription": {
+    "defaultMessage": "Geçerli sohbeti sonlandırıp arşivle, ardından sonrakini aç"
+  },
+  "keyboardShortcuts.archiveSessionLabel": {
+    "defaultMessage": "Sohbeti arşivle"
+  },
   "keyboardShortcuts.cancel": {
     "defaultMessage": "İptal"
   },
@@ -1714,6 +1720,12 @@
   },
   "keyboardShortcuts.dismiss": {
     "defaultMessage": "Reddet"
+  },
+  "keyboardShortcuts.endSessionDescription": {
+    "defaultMessage": "Geçerli sohbetin ajanını durdur; sohbet kenar çubuğunda kalır"
+  },
+  "keyboardShortcuts.endSessionLabel": {
+    "defaultMessage": "Oturumu sonlandır"
   },
   "keyboardShortcuts.findDescription": {
     "defaultMessage": "Görüşmede aramayı aç"
@@ -2510,8 +2522,14 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "Sohbeti sil"
   },
+  "navigationPanel.endFailed": {
+    "defaultMessage": "Oturum sonlandırılamadı: {error}"
+  },
   "navigationPanel.endSession": {
     "defaultMessage": "Oturumu sonlandır"
+  },
+  "navigationPanel.endSuccess": {
+    "defaultMessage": "“{name}” sonlandırıldı"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Oluşturuldu"
@@ -2531,6 +2549,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Son sohbet yok"
   },
+  "navigationPanel.notLive": {
+    "defaultMessage": "“{name}” için sonlandırılacak çalışan bir ajan yok"
+  },
   "navigationPanel.projectActions": {
     "defaultMessage": "{project} eylemleri"
   },
@@ -2548,6 +2569,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Ertele"
+  },
+  "navigationPanel.stillBusy": {
+    "defaultMessage": "“{name}” hâlâ çalışıyor; önce durdurun"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Ertelemeyi kaldır"

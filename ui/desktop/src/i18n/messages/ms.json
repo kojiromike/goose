@@ -1679,6 +1679,12 @@
   "keyboardShortcuts.alwaysOnTopLabel": {
     "defaultMessage": "Sentiasa di Atas"
   },
+  "keyboardShortcuts.archiveSessionDescription": {
+    "defaultMessage": "Tamatkan dan arkibkan sembang semasa, kemudian buka sembang seterusnya"
+  },
+  "keyboardShortcuts.archiveSessionLabel": {
+    "defaultMessage": "Arkibkan sembang"
+  },
   "keyboardShortcuts.cancel": {
     "defaultMessage": "Batal"
   },
@@ -1714,6 +1720,12 @@
   },
   "keyboardShortcuts.dismiss": {
     "defaultMessage": "Ketepikan"
+  },
+  "keyboardShortcuts.endSessionDescription": {
+    "defaultMessage": "Hentikan ejen sembang semasa; sembang kekal dalam bar sisi"
+  },
+  "keyboardShortcuts.endSessionLabel": {
+    "defaultMessage": "Tamatkan sesi"
   },
   "keyboardShortcuts.findDescription": {
     "defaultMessage": "Buka carian dalam perbualan"
@@ -2510,8 +2522,14 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "Padam sembang"
   },
+  "navigationPanel.endFailed": {
+    "defaultMessage": "Gagal menamatkan sesi: {error}"
+  },
   "navigationPanel.endSession": {
     "defaultMessage": "Tamatkan sesi"
+  },
+  "navigationPanel.endSuccess": {
+    "defaultMessage": "“{name}” ditamatkan"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Dicipta"
@@ -2531,6 +2549,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Tiada sembang terkini"
   },
+  "navigationPanel.notLive": {
+    "defaultMessage": "“{name}” tiada ejen berjalan untuk ditamatkan"
+  },
   "navigationPanel.projectActions": {
     "defaultMessage": "Tindakan untuk {project}"
   },
@@ -2548,6 +2569,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Tunda"
+  },
+  "navigationPanel.stillBusy": {
+    "defaultMessage": "“{name}” masih berjalan; hentikannya dahulu"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Batalkan tunda"

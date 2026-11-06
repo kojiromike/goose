@@ -1679,6 +1679,12 @@
   "keyboardShortcuts.alwaysOnTopLabel": {
     "defaultMessage": "Immer im Vordergrund"
   },
+  "keyboardShortcuts.archiveSessionDescription": {
+    "defaultMessage": "Den aktuellen Chat beenden und archivieren, dann den nächsten öffnen"
+  },
+  "keyboardShortcuts.archiveSessionLabel": {
+    "defaultMessage": "Chat archivieren"
+  },
   "keyboardShortcuts.cancel": {
     "defaultMessage": "Abbrechen"
   },
@@ -1714,6 +1720,12 @@
   },
   "keyboardShortcuts.dismiss": {
     "defaultMessage": "Schließen"
+  },
+  "keyboardShortcuts.endSessionDescription": {
+    "defaultMessage": "Den Agenten des aktuellen Chats beenden; der Chat bleibt in der Seitenleiste"
+  },
+  "keyboardShortcuts.endSessionLabel": {
+    "defaultMessage": "Sitzung beenden"
   },
   "keyboardShortcuts.findDescription": {
     "defaultMessage": "Suche in der Unterhaltung öffnen"
@@ -2510,8 +2522,14 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "Chat löschen"
   },
+  "navigationPanel.endFailed": {
+    "defaultMessage": "Sitzung konnte nicht beendet werden: {error}"
+  },
   "navigationPanel.endSession": {
     "defaultMessage": "Sitzung beenden"
+  },
+  "navigationPanel.endSuccess": {
+    "defaultMessage": "„{name}“ beendet"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Erstellt"
@@ -2531,6 +2549,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Keine aktuellen Chats"
   },
+  "navigationPanel.notLive": {
+    "defaultMessage": "„{name}“ hat keinen laufenden Agenten, der beendet werden kann"
+  },
   "navigationPanel.projectActions": {
     "defaultMessage": "Aktionen für {project}"
   },
@@ -2548,6 +2569,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Schlummern"
+  },
+  "navigationPanel.stillBusy": {
+    "defaultMessage": "„{name}“ arbeitet noch; zuerst stoppen"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Schlummern beenden"

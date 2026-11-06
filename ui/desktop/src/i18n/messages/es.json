@@ -1679,6 +1679,12 @@
   "keyboardShortcuts.alwaysOnTopLabel": {
     "defaultMessage": "Siempre visible"
   },
+  "keyboardShortcuts.archiveSessionDescription": {
+    "defaultMessage": "Finalizar y archivar el chat actual y abrir el siguiente"
+  },
+  "keyboardShortcuts.archiveSessionLabel": {
+    "defaultMessage": "Archivar chat"
+  },
   "keyboardShortcuts.cancel": {
     "defaultMessage": "Cancelar"
   },
@@ -1714,6 +1720,12 @@
   },
   "keyboardShortcuts.dismiss": {
     "defaultMessage": "Descartar"
+  },
+  "keyboardShortcuts.endSessionDescription": {
+    "defaultMessage": "Detener el agente del chat actual; el chat permanece en la barra lateral"
+  },
+  "keyboardShortcuts.endSessionLabel": {
+    "defaultMessage": "Finalizar sesión"
   },
   "keyboardShortcuts.findDescription": {
     "defaultMessage": "Abrir búsqueda en la conversación"
@@ -2510,8 +2522,14 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "Eliminar chat"
   },
+  "navigationPanel.endFailed": {
+    "defaultMessage": "No se pudo finalizar la sesión: {error}"
+  },
   "navigationPanel.endSession": {
     "defaultMessage": "Finalizar sesión"
+  },
+  "navigationPanel.endSuccess": {
+    "defaultMessage": "“{name}” finalizada"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Creado"
@@ -2531,6 +2549,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "No hay chats recientes"
   },
+  "navigationPanel.notLive": {
+    "defaultMessage": "“{name}” no tiene ningún agente en ejecución que finalizar"
+  },
   "navigationPanel.projectActions": {
     "defaultMessage": "Acciones de {project}"
   },
@@ -2548,6 +2569,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Posponer"
+  },
+  "navigationPanel.stillBusy": {
+    "defaultMessage": "“{name}” sigue trabajando; deténgala primero"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Dejar de posponer"

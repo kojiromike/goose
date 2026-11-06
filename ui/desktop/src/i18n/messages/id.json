@@ -1679,6 +1679,12 @@
   "keyboardShortcuts.alwaysOnTopLabel": {
     "defaultMessage": "Selalu di Atas"
   },
+  "keyboardShortcuts.archiveSessionDescription": {
+    "defaultMessage": "Akhiri dan arsipkan obrolan saat ini, lalu buka obrolan berikutnya"
+  },
+  "keyboardShortcuts.archiveSessionLabel": {
+    "defaultMessage": "Arsipkan obrolan"
+  },
   "keyboardShortcuts.cancel": {
     "defaultMessage": "Batal"
   },
@@ -1714,6 +1720,12 @@
   },
   "keyboardShortcuts.dismiss": {
     "defaultMessage": "Tutup"
+  },
+  "keyboardShortcuts.endSessionDescription": {
+    "defaultMessage": "Hentikan agen obrolan saat ini; obrolan tetap ada di bilah samping"
+  },
+  "keyboardShortcuts.endSessionLabel": {
+    "defaultMessage": "Akhiri sesi"
   },
   "keyboardShortcuts.findDescription": {
     "defaultMessage": "Buka pencarian dalam percakapan"
@@ -2510,8 +2522,14 @@
   "navigationPanel.deleteTitle": {
     "defaultMessage": "Hapus obrolan"
   },
+  "navigationPanel.endFailed": {
+    "defaultMessage": "Gagal mengakhiri sesi: {error}"
+  },
   "navigationPanel.endSession": {
     "defaultMessage": "Akhiri sesi"
+  },
+  "navigationPanel.endSuccess": {
+    "defaultMessage": "“{name}” diakhiri"
   },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Dibuat"
@@ -2531,6 +2549,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Tidak ada obrolan terbaru"
   },
+  "navigationPanel.notLive": {
+    "defaultMessage": "“{name}” tidak memiliki agen yang berjalan untuk diakhiri"
+  },
   "navigationPanel.projectActions": {
     "defaultMessage": "Tindakan untuk {project}"
   },
@@ -2548,6 +2569,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Tunda"
+  },
+  "navigationPanel.stillBusy": {
+    "defaultMessage": "“{name}” masih bekerja; hentikan terlebih dahulu"
   },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Batalkan tunda"
