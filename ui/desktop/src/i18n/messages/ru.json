@@ -4037,6 +4037,9 @@
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {Работает в фоне} one {Работает в фоне (# фоновая команда)} other {Работает в фоне (фоновых команд: #)}}"
   },
+  "sessionSwitcher.actionsHint": {
+    "defaultMessage": "{archiveKey} — архивировать · {endKey} — завершить"
+  },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ — перемещение · ↵ — открыть · {snoozeKey} — отложить ({snoozeUntilKey} — на время) · esc — закрыть"
   },

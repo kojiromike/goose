@@ -4037,6 +4037,9 @@
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {Trabalhando em segundo plano} one {Trabalhando em segundo plano (# comando em segundo plano)} other {Trabalhando em segundo plano (# comandos em segundo plano)}}"
   },
+  "sessionSwitcher.actionsHint": {
+    "defaultMessage": "{archiveKey} para arquivar · {endKey} para encerrar"
+  },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ para mover · ↵ para abrir · {snoozeKey} para adiar ({snoozeUntilKey} com horário) · esc para fechar"
   },

@@ -36,7 +36,7 @@ import { InlineEditText } from '../common/InlineEditText';
 import { describeSessionActivity, SessionIndicators } from '../SessionIndicators';
 import { SessionSwitcher } from '../SessionSwitcher';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
-import { formatShortcut } from '../settings/keyboard/KeyboardShortcutsSection';
+import { formatShortcutCompact } from '../settings/keyboard/KeyboardShortcutsSection';
 import type { KeyboardShortcuts } from '../../utils/settings';
 import { useFrozenWhile } from '../../hooks/useFrozenWhile';
 import { matchesAccelerator } from '../../utils/acceleratorMatch';
@@ -296,7 +296,9 @@ interface SessionRowProps {
 
 const ShortcutHint: React.FC<{ accelerator: string | null | undefined }> = ({ accelerator }) =>
   accelerator ? (
-    <span className="ml-auto pl-4 text-xs text-text-secondary">{formatShortcut(accelerator)}</span>
+    <span className="ml-auto pl-4 text-xs text-text-secondary">
+      {formatShortcutCompact(accelerator)}
+    </span>
   ) : null;
 
 const formatTimestamp = (value?: string): string | null => {
@@ -876,11 +878,11 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
     [visibleSessions, visibleSessionsByProject, collapsedProjects]
   );
 
-  // Act on the open chat from the keyboard. Archiving tears down the loaded
-  // agent the same way ending does, so it needs no separate end first.
-  const endOrArchiveActive = useCallback(
-    async (action: 'end' | 'archive') => {
-      const session = recentSessions.find(({ id }) => id === activeSessionId);
+  // Act on a chat from the keyboard. Archiving tears down the loaded agent the
+  // same way ending does, so it needs no separate end first.
+  const endOrArchive = useCallback(
+    async (action: 'end' | 'archive', sessionId: string | undefined) => {
+      const session = recentSessions.find(({ id }) => id === sessionId);
       if (!session) return;
       const name = session.name || intl.formatMessage(i18n.untitledSession);
       const live = liveSessions.get(session.id);
@@ -889,7 +891,11 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
         return;
       }
       if (action === 'archive') {
-        const next = adjacentSessionId(sidebarOrder, session.id, 1);
+        // Archiving the open chat leaves its route; land on the next one instead.
+        const next =
+          session.id === activeSessionId
+            ? adjacentSessionId(sidebarOrder, session.id, 1)
+            : undefined;
         if ((await archiveSession(intl, session)) && next && next !== session.id) {
           openSession(next);
         }
@@ -946,7 +952,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
           : undefined;
       if (action) {
         event.preventDefault();
-        void endOrArchiveActive(action);
+        void endOrArchive(action, activeSessionId);
         return;
       }
       const step = matchesAccelerator(event, shortcuts.nextSession, isMac)
@@ -969,7 +975,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
     openSession,
     refreshLiveSessions,
     fetchSessions,
-    endOrArchiveActive,
+    endOrArchive,
   ]);
 
   const toggleProjectCollapsed = useCallback((path: string) => {
@@ -1022,6 +1028,9 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
       onSelect={openSession}
       onToggleSnooze={toggleSnooze}
       onSnooze={snooze}
+      shortcuts={shortcuts}
+      onEnd={(sessionId) => void endOrArchive('end', sessionId)}
+      onArchive={(sessionId) => void endOrArchive('archive', sessionId)}
     />
   );
 

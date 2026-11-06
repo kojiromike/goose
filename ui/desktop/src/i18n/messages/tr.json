@@ -4037,6 +4037,9 @@
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {Arka planda çalışıyor} one {Arka planda çalışıyor (# arka plan komutu)} other {Arka planda çalışıyor (# arka plan komutu)}}"
   },
+  "sessionSwitcher.actionsHint": {
+    "defaultMessage": "{archiveKey} ile arşivle · {endKey} ile sonlandır"
+  },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ ile gezin · ↵ ile aç · {snoozeKey} ile ertele ({snoozeUntilKey} ile saat seç) · esc ile kapat"
   },

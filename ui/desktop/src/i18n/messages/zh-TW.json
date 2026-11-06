@@ -4037,6 +4037,9 @@
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {正在背景工作} one {正在背景工作（# 個背景命令）} other {正在背景工作（# 個背景命令）}}"
   },
+  "sessionSwitcher.actionsHint": {
+    "defaultMessage": "{archiveKey} 封存 · {endKey} 結束"
+  },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ 移動 · ↵ 開啟 · {snoozeKey} 暫停提醒（{snoozeUntilKey} 指定時間） · esc 關閉"
   },

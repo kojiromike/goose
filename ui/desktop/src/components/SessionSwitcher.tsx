@@ -5,6 +5,9 @@ import { defineMessages, useIntl } from '../i18n';
 import { cn } from '../utils';
 import { getProjectLabel } from '../utils/projectSessions';
 import { filterSwitcherEntries, type SwitcherEntry } from '../utils/sessionSwitcher';
+import { matchesAccelerator } from '../utils/acceleratorMatch';
+import type { KeyboardShortcuts } from '../utils/settings';
+import { formatShortcutCompact } from './settings/keyboard/KeyboardShortcutsSection';
 import { describeSessionActivity, SessionIndicators } from './SessionIndicators';
 import { snoozeChoices } from './snoozeChoices';
 
@@ -34,6 +37,10 @@ const i18n = defineMessages({
     id: 'sessionSwitcher.snoozeTitle',
     defaultMessage: 'Snooze “{name}”',
   },
+  actionsHint: {
+    id: 'sessionSwitcher.actionsHint',
+    defaultMessage: '{archiveKey} to archive · {endKey} to end',
+  },
   snoozeHint: {
     id: 'sessionSwitcher.snoozeHint',
     defaultMessage: '↑↓ to move · ↵ to snooze · esc to go back',
@@ -50,6 +57,9 @@ interface SessionSwitcherProps {
   onToggleSnooze: (sessionId: string) => void;
   /** Snooze the session until new activity or, given `until`, that time. */
   onSnooze: (sessionId: string, until?: number) => void;
+  shortcuts: Pick<KeyboardShortcuts, 'endSession' | 'archiveSession'>;
+  onEnd: (sessionId: string) => void;
+  onArchive: (sessionId: string) => void;
 }
 
 const isMac = () => window.electron.platform === 'darwin';
@@ -61,6 +71,9 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
   onSelect,
   onToggleSnooze,
   onSnooze,
+  shortcuts,
+  onEnd,
+  onArchive,
 }) => {
   const intl = useIntl();
   const [query, setQuery] = useState('');
@@ -138,6 +151,16 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
       event.preventDefault();
       const match = matches[selectedIndex];
       if (match) choose(match.session.id);
+    } else if (matchesAccelerator(event, shortcuts.archiveSession, isMac())) {
+      event.preventDefault();
+      const match = matches[selectedIndex];
+      if (!match) return;
+      stepPastSelected();
+      onArchive(match.session.id);
+    } else if (matchesAccelerator(event, shortcuts.endSession, isMac())) {
+      event.preventDefault();
+      const match = matches[selectedIndex];
+      if (match) onEnd(match.session.id);
     } else if (event.key.toLowerCase() === 's' && (isMac() ? event.metaKey : event.ctrlKey)) {
       event.preventDefault();
       const match = matches[selectedIndex];
@@ -262,6 +285,14 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
                   snoozeKey: isMac() ? '⌘S' : 'Ctrl+S',
                   snoozeUntilKey: isMac() ? '⌘⇧S' : 'Ctrl+Shift+S',
                 })}
+            {!snoozeTarget && shortcuts.archiveSession && shortcuts.endSession && (
+              <div>
+                {intl.formatMessage(i18n.actionsHint, {
+                  archiveKey: formatShortcutCompact(shortcuts.archiveSession),
+                  endKey: formatShortcutCompact(shortcuts.endSession),
+                })}
+              </div>
+            )}
           </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

@@ -4037,6 +4037,9 @@
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {バックグラウンドで作業中} one {バックグラウンドで作業中（バックグラウンドコマンド #件）} other {バックグラウンドで作業中（バックグラウンドコマンド #件）}}"
   },
+  "sessionSwitcher.actionsHint": {
+    "defaultMessage": "{archiveKey} でアーカイブ · {endKey} で終了"
+  },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ で移動 · ↵ で開く · {snoozeKey} でスヌーズ（{snoozeUntilKey} で時間指定） · esc で閉じる"
   },

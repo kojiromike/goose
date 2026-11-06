@@ -4037,6 +4037,9 @@
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {Đang làm việc trong nền} one {Đang làm việc trong nền (# lệnh chạy nền)} other {Đang làm việc trong nền (# lệnh chạy nền)}}"
   },
+  "sessionSwitcher.actionsHint": {
+    "defaultMessage": "{archiveKey} để lưu trữ · {endKey} để kết thúc"
+  },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ để di chuyển · ↵ để mở · {snoozeKey} để tạm ẩn ({snoozeUntilKey} để chọn giờ) · esc để đóng"
   },

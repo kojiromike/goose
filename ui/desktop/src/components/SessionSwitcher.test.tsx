@@ -19,6 +19,11 @@ function entry(id: string, name: string, workingDir = '/work'): SwitcherEntry {
   };
 }
 
+const shortcuts = {
+  endSession: 'CommandOrControl+Shift+E',
+  archiveSession: 'CommandOrControl+Shift+A',
+};
+
 const entries = [entry('a', 'Fix login bug'), entry('b', 'Release notes'), entry('c', 'Triage')];
 
 function renderSwitcher(
@@ -28,6 +33,8 @@ function renderSwitcher(
   const onOpenChange = vi.fn();
   const onToggleSnooze = vi.fn();
   const onSnooze = vi.fn();
+  const onEnd = vi.fn();
+  const onArchive = vi.fn();
   const view = render(
     <IntlTestWrapper>
       <SessionSwitcher
@@ -37,6 +44,9 @@ function renderSwitcher(
         onSelect={onSelect}
         onToggleSnooze={onToggleSnooze}
         onSnooze={onSnooze}
+        shortcuts={shortcuts}
+        onEnd={onEnd}
+        onArchive={onArchive}
         {...props}
       />
     </IntlTestWrapper>
@@ -47,6 +57,8 @@ function renderSwitcher(
     onOpenChange,
     onToggleSnooze,
     onSnooze,
+    onEnd,
+    onArchive,
     input: screen.getByRole('textbox'),
   };
 }
@@ -91,6 +103,9 @@ describe('SessionSwitcher', () => {
           onSelect={onSelect}
           onToggleSnooze={onToggleSnooze}
           onSnooze={vi.fn()}
+          shortcuts={shortcuts}
+          onEnd={vi.fn()}
+          onArchive={vi.fn()}
         />
       </IntlTestWrapper>
     );
@@ -112,12 +127,36 @@ describe('SessionSwitcher', () => {
           onSelect={onSelect}
           onToggleSnooze={onToggleSnooze}
           onSnooze={vi.fn()}
+          shortcuts={shortcuts}
+          onEnd={vi.fn()}
+          onArchive={vi.fn()}
         />
       </IntlTestWrapper>
     );
     expect(screen.getByText('Snoozed until there is new activity')).toBeInTheDocument();
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(onSelect).toHaveBeenCalledWith('b');
+  });
+
+  it('archives the selected session on ⌘⇧A without closing', () => {
+    const { input, onArchive, onOpenChange } = renderSwitcher();
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'A', code: 'KeyA', metaKey: true, shiftKey: true });
+    expect(onArchive).toHaveBeenCalledWith('b');
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it('ends the selected session on ⌘⇧E without closing', () => {
+    const { input, onEnd, onArchive, onOpenChange } = renderSwitcher();
+    fireEvent.keyDown(input, { key: 'E', code: 'KeyE', metaKey: true, shiftKey: true });
+    expect(onEnd).toHaveBeenCalledWith('a');
+    expect(onArchive).not.toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it('lists the archive and end keys in the hint', () => {
+    renderSwitcher();
+    expect(screen.getByText('⌘⇧A to archive · ⌘⇧E to end')).toBeInTheDocument();
   });
 
   it('picks a wake time on ⌘⇧S, and esc backs out without closing', () => {

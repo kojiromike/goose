@@ -4037,6 +4037,9 @@
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {백그라운드에서 작업 중} one {백그라운드에서 작업 중(백그라운드 명령 #개)} other {백그라운드에서 작업 중(백그라운드 명령 #개)}}"
   },
+  "sessionSwitcher.actionsHint": {
+    "defaultMessage": "{archiveKey} 보관 · {endKey} 종료"
+  },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ 이동 · ↵ 열기 · {snoozeKey} 다시 알림 ({snoozeUntilKey} 시간 지정) · esc 닫기"
   },

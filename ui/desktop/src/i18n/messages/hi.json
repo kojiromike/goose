@@ -4037,6 +4037,9 @@
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {पृष्ठभूमि में काम कर रहा है} one {पृष्ठभूमि में काम कर रहा है (# पृष्ठभूमि कमांड)} other {पृष्ठभूमि में काम कर रहा है (# पृष्ठभूमि कमांड)}}"
   },
+  "sessionSwitcher.actionsHint": {
+    "defaultMessage": "{archiveKey} से संग्रहित करें · {endKey} से समाप्त करें"
+  },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ से चलें · ↵ से खोलें · {snoozeKey} से स्नूज़ करें ({snoozeUntilKey} समय के साथ) · esc से बंद करें"
   },

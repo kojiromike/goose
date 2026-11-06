@@ -4037,6 +4037,9 @@
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {Arbeitet im Hintergrund} one {Arbeitet im Hintergrund (# Hintergrundbefehl)} other {Arbeitet im Hintergrund (# Hintergrundbefehle)}}"
   },
+  "sessionSwitcher.actionsHint": {
+    "defaultMessage": "{archiveKey} archivieren · {endKey} beenden"
+  },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ bewegen · ↵ öffnen · {snoozeKey} schlummern ({snoozeUntilKey} mit Zeit) · Esc schließen"
   },

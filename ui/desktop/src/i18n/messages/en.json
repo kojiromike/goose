@@ -4043,6 +4043,9 @@
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count,plural,=0{Working in the background} one{Working in the background (# background command)} other{Working in the background (# background commands)}}"
   },
+  "sessionSwitcher.actionsHint": {
+    "defaultMessage": "{archiveKey} to archive · {endKey} to end"
+  },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ to move · ↵ to open · {snoozeKey} to snooze ({snoozeUntilKey} for a time) · esc to close"
   },

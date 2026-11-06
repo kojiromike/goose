@@ -388,6 +388,12 @@ export const formatShortcut = (shortcut: string): string => {
     .replace('Shift', isMac ? '⇧' : 'Shift');
 };
 
+/** Run together on macOS (⌘⇧A) the way its menus show shortcuts. */
+export const formatShortcutCompact = (shortcut: string): string => {
+  const formatted = formatShortcut(shortcut);
+  return window.electron.platform === 'darwin' ? formatted.replace(/\+/g, '') : formatted;
+};
+
 const categoryLabelMessages: Record<string, MessageDescriptor> = {
   global: i18n.categoryGlobal,
   application: i18n.categoryApplication,

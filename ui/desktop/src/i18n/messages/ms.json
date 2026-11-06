@@ -4037,6 +4037,9 @@
   "sessionIndicators.workingInBackground": {
     "defaultMessage": "{count, plural, =0 {Bekerja di latar belakang} one {Bekerja di latar belakang (# arahan latar belakang)} other {Bekerja di latar belakang (# arahan latar belakang)}}"
   },
+  "sessionSwitcher.actionsHint": {
+    "defaultMessage": "{archiveKey} untuk mengarkibkan · {endKey} untuk menamatkan"
+  },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ untuk bergerak · ↵ untuk membuka · {snoozeKey} untuk menunda ({snoozeUntilKey} dengan masa) · esc untuk menutup"
   },
