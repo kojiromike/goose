@@ -815,6 +815,21 @@ pub trait Provider: Send + Sync {
     /// default is a no-op, appropriate for providers whose turn ends as soon
     /// as goose stops polling the response stream.
     async fn cancel(&self, _session_id: &str, _scope: u64) {}
+
+    /// Deliver a steer straight into the turn the provider is running.
+    ///
+    /// Returns `true` when the backend took the message into its in-flight
+    /// turn. The provider then owns it: it must yield the message, marked as a
+    /// steer, on that turn's stream so goose records it where it landed. On
+    /// `false` the caller queues the steer for the agent's next pass, as it
+    /// does for providers whose turn ends when goose stops polling the stream.
+    ///
+    /// Providers that drive a remote turn (e.g. ACP agents) override this
+    /// because that turn can stay open long after its last update, while the
+    /// backend waits on work of its own, and a queued steer waits with it.
+    async fn steer(&self, _session_id: &str, _message: &Message) -> bool {
+        false
+    }
 }
 
 #[cfg(test)]
