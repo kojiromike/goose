@@ -684,11 +684,32 @@ impl Agent {
     }
 
     pub async fn steer(&self, session_id: &str, message: Message) {
+        if let Ok(provider) = self.provider().await {
+            if provider.steer(session_id, &message).await {
+                self.emit_user_prompt_submit(session_id, &message).await;
+                return;
+            }
+        }
         self.steer_queue(session_id)
             .await
             .lock()
             .await
             .push_back(message);
+    }
+
+    async fn emit_user_prompt_submit(&self, session_id: &str, message: &Message) {
+        if !self
+            .hook_manager
+            .has_hooks(crate::hooks::HookEvent::UserPromptSubmit)
+        {
+            return;
+        }
+        let ctx =
+            crate::hooks::HookContext::new(crate::hooks::HookEvent::UserPromptSubmit, session_id)
+                .with_message(agent_visible_message_text(message));
+        self.hook_manager
+            .emit(crate::hooks::HookEvent::UserPromptSubmit, ctx)
+            .await;
     }
 
     pub async fn discard_pending_steers(&self, session_id: &str) {
@@ -2714,20 +2735,7 @@ impl Agent {
 
                 if can_drain_pending_steers {
                     for message in self.drain_pending_steers(&session_config.id).await {
-                        let message_text = agent_visible_message_text(&message);
-                        if self
-                            .hook_manager
-                            .has_hooks(crate::hooks::HookEvent::UserPromptSubmit)
-                        {
-                            let ctx = crate::hooks::HookContext::new(
-                                crate::hooks::HookEvent::UserPromptSubmit,
-                                &session_config.id,
-                            )
-                            .with_message(message_text);
-                            self.hook_manager
-                                .emit(crate::hooks::HookEvent::UserPromptSubmit, ctx)
-                                .await;
-                        }
+                        self.emit_user_prompt_submit(&session_config.id, &message).await;
                         let message = persist_and_push_message_with_id(
                             &session_manager,
                             &session_config.id,
@@ -2908,6 +2916,35 @@ impl Agent {
                             }
 
                             if let Some(response) = response {
+                                if response.metadata.steer {
+                                    // The provider delivered this steer into the running
+                                    // turn (see `Provider::steer`). Record it now, behind
+                                    // what the turn said before it: a turn held open for
+                                    // background work can be cancelled or shut down long
+                                    // before it would be persisted.
+                                    // Usage stays pending: it attaches to the turn's last
+                                    // reply when the turn finishes.
+                                    let (before_steer, _) = finish_turn_messages(
+                                        std::mem::take(&mut messages_to_add),
+                                        inference.as_ref(),
+                                        None,
+                                        None,
+                                    );
+                                    for msg in &before_steer {
+                                        session_manager.add_message(&session_config.id, msg).await?;
+                                    }
+                                    conversation.extend(before_steer);
+                                    let message = persist_and_push_message_with_id(
+                                        &session_manager,
+                                        &session_config.id,
+                                        &mut conversation,
+                                        response,
+                                    )
+                                    .await?;
+                                    yield AgentEvent::Message(message);
+                                    continue;
+                                }
+
                                 provider_reached_output_token_limit |=
                                     response.metadata.output_token_limit_reached;
 

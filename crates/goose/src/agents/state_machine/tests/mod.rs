@@ -11,6 +11,7 @@ mod agent_reply;
 mod calculator_extension;
 mod compaction_lifecycle;
 mod dummy_api;
+mod forwarded_steer;
 mod hooks_lifecycle;
 mod pipeline;
 mod prompt_skill_lifecycle;

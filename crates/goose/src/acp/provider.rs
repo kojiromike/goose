@@ -39,6 +39,7 @@ use crate::acp::handoff::{build_handoff_context_memo, memo_token_budget, prompt_
 use crate::acp::llm_backend::{
     disable_request, set_provider_request, LlmBackend, LlmBackendKind, LlmBackendState,
 };
+use crate::acp::steering::{supports_steering, SteeringRequest};
 use crate::acp::{map_permission_response, PermissionDecision};
 use crate::config::{Config, ExtensionConfig, GooseMode};
 use crate::conversation::message::{Message, MessageContent, TOOL_META_EXTERNAL_DISPATCH_KEY};
@@ -243,9 +244,15 @@ enum AcpUpdate {
         request: Box<RequestPermissionRequest>,
         response_tx: oneshot::Sender<RequestPermissionResponse>,
     },
+    /// A user message the agent took into this turn through `_session/steering`.
+    Steered(Message),
     Complete(StopReason, Option<AcpUsage>),
     Error(agent_client_protocol::Error),
 }
+
+/// The update channel of the prompt the client loop sent last. It stays
+/// registered after that prompt ends; see [`deliver_or_publish`].
+type PromptResponseSender = Arc<Mutex<Option<mpsc::Sender<AcpUpdate>>>>;
 
 /// The token count to record as a turn's total. goose shows a session's total as
 /// how full its context window is, but an ACP agent reports a turn's total as the
@@ -730,6 +737,11 @@ pub struct AcpProvider {
     /// cancel routed through `tx` could not be delivered until the turn it is
     /// meant to interrupt has already finished.
     agent_cx: Arc<OnceLock<ConnectionTo<Agent>>>,
+    /// Whether the agent accepts `_session/steering`.
+    supports_steering: bool,
+    /// The running prompt's update channel, shared with the client loop so a
+    /// steer the agent accepted lands in that prompt's stream in order.
+    prompt_response_tx: PromptResponseSender,
 }
 
 impl std::fmt::Debug for AcpProvider {
@@ -804,6 +816,8 @@ struct AcpConnection {
     active_prompt_epoch: Arc<AtomicU64>,
     cancel_notify: Arc<tokio::sync::Notify>,
     agent_cx: Arc<OnceLock<ConnectionTo<Agent>>>,
+    supports_steering: bool,
+    prompt_response_tx: PromptResponseSender,
     tx: mpsc::Sender<ClientRequest>,
     cancel_tx: oneshot::Sender<()>,
     loop_thread: JoinHandle<()>,
@@ -844,9 +858,11 @@ impl AcpConnection {
         let active_prompt_epoch = Arc::new(AtomicU64::new(0));
         let handoff_context_sent = Arc::new(AtomicBool::new(false));
         let cancel_notify = Arc::new(tokio::sync::Notify::new());
+        let prompt_response_tx: PromptResponseSender = Arc::new(Mutex::new(None));
         let client_loop = AcpClientLoop::new(
             config,
             goose_mode.clone(),
+            prompt_response_tx.clone(),
             pending_tool_updates.clone(),
             context_size.clone(),
             context_used.clone(),
@@ -873,6 +889,7 @@ impl AcpConnection {
             .await
             .context("ACP client initialization cancelled")??;
         let supports_llm_backends = init_response.agent_capabilities.providers.is_some();
+        let supports_steering = supports_steering(&init_response);
 
         Ok(Self {
             goose_mode,
@@ -894,6 +911,8 @@ impl AcpConnection {
             active_prompt_epoch,
             cancel_notify,
             agent_cx,
+            supports_steering,
+            prompt_response_tx,
             tx: client_loop_guard.tx.take().unwrap(),
             cancel_tx: client_loop_guard.cancel_tx.take().unwrap(),
             loop_thread: client_loop_guard.thread.take().unwrap(),
@@ -969,6 +988,8 @@ impl AcpConnection {
             active_prompt_epoch: self.active_prompt_epoch,
             cancel_notify: self.cancel_notify,
             agent_cx: self.agent_cx,
+            supports_steering: self.supports_steering,
+            prompt_response_tx: self.prompt_response_tx,
             tx: Some(self.tx),
             cancel_tx: Some(self.cancel_tx),
             loop_thread: Some(self.loop_thread),
@@ -1685,6 +1706,56 @@ impl Provider for AcpProvider {
         }
     }
 
+    async fn steer(&self, _session_id: &str, message: &Message) -> bool {
+        if !self.supports_steering {
+            return false;
+        }
+        // Like `cancel()`, this goes straight to the connection: the client
+        // loop is blocked on the very prompt being steered.
+        let epoch = self.active_prompt_epoch.load(Ordering::SeqCst);
+        if epoch == 0 || scope_cancelled(&self.cancelled_scopes, epoch) {
+            return false;
+        }
+        let Some(cx) = self.agent_cx.get() else {
+            return false;
+        };
+        let prompt = messages_to_prompt(std::slice::from_ref(message), None);
+        if prompt.is_empty() {
+            return false;
+        }
+        // Read before the request: once the agent injects the steer, that
+        // prompt cannot settle until the steer is answered, so this is still
+        // the sender of the turn the steer joined.
+        let Some(stream_tx) = self.prompt_response_tx.lock().unwrap().clone() else {
+            return false;
+        };
+        let request = cx
+            .send_request(SteeringRequest::new(self.acp_session_id(), prompt))
+            .block_task();
+        match tokio::time::timeout(CHILD_REQUEST_TIMEOUT, request).await {
+            Ok(Ok(response)) if response.injected() => {}
+            Ok(Ok(_)) => return false,
+            Ok(Err(error)) => {
+                tracing::warn!(%error, "ACP agent rejected a steer; queueing it instead");
+                return false;
+            }
+            // Unknown whether the agent took it. Queueing risks the agent seeing
+            // it twice, which beats it never arriving.
+            Err(_) => {
+                tracing::warn!("ACP agent did not answer a steer; queueing it instead");
+                return false;
+            }
+        }
+        if stream_tx
+            .send(AcpUpdate::Steered(message.clone().with_steer()))
+            .await
+            .is_err()
+        {
+            tracing::warn!("ACP turn ended before goose could record the steer it took");
+        }
+        true
+    }
+
     fn begin_cancel_scope(&self) -> u64 {
         // Bump the epoch instead of clearing the latch: prompts from a
         // cancelled reply may still sit in the client-loop queue and must
@@ -1918,6 +1989,11 @@ impl Provider for AcpProvider {
                                 acp_tool_response_message(id, raw_output, content, is_error);
                             yield (Some(message), None);
                         }
+                    }
+                    AcpUpdate::Steered(message) => {
+                        text_run = None;
+                        thought_run = None;
+                        yield (Some(message), None);
                     }
                     AcpUpdate::PermissionRequest { request, response_tx } => {
                         text_run = None;
@@ -2159,7 +2235,7 @@ impl Drop for AcpProvider {
 struct AcpClientLoop {
     config: AcpProviderConfig,
     goose_mode: Arc<Mutex<GooseMode>>,
-    prompt_response_tx: Arc<Mutex<Option<mpsc::Sender<AcpUpdate>>>>,
+    prompt_response_tx: PromptResponseSender,
     pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
     context_size: Arc<AtomicU64>,
     context_used: Arc<AtomicU64>,
@@ -2185,6 +2261,7 @@ impl AcpClientLoop {
     fn new(
         config: AcpProviderConfig,
         goose_mode: Arc<Mutex<GooseMode>>,
+        prompt_response_tx: PromptResponseSender,
         pending_tool_updates: Arc<Mutex<HashMap<String, AccumulatedToolCall>>>,
         context_size: Arc<AtomicU64>,
         context_used: Arc<AtomicU64>,
@@ -2202,7 +2279,7 @@ impl AcpClientLoop {
         Self {
             config,
             goose_mode,
-            prompt_response_tx: Arc::new(Mutex::new(None)),
+            prompt_response_tx,
             pending_tool_updates,
             context_size,
             context_used,
@@ -2791,7 +2868,7 @@ async fn handle_requests(
     goose_mode: Arc<Mutex<GooseMode>>,
     cx: ConnectionTo<Agent>,
     rx: &mut mpsc::Receiver<ClientRequest>,
-    prompt_response_tx: Arc<Mutex<Option<mpsc::Sender<AcpUpdate>>>>,
+    prompt_response_tx: PromptResponseSender,
     session_state: AcpSessionState,
     active_session: Arc<Mutex<Option<SessionId>>>,
     cancelled_scopes: Arc<Mutex<HashSet<u64>>>,
@@ -4133,6 +4210,8 @@ mod tests {
                 cancel_tx: None,
                 loop_thread: None,
                 agent_cx: Arc::new(OnceLock::new()),
+                supports_steering: false,
+                prompt_response_tx: Arc::new(Mutex::new(None)),
             },
             ModelConfig::new("test-model"),
         )
@@ -6558,6 +6637,197 @@ mod tests {
         .await
         .unwrap();
         (provider, prompts, cancels)
+    }
+
+    /// An agent that advertises steering and holds each prompt open, the way
+    /// claude-agent-acp holds a turn for live background subagents: it says
+    /// "before", then waits for `resume`, says "after", and ends the turn.
+    struct FakeSteeringAgent {
+        outcome: &'static str,
+        steers: Arc<Mutex<Vec<String>>>,
+        resume: Arc<tokio::sync::Notify>,
+    }
+
+    impl agent_client_protocol::ConnectTo<Client> for FakeSteeringAgent {
+        async fn connect_to(
+            self,
+            client: impl agent_client_protocol::ConnectTo<Agent>,
+        ) -> std::result::Result<(), agent_client_protocol::Error> {
+            let FakeSteeringAgent {
+                outcome,
+                steers,
+                resume,
+            } = self;
+            let say = |cx: &ConnectionTo<Client>, text: &str| {
+                cx.send_notification(SessionNotification::new(
+                    "fake-session",
+                    SessionUpdate::AgentMessageChunk(ContentChunk::new(ContentBlock::Text(
+                        TextContent::new(text),
+                    ))),
+                ))
+            };
+            Agent
+                .builder()
+                .on_receive_request(
+                    async move |_req: InitializeRequest, responder, _cx| {
+                        let mut meta = agent_client_protocol::schema::v1::Meta::new();
+                        meta.insert(
+                            "steering".to_string(),
+                            serde_json::json!({ "supported": true }),
+                        );
+                        responder.respond(InitializeResponse::new(ProtocolVersion::V1).meta(meta))
+                    },
+                    agent_client_protocol::on_receive_request!(),
+                )
+                .on_receive_request(
+                    async move |_req: NewSessionRequest, responder, _cx| {
+                        responder.respond(NewSessionResponse::new("fake-session"))
+                    },
+                    agent_client_protocol::on_receive_request!(),
+                )
+                .on_receive_request(
+                    async move |_req: PromptRequest, responder, cx| {
+                        let resume = resume.clone();
+                        cx.clone().spawn(async move {
+                            say(&cx, "before")?;
+                            resume.notified().await;
+                            say(&cx, "after")?;
+                            responder.respond(PromptResponse::new(StopReason::EndTurn))
+                        })?;
+                        Ok(())
+                    },
+                    agent_client_protocol::on_receive_request!(),
+                )
+                .on_receive_request(
+                    async move |req: SteeringRequest, responder, _cx| {
+                        steers
+                            .lock()
+                            .unwrap()
+                            .extend(req.prompt.iter().filter_map(|block| match block {
+                                ContentBlock::Text(text) => Some(text.text.clone()),
+                                _ => None,
+                            }));
+                        responder.respond(crate::acp::steering::SteeringResponse {
+                            outcome: outcome.to_string(),
+                        })
+                    },
+                    agent_client_protocol::on_receive_request!(),
+                )
+                .connect_to(client)
+                .await
+        }
+    }
+
+    async fn fake_steering_provider(
+        outcome: &'static str,
+    ) -> (
+        AcpProvider,
+        Arc<Mutex<Vec<String>>>,
+        Arc<tokio::sync::Notify>,
+    ) {
+        let steers = Arc::new(Mutex::new(Vec::new()));
+        let resume = Arc::new(tokio::sync::Notify::new());
+        let provider = AcpProvider::connect_with_transport(
+            "acp-test".to_string(),
+            GooseMode::Auto,
+            test_acp_config(HashMap::new(), None),
+            FakeSteeringAgent {
+                outcome,
+                steers: steers.clone(),
+                resume: resume.clone(),
+            },
+            None,
+        )
+        .await
+        .unwrap();
+        (provider, steers, resume)
+    }
+
+    async fn next_message(stream: &mut MessageStream) -> Message {
+        use futures::StreamExt;
+        loop {
+            let item = tokio::time::timeout(Duration::from_secs(5), stream.next())
+                .await
+                .expect("the turn stalled")
+                .expect("the turn ended early")
+                .unwrap();
+            if let (Some(message), _) = item {
+                return message;
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn a_steer_joins_the_held_turn_in_order() {
+        use futures::StreamExt;
+
+        let (provider, steers, resume) = fake_steering_provider("injected").await;
+        let model = ModelConfig::new("some-model");
+        let messages = vec![Message::user().with_text("start the subagent")];
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+
+        let before = next_message(&mut stream).await;
+        assert_eq!(before.as_concat_text(), "before");
+
+        let steer = Message::user().with_text("stop merging").with_id("steer_1");
+        assert!(provider.steer("goose-session", &steer).await);
+        assert_eq!(*steers.lock().unwrap(), vec!["stop merging".to_string()]);
+        resume.notify_one();
+
+        let steered = next_message(&mut stream).await;
+        assert_eq!(steered.role, Role::User);
+        assert!(steered.metadata.steer);
+        assert_eq!(steered.id.as_deref(), Some("steer_1"));
+        assert_eq!(steered.as_concat_text(), "stop merging");
+
+        let after = next_message(&mut stream).await;
+        assert_eq!(after.as_concat_text(), "after");
+        assert_ne!(
+            after.id, before.id,
+            "the reply to the steer must not join the bubble before it"
+        );
+        while let Some(item) = stream.next().await {
+            item.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn a_steer_the_agent_cannot_inject_is_left_to_goose() {
+        use futures::StreamExt;
+
+        let (provider, steers, resume) = fake_steering_provider("promptRequired").await;
+        let steer = Message::user().with_text("stop merging");
+        assert!(
+            !provider.steer("goose-session", &steer).await,
+            "with no prompt in flight there is no turn to steer"
+        );
+        assert!(steers.lock().unwrap().is_empty());
+
+        let model = ModelConfig::new("some-model");
+        let messages = vec![Message::user().with_text("start the subagent")];
+        let mut stream = provider.stream(&model, "", &messages, &[]).await.unwrap();
+        next_message(&mut stream).await;
+        assert!(!provider.steer("goose-session", &steer).await);
+        resume.notify_one();
+
+        let mut rest = Vec::new();
+        while let Some(item) = stream.next().await {
+            if let (Some(message), _) = item.unwrap() {
+                rest.push(message);
+            }
+        }
+        assert!(rest.iter().all(|message| !message.metadata.steer));
+    }
+
+    #[tokio::test]
+    async fn an_agent_without_steering_is_never_asked() {
+        let (provider, _prompts, _cancels) = fake_connected_provider().await;
+        provider.active_prompt_epoch.store(1, Ordering::SeqCst);
+        assert!(
+            !provider
+                .steer("goose-session", &Message::user().with_text("hi"))
+                .await
+        );
     }
 
     /// A cancel landing while the backend is still applying a pre-prompt

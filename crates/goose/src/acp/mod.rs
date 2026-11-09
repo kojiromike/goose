@@ -11,6 +11,7 @@ pub mod resume_context;
 mod run_lock;
 pub mod server;
 pub mod server_factory;
+mod steering;
 pub(crate) mod tool_call_notifier;
 pub(crate) mod tools;
 pub mod transport;
