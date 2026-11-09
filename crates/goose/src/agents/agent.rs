@@ -465,6 +465,29 @@ fn attach_turn_usage(
     has_user_visible_content.then(|| (message.id.clone(), message_usage))
 }
 
+/// Ready a provider turn's buffered messages for persistence: tag assistant
+/// messages with the turn's inference metadata and attach the turn's usage.
+/// Returns the messages and the usage notification to emit, if any.
+fn finish_turn_messages(
+    messages: Conversation,
+    inference: Option<&InferenceMetadata>,
+    usage: Option<&ProviderUsage>,
+    preferred_usage_message_id: Option<&str>,
+) -> (Conversation, Option<(Option<String>, MessageUsage)>) {
+    let mut messages = if let Some(inference) = inference {
+        Conversation::new_unvalidated(
+            messages
+                .into_iter()
+                .map(|message| message.with_inference_if_assistant(inference.clone())),
+        )
+    } else {
+        messages
+    };
+    let usage_event =
+        usage.and_then(|usage| attach_turn_usage(&mut messages, usage, preferred_usage_message_id));
+    (messages, usage_event)
+}
+
 impl Default for Agent {
     fn default() -> Self {
         Self::new()
@@ -3489,9 +3512,31 @@ impl Agent {
                 // loop and before that handling, keeps a cancelled (e.g. quiet
                 // ACP) turn from blocking the UI on that work. Mirrors the outer
                 // loop's top-of-iteration cancel check, a turn earlier.
+                //
+                // Persistence is the exception: the turn's messages are saved
+                // before breaking. An ACP agent has already acted on and
+                // remembers everything it streamed, and dropping it would leave
+                // the cancelled prompt as the last history row, where
+                // merge_consecutive_messages folds it into the next prompt and
+                // resends it.
                 if is_token_cancelled(&cancel_token) {
                     if let Some(ref task) = tool_pair_summarization_task {
                         task.abort();
+                    }
+                    if provider_produced_content || !no_tools_called {
+                        let (messages_to_add, usage_event) = finish_turn_messages(
+                            messages_to_add,
+                            inference.as_ref(),
+                            pending_turn_usage.take().as_ref(),
+                            preferred_turn_usage_message_id.as_deref(),
+                        );
+                        if let Some((message_id, usage)) = usage_event {
+                            yield AgentEvent::MessageUsage { message_id, usage };
+                        }
+                        for msg in &messages_to_add {
+                            session_manager.add_message(&session_config.id, msg).await?;
+                        }
+                        conversation.extend(messages_to_add);
                     }
                     break;
                 }
@@ -3712,24 +3757,14 @@ impl Agent {
                     yield AgentEvent::Message(message);
                 }
 
-                let mut messages_to_add = if let Some(ref inference) = inference {
-                    Conversation::new_unvalidated(
-                        messages_to_add
-                            .into_iter()
-                            .map(|message| message.with_inference_if_assistant(inference.clone())),
-                    )
-                } else {
-                    messages_to_add
-                };
-
-                if let Some(usage) = pending_turn_usage.take() {
-                    if let Some((message_id, usage)) = attach_turn_usage(
-                        &mut messages_to_add,
-                        &usage,
-                        preferred_turn_usage_message_id.as_deref(),
-                    ) {
-                        yield AgentEvent::MessageUsage { message_id, usage };
-                    }
+                let (messages_to_add, usage_event) = finish_turn_messages(
+                    messages_to_add,
+                    inference.as_ref(),
+                    pending_turn_usage.take().as_ref(),
+                    preferred_turn_usage_message_id.as_deref(),
+                );
+                if let Some((message_id, usage)) = usage_event {
+                    yield AgentEvent::MessageUsage { message_id, usage };
                 }
 
                 for msg in &messages_to_add {
@@ -5643,6 +5678,9 @@ echo start >> "$PLUGIN_ROOT/hook.log"
         /// mimicking an ACP backend stuck applying a session config option
         /// before the prompt is established.
         stall_before_stream: bool,
+        /// Message the stream yields before going silent, mimicking an ACP
+        /// turn that has replied and is then held open for background work.
+        partial_reply: Option<Message>,
     }
 
     impl HangingProvider {
@@ -5653,6 +5691,14 @@ echo start >> "$PLUGIN_ROOT/hook.log"
                 cancel_calls: AtomicUsize::new(0),
                 cancelled_session: std::sync::Mutex::new(None),
                 stall_before_stream: false,
+                partial_reply: None,
+            }
+        }
+
+        fn replying_then_hanging(reply: Message) -> Self {
+            Self {
+                partial_reply: Some(reply),
+                ..Self::new()
             }
         }
 
@@ -5677,9 +5723,15 @@ echo start >> "$PLUGIN_ROOT/hook.log"
             if self.stall_before_stream {
                 std::future::pending::<()>().await;
             }
-            Ok(Box::pin(futures::stream::pending::<
-                Result<(Option<Message>, Option<ProviderUsage>), ProviderError>,
-            >()))
+            let partial_reply = self
+                .partial_reply
+                .clone()
+                .map(|message| Ok((Some(message), None)));
+            Ok(Box::pin(futures::stream::iter(partial_reply).chain(
+                futures::stream::pending::<
+                    Result<(Option<Message>, Option<ProviderUsage>), ProviderError>,
+                >(),
+            )))
         }
 
         fn get_name(&self) -> &str {
@@ -6057,6 +6109,65 @@ exit 0
             env.hook_invocations(),
             0,
             "Stop hook ran during a cancelled turn"
+        );
+        Ok(())
+    }
+
+    /// A cancelled turn must keep the replies it already streamed. Dropping
+    /// them left the cancelled prompt as the last history row, so the next
+    /// prompt was merged with it and an ACP agent was sent the old prompt
+    /// again.
+    #[tokio::test]
+    async fn cancellation_persists_replies_already_streamed() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let provider = Arc::new(HangingProvider::replying_then_hanging(
+            Message::assistant()
+                .with_id("partial-reply")
+                .with_text("working on it"),
+        ));
+        let hook_manager = crate::hooks::HookManager::from_plugins_for_test(vec![]);
+        let (agent, session_id) =
+            create_test_agent(temp_dir.path().join("data"), hook_manager, provider.clone()).await?;
+
+        let cancel_token = CancellationToken::new();
+        let reply_stream = agent
+            .reply(
+                Message::user().with_text("hi"),
+                stalled_reply_session_config(&session_id),
+                Some(cancel_token.clone()),
+            )
+            .await?;
+        tokio::pin!(reply_stream);
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while let Some(event) = reply_stream.next().await {
+                if let Ok(AgentEvent::Message(message)) = event {
+                    if message.as_concat_text() == "working on it" {
+                        cancel_token.cancel();
+                    }
+                }
+            }
+        })
+        .await
+        .expect("reply did not stop promptly after cancellation");
+
+        let session = agent
+            .config
+            .session_manager
+            .get_session(&session_id, true)
+            .await?;
+        let conversation = session
+            .conversation
+            .expect("session should have a conversation");
+        let last = conversation
+            .messages()
+            .last()
+            .expect("conversation should not be empty");
+        assert_eq!(last.role, rmcp::model::Role::Assistant);
+        assert_eq!(last.id.as_deref(), Some("partial-reply"));
+        assert_eq!(last.as_concat_text(), "working on it");
+        assert!(
+            last.metadata.inference.is_some(),
+            "cancelled replies keep their inference metadata"
         );
         Ok(())
     }
