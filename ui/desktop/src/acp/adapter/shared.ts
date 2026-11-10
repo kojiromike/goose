@@ -12,7 +12,7 @@ export type AcpChatStateChange =
       activeRunId?: string | null;
       gooseMode?: string;
     }
-  | { type: 'localSteerConfirmed'; messageId: string }
+  | { type: 'localSteerConfirmed'; messageId: string; streamed: boolean }
   | { type: 'notification'; notification: NotificationEvent };
 
 export interface AdapterState {

@@ -86,7 +86,7 @@ function expectMessagesAndLocalSteerConfirmation(
 
   const [messagesChange, confirmationChange] = chatStateChanges;
   expect(messagesChange.type).toBe('messages');
-  expect(confirmationChange).toEqual({ type: 'localSteerConfirmed', messageId });
+  expect(confirmationChange).toEqual({ type: 'localSteerConfirmed', messageId, streamed: true });
 
   if (messagesChange.type !== 'messages') {
     throw new Error('expected messages state change');
@@ -1140,7 +1140,9 @@ describe('createAcpSessionNotificationAdapter', () => {
         })
       );
 
-      expect(changes).toEqual([{ type: 'localSteerConfirmed', messageId: 'steer-msg-1' }]);
+      expect(changes).toEqual([
+        { type: 'localSteerConfirmed', messageId: 'steer-msg-1', streamed: false },
+      ]);
     });
 
     it('emits both sessionInfo and localSteerConfirmed when both are present', () => {
@@ -1159,7 +1161,11 @@ describe('createAcpSessionNotificationAdapter', () => {
 
       expect(changes).toHaveLength(2);
       expect(changes[0]).toEqual({ type: 'sessionInfo', name: 'New Title' });
-      expect(changes[1]).toEqual({ type: 'localSteerConfirmed', messageId: 'steer-msg-2' });
+      expect(changes[1]).toEqual({
+        type: 'localSteerConfirmed',
+        messageId: 'steer-msg-2',
+        streamed: false,
+      });
     });
 
     it('returns empty array when session_info_update has no relevant fields', () => {
