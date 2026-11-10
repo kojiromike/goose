@@ -6,17 +6,17 @@ use agent_client_protocol::schema::v1::ContentChunk;
 /// through `on_prompt`, so they take the run guard, stream to this connection's
 /// client, and show up in the session's window exactly like a prompt the user sent.
 pub(super) struct AcpSessionDriver {
-    server: Weak<GooseAcpAgent>,
+    connection: Weak<AcpConnection>,
 }
 
 impl AcpSessionDriver {
-    pub(super) fn new(server: Weak<GooseAcpAgent>) -> Self {
-        Self { server }
+    pub(super) fn new(server: Weak<AcpConnection>) -> Self {
+        Self { connection: server }
     }
 
-    fn connection(&self) -> Result<(Arc<GooseAcpAgent>, ConnectionTo<Client>), String> {
+    fn connection(&self) -> Result<(Arc<AcpConnection>, ConnectionTo<Client>), String> {
         let server = self
-            .server
+            .connection
             .upgrade()
             .ok_or("the client connection has closed")?;
         let cx = server
@@ -27,8 +27,9 @@ impl AcpSessionDriver {
         Ok((server, cx))
     }
 
-    async fn message_count(server: &GooseAcpAgent, session_id: &str) -> Result<usize, String> {
+    async fn message_count(server: &AcpConnection, session_id: &str) -> Result<usize, String> {
         let session = server
+            .services
             .session_manager
             .get_session(session_id, true)
             .await
@@ -39,11 +40,12 @@ impl AcpSessionDriver {
     }
 
     async fn reply_since(
-        server: &GooseAcpAgent,
+        server: &AcpConnection,
         session_id: &str,
         first: usize,
     ) -> Result<String, String> {
         let session = server
+            .services
             .session_manager
             .get_session(session_id, true)
             .await
@@ -69,7 +71,12 @@ impl SessionDriver for AcpSessionDriver {
         let Ok((server, cx)) = self.connection() else {
             return;
         };
-        let Ok(session) = server.session_manager.get_session(session_id, false).await else {
+        let Ok(session) = server
+            .services
+            .session_manager
+            .get_session(session_id, false)
+            .await
+        else {
             return;
         };
         let notification = SessionNotification::new(
@@ -118,5 +125,32 @@ impl SessionDriver for AcpSessionDriver {
         }
 
         Self::reply_since(&server, session_id, first).await
+    }
+
+    fn is_running(&self, session_id: &str) -> bool {
+        self.connection
+            .upgrade()
+            .is_some_and(|connection| connection.has_active_run(session_id))
+    }
+
+    fn is_loaded(&self, session_id: &str) -> bool {
+        self.connection.upgrade().is_some_and(|connection| {
+            connection
+                .services
+                .providers
+                .loaded()
+                .iter()
+                .any(|(id, _)| id == session_id)
+        })
+    }
+
+    async fn interrupt(&self, session_id: &str) -> Result<(), String> {
+        let (connection, _) = self.connection()?;
+        connection
+            .on_cancel(CancelNotification::new(SessionId::new(
+                session_id.to_string(),
+            )))
+            .await
+            .map_err(|error| error.to_string())
     }
 }

@@ -1,11 +1,17 @@
+#[cfg(feature = "tree-sitter")]
 pub mod analyze;
+#[cfg(feature = "platform-apps")]
 pub mod apps;
+#[cfg(feature = "chat-recall")]
 pub mod chatrecall;
 #[cfg(feature = "code-mode")]
 pub mod code_execution;
 pub mod developer;
 pub mod ext_manager;
+#[cfg(feature = "code-mode")]
+mod javascript;
 pub mod orchestrator;
+#[cfg(feature = "scheduler")]
 pub mod scheduler;
 pub mod summarize;
 pub mod summon;
@@ -15,7 +21,6 @@ pub mod tom;
 use std::collections::HashMap;
 
 use crate::agents::mcp_client::McpClientTrait;
-use crate::session::Session;
 use once_cell::sync::Lazy;
 use tokio_util::sync::CancellationToken;
 
@@ -31,6 +36,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
     || {
         let mut map = HashMap::new();
 
+        #[cfg(feature = "tree-sitter")]
         map.insert(
             analyze::EXTENSION_NAME,
             PlatformExtensionDef {
@@ -53,7 +59,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 display_name: "Todo",
                 description:
                     "Enable a todo list for goose so it can keep track of what it is doing",
-                default_enabled: true,
+                default_enabled: false,
                 unprefixed_tools: false,
                 hidden: false,
                 acp_bridged: false,
@@ -61,6 +67,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
             },
         );
 
+        #[cfg(feature = "platform-apps")]
         map.insert(
             apps::EXTENSION_NAME,
             PlatformExtensionDef {
@@ -76,6 +83,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
             },
         );
 
+        #[cfg(feature = "chat-recall")]
         map.insert(
             chatrecall::EXTENSION_NAME,
             PlatformExtensionDef {
@@ -108,6 +116,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
             },
         );
 
+        #[cfg(feature = "scheduler")]
         map.insert(
             scheduler::EXTENSION_NAME,
             PlatformExtensionDef {
@@ -166,11 +175,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 acp_bridged: false,
                 client_factory: |ctx| {
                     Some(Box::new(
-                        code_execution::CodeExecutionClient::new(
-                            ctx,
-                            code_execution::get_tool_disclosure(),
-                        )
-                        .unwrap(),
+                        code_execution::CodeExecutionClient::new(ctx).unwrap(),
                     ))
                 },
             },
@@ -186,7 +191,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 unprefixed_tools: true,
                 hidden: false,
                 acp_bridged: false,
-                client_factory: |ctx| Some(Box::new(developer::DeveloperClient::new(ctx).unwrap())),
+                client_factory: |_| Some(Box::new(developer::DeveloperClient::new().unwrap())),
             },
         );
 
@@ -230,9 +235,7 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
                 unprefixed_tools: true,
                 hidden: false,
                 acp_bridged: false,
-                client_factory: |ctx| {
-                    Some(Box::new(crate::skills::SkillsClient::new(ctx).unwrap()))
-                },
+                client_factory: |_| Some(Box::new(crate::skills::SkillsClient::default())),
             },
         );
 
@@ -255,19 +258,45 @@ pub trait SessionDriver: Send + Sync {
         message: &str,
         cancel: CancellationToken,
     ) -> Result<String, String>;
+
+    /// Whether a turn is running in `session_id`.
+    fn is_running(&self, session_id: &str) -> bool;
+
+    /// Whether `session_id` holds a provider (for an ACP agent, a running process).
+    fn is_loaded(&self, session_id: &str) -> bool;
+
+    /// Cancel the turn running in `session_id`, if any.
+    async fn interrupt(&self, session_id: &str) -> Result<(), String>;
 }
 
 #[derive(Clone)]
 pub struct PlatformExtensionContext {
+    /// Sibling access for the two extensions that operate on the running set
+    /// (extension management, code mode). Everything else uses the fields
+    /// below.
     pub extension_manager:
         Option<std::sync::Weak<crate::agents::extension_manager::ExtensionManager>>,
+    pub providers: std::sync::Arc<crate::agents::provider_manager::ProviderManager>,
     pub session_manager: std::sync::Arc<crate::session::SessionManager>,
     pub scheduler: Option<std::sync::Arc<dyn crate::scheduler_trait::SchedulerTrait>>,
-    pub session: Option<std::sync::Arc<Session>>,
-    pub use_login_shell_path: bool,
 }
 
 impl PlatformExtensionContext {
+    pub async fn provider_for_session(
+        &self,
+        session_id: &str,
+    ) -> Result<std::sync::Arc<dyn crate::providers::base::Provider>, String> {
+        let session = self
+            .session_manager
+            .get_session(session_id, false)
+            .await
+            .map_err(|e| e.to_string())?;
+        self.providers
+            .provider_for(&session)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
     pub async fn model_config_for_session(
         &self,
         session_id: &str,

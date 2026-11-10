@@ -1,10 +1,12 @@
 //! A steer the provider forwards into the turn it is running, as the ACP
 //! provider does for claude-agent-acp, must be recorded where it landed and
-//! never queued for a second delivery, in both agent loops.
+//! never queued for a second delivery.
 
 use std::sync::Arc;
 
-use crate::agents::{Agent, AgentConfig, AgentEvent, GoosePlatform, SessionConfig};
+use crate::agents::{
+    AgentEvent, GoosePlatform, SessionConfig, StateMachineServices, StateMachineServicesConfig,
+};
 use crate::config::permission::PermissionManager;
 use crate::config::GooseMode;
 use crate::conversation::message::Message;
@@ -121,15 +123,14 @@ async fn persisted(session_manager: &SessionManager, id: &str) -> Result<Vec<Mes
         .unwrap_or_default())
 }
 
-async fn steer_a_held_turn_then_stop(state_machine: Option<&str>) -> Result<()> {
-    let _guard = env_lock::lock_env([("GOOSE_STATE_MACHINE", state_machine)]);
+#[tokio::test]
+async fn a_forwarded_steer_survives_stopping_the_held_turn() -> Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let session_manager = Arc::new(SessionManager::new(temp_dir.path().to_path_buf()));
-    let agent = Agent::with_config(AgentConfig::new(
+    let services = StateMachineServices::with_config(StateMachineServicesConfig::new(
         session_manager.clone(),
-        PermissionManager::instance(),
+        Arc::new(PermissionManager::new(temp_dir.path().join("permissions"))),
         None,
-        GooseMode::Auto,
         true,
         GoosePlatform::GooseCli,
     ));
@@ -141,7 +142,7 @@ async fn steer_a_held_turn_then_stop(state_machine: Option<&str>) -> Result<()> 
             GooseMode::default(),
         )
         .await?;
-    agent
+    services
         .update_provider(
             Arc::new(HeldTurnProvider::new()),
             ModelConfig::new("mock-model"),
@@ -150,14 +151,13 @@ async fn steer_a_held_turn_then_stop(state_machine: Option<&str>) -> Result<()> 
         .await?;
 
     let cancel = CancellationToken::new();
-    let reply = agent
+    let reply = services
         .reply(
             Message::user().with_text("start the subagent"),
             SessionConfig {
                 id: session.id.clone(),
                 schedule_id: None,
                 max_turns: Some(5),
-                retry_config: None,
             },
             Some(cancel.clone()),
         )
@@ -175,28 +175,10 @@ async fn steer_a_held_turn_then_stop(state_machine: Option<&str>) -> Result<()> 
         }
     };
     assert_eq!(next_text().await?, "before");
-    agent
+    services
         .steer(&session.id, Message::user().with_text("stop merging"))
         .await;
     assert_eq!(next_text().await?, "stop merging");
-
-    if state_machine.is_none() {
-        let saved = persisted(&session_manager, &session.id).await?;
-        assert_eq!(
-            texts(&saved),
-            ["start the subagent", "before", "stop merging"],
-            "the steer must be saved while the turn is still held open"
-        );
-        assert!(saved.last().unwrap().metadata.steer);
-        let before = saved
-            .iter()
-            .find(|m| m.as_concat_text() == "before")
-            .unwrap();
-        assert!(
-            before.metadata.inference.is_some(),
-            "a reply saved early must still record which model wrote it"
-        );
-    }
 
     cancel.cancel();
     while let Some(event) = reply.next().await {
@@ -217,14 +199,4 @@ async fn steer_a_held_turn_then_stop(state_machine: Option<&str>) -> Result<()> 
     let before = saved.iter().position(|text| text == "before").unwrap();
     assert!(before < steer, "{saved:?}");
     Ok(())
-}
-
-#[tokio::test]
-async fn a_forwarded_steer_survives_stopping_the_held_turn() -> Result<()> {
-    steer_a_held_turn_then_stop(None).await
-}
-
-#[tokio::test]
-async fn a_forwarded_steer_survives_stopping_the_held_turn_in_the_state_machine() -> Result<()> {
-    steer_a_held_turn_then_stop(Some("1")).await
 }

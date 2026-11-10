@@ -72,6 +72,7 @@ const mockSettings: Record<string, unknown> = {
   showPricing: true,
   enterInsertsNewline: false,
   seenAnnouncementIds: [],
+  showThinking: 'collapsed',
 };
 
 // Mock window.electron for renderer process

@@ -51,9 +51,7 @@ export function mergeVisibleSessions(
   live: Map<string, LiveSession>
 ): SessionListItem[] {
   const recentIds = new Set(recent.map((session) => session.id));
-  const stillLive = pinned.filter(
-    (session) => live.has(session.id) && !recentIds.has(session.id)
-  );
+  const stillLive = pinned.filter((session) => live.has(session.id) && !recentIds.has(session.id));
   return [...recent, ...stillLive].sort((a, b) => sessionOrder(b) - sessionOrder(a));
 }
 
@@ -110,6 +108,8 @@ export function useNavigationSessions() {
   // Their agent — and for a CLI agent, its subprocess — is still running, so
   // hiding them would hide the only place to see or end them.
   const [pinnedLiveSessions, setPinnedLiveSessions] = useState<SessionListItem[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+  const latestFetchIdRef = useRef(0);
 
   const lastSessionIdRef = useRef<string | null>(null);
 
@@ -157,13 +157,21 @@ export function useNavigationSessions() {
   }, []);
 
   const fetchSessions = useCallback(async () => {
+    const fetchId = ++latestFetchIdRef.current;
+    setIsLoadingSessions(true);
     try {
       const sessions = await acpListRecentSessions(MAX_RECENT_SESSIONS);
-      // Active listings omit message-less sessions, so a refresh would drop a
-      // freshly created or just-restored empty chat; keep those locals.
-      setRecentSessions((prev) => mergeWithEmptyLocals(prev, sessions));
+      if (fetchId === latestFetchIdRef.current) {
+        // Active listings omit message-less sessions, so a refresh would drop a
+        // freshly created or just-restored empty chat; keep those locals.
+        setRecentSessions((prev) => mergeWithEmptyLocals(prev, sessions));
+      }
     } catch (error) {
       console.error('Failed to fetch sessions:', error);
+    } finally {
+      if (fetchId === latestFetchIdRef.current) {
+        setIsLoadingSessions(false);
+      }
     }
   }, []);
 
@@ -373,6 +381,7 @@ export function useNavigationSessions() {
     visibleSessions,
     visibleSessionsByProject,
     liveSessions,
+    isLoadingSessions,
     activeSessionId,
     fetchSessions,
     refreshLiveSessions,

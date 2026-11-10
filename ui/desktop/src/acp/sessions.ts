@@ -10,7 +10,6 @@ import type {
   GooseExtension,
   ProviderSessionEntry,
   SessionExportFormat,
-  SessionImportSource,
 } from '@aaif/goose-acp-client';
 import { getAcpClient } from './acpConnection';
 import type { ExtensionLoadResult } from '../types/extensions';
@@ -258,15 +257,20 @@ export interface AcpRecipeOptions {
   recipeParameterScopeId?: string;
 }
 
+/**
+ * `gooseExtensions` is three-valued: `undefined` leaves the key out so the backend
+ * uses the configured set, while `[]` asks for a session with no extensions. The
+ * backend already distinguishes the two, so the client has to as well.
+ */
 export async function acpNewSession(
   cwd: string,
-  gooseExtensions: GooseExtension[],
+  gooseExtensions: GooseExtension[] | undefined,
   recipe?: AcpRecipeOptions,
   resumeAcpSessionId?: string
 ): Promise<AcpNewSessionResult> {
   const client = await getAcpClient();
   const meta: Record<string, unknown> = { client: 'goose-desktop' };
-  if (gooseExtensions.length > 0) {
+  if (gooseExtensions !== undefined) {
     meta.enabledExtensions = gooseExtensions;
   }
   if (resumeAcpSessionId) {
@@ -354,9 +358,9 @@ export async function acpExportSession(
   return response.data;
 }
 
-export async function acpImportSession(input: string, source: SessionImportSource): Promise<void> {
+export async function acpImportSession(input: string): Promise<void> {
   const client = await getAcpClient();
-  await client.goose.sessionImport_unstable({ input, source });
+  await client.goose.sessionImport_unstable({ input });
 }
 
 /**
@@ -370,9 +374,4 @@ export async function acpListProviderSessions(
   const client = await getAcpClient();
   const response = await client.goose.providersSessionsList_unstable({ providerId, cwd });
   return response.sessions;
-}
-
-export async function acpShareSessionNostr(sessionId: string, relays: string[]) {
-  const client = await getAcpClient();
-  return await client.goose.sessionShareNostr_unstable({ sessionId, relays });
 }

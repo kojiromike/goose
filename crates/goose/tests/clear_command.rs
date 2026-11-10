@@ -1,14 +1,13 @@
-//! `/clear` and `/compact` against a provider that owns the conversation.
+//! `/clear` against a provider that owns the conversation.
 //!
 //! For such providers goose's transcript is a display copy: the model sees the
 //! provider's own history. Clearing only the copy leaves the real context in
 //! place while the token meter reads zero. See issue #10763.
 
 use async_trait::async_trait;
-use goose::agents::execute_commands::{
-    compaction_unsupported_message, stale_provider_context_message,
-};
-use goose::agents::Agent;
+use futures::StreamExt;
+use goose::agents::execute_commands::stale_provider_context_message;
+use goose::agents::{AgentEvent, SessionConfig, StateMachineServices, StateMachineServicesConfig};
 use goose::config::GooseMode;
 use goose::conversation::message::{Message, MessageContent};
 use goose::conversation::Conversation;
@@ -114,9 +113,12 @@ impl Provider for MockOwnContextProvider {
     }
 }
 
-async fn setup_session(agent: &Agent, temp_dir: &TempDir, name: &str) -> anyhow::Result<Session> {
-    let session = agent
-        .config
+async fn setup_session(
+    services: &StateMachineServices,
+    temp_dir: &TempDir,
+    name: &str,
+) -> anyhow::Result<Session> {
+    let session = services
         .session_manager
         .create_session(
             temp_dir.path().to_path_buf(),
@@ -130,13 +132,11 @@ async fn setup_session(agent: &Agent, temp_dir: &TempDir, name: &str) -> anyhow:
         Message::user().with_text("Hello"),
         Message::assistant().with_text("Hi there!"),
     ]);
-    agent
-        .config
+    services
         .session_manager
         .replace_conversation(&session.id, &conversation)
         .await?;
-    agent
-        .config
+    services
         .session_manager
         .update(&session.id)
         .usage(Usage::new(Some(6000), Some(400), Some(6400)))
@@ -144,6 +144,31 @@ async fn setup_session(agent: &Agent, temp_dir: &TempDir, name: &str) -> anyhow:
         .await?;
 
     Ok(session)
+}
+
+fn services() -> Arc<StateMachineServices> {
+    StateMachineServices::with_config(StateMachineServicesConfig::cli())
+}
+
+/// Send `/clear` and return the text of the reply goose shows the user.
+async fn clear(services: &Arc<StateMachineServices>, session_id: &str) -> anyhow::Result<String> {
+    let session_config = SessionConfig {
+        id: session_id.to_string(),
+        schedule_id: None,
+        max_turns: None,
+    };
+    let mut stream = services
+        .reply(Message::user().with_text("/clear"), session_config, None)
+        .await?;
+    let mut reply = None;
+    while let Some(event) = stream.next().await {
+        if let AgentEvent::Message(message) = event? {
+            if message.role == rmcp::model::Role::Assistant {
+                reply = Some(message_text(&message));
+            }
+        }
+    }
+    reply.ok_or_else(|| anyhow::anyhow!("/clear produced no reply"))
 }
 
 fn message_text(message: &Message) -> String {
@@ -160,11 +185,11 @@ fn message_text(message: &Message) -> String {
 #[tokio::test]
 async fn clear_resets_provider_context_and_zeroes_usage() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
-    let agent = Agent::new();
-    let session = setup_session(&agent, &temp_dir, "clear-resettable").await?;
+    let services = services();
+    let session = setup_session(&services, &temp_dir, "clear-resettable").await?;
 
     let provider = Arc::new(MockOwnContextProvider::resettable());
-    agent
+    services
         .update_provider(
             provider.clone(),
             ModelConfig::new("mock-model"),
@@ -172,15 +197,11 @@ async fn clear_resets_provider_context_and_zeroes_usage() -> anyhow::Result<()> 
         )
         .await?;
 
-    let result = agent
-        .execute_command("/clear", &session.id)
-        .await?
-        .expect("/clear returns a message");
-    assert_eq!(message_text(&result), "Conversation cleared");
+    let result = clear(&services, &session.id).await?;
+    assert_eq!(result, "Conversation cleared");
     assert_eq!(provider.resets.load(Ordering::SeqCst), 1);
 
-    let updated = agent
-        .config
+    let updated = services
         .session_manager
         .get_session(&session.id, true)
         .await?;
@@ -188,7 +209,8 @@ async fn clear_resets_provider_context_and_zeroes_usage() -> anyhow::Result<()> 
         .conversation
         .expect("session has a conversation")
         .messages()
-        .is_empty());
+        .iter()
+        .all(|message| !message.is_agent_visible()));
     assert_eq!(updated.usage.total_tokens, Some(0));
 
     Ok(())
@@ -197,11 +219,11 @@ async fn clear_resets_provider_context_and_zeroes_usage() -> anyhow::Result<()> 
 #[tokio::test]
 async fn clear_keeps_usage_when_the_provider_cannot_reset() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
-    let agent = Agent::new();
-    let session = setup_session(&agent, &temp_dir, "clear-unresettable").await?;
+    let services = services();
+    let session = setup_session(&services, &temp_dir, "clear-unresettable").await?;
 
     let provider = Arc::new(MockOwnContextProvider::unresettable("no reset for you"));
-    agent
+    services
         .update_provider(
             provider.clone(),
             ModelConfig::new("mock-model"),
@@ -209,17 +231,13 @@ async fn clear_keeps_usage_when_the_provider_cannot_reset() -> anyhow::Result<()
         )
         .await?;
 
-    let result = agent
-        .execute_command("/clear", &session.id)
-        .await?
-        .expect("/clear returns a message");
+    let result = clear(&services, &session.id).await?;
     assert_eq!(
-        message_text(&result),
+        result,
         stale_provider_context_message(PROVIDER_NAME, "Unsupported operation: no reset for you")
     );
 
-    let updated = agent
-        .config
+    let updated = services
         .session_manager
         .get_session(&session.id, true)
         .await?;
@@ -227,7 +245,8 @@ async fn clear_keeps_usage_when_the_provider_cannot_reset() -> anyhow::Result<()
         .conversation
         .expect("session has a conversation")
         .messages()
-        .is_empty());
+        .iter()
+        .all(|message| !message.is_agent_visible()));
     assert_eq!(
         updated.usage.total_tokens,
         Some(6400),
@@ -240,10 +259,10 @@ async fn clear_keeps_usage_when_the_provider_cannot_reset() -> anyhow::Result<()
 #[tokio::test]
 async fn a_context_owning_provider_does_not_inherit_a_silent_reset() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
-    let agent = Agent::new();
-    let session = setup_session(&agent, &temp_dir, "clear-forgetful").await?;
+    let services = services();
+    let session = setup_session(&services, &temp_dir, "clear-forgetful").await?;
 
-    agent
+    services
         .update_provider(
             Arc::new(ForgetfulProvider),
             ModelConfig::new("mock-model"),
@@ -251,52 +270,18 @@ async fn a_context_owning_provider_does_not_inherit_a_silent_reset() -> anyhow::
         )
         .await?;
 
-    let result = agent
-        .execute_command("/clear", &session.id)
-        .await?
-        .expect("/clear returns a message");
+    let result = clear(&services, &session.id).await?;
     assert!(
-        message_text(&result).contains("still holds the previous conversation"),
+        result.contains("still holds the previous conversation"),
         "the default reset_context must refuse for providers that own their context, got: {}",
-        message_text(&result)
+        result
     );
 
-    let updated = agent
-        .config
+    let updated = services
         .session_manager
         .get_session(&session.id, true)
         .await?;
     assert_eq!(updated.usage.total_tokens, Some(6400));
-
-    Ok(())
-}
-
-/// A resumed session whose provider restore failed leaves the agent with no
-/// provider at all. There is still a local transcript to clear, and no
-/// provider-side context to go stale.
-#[tokio::test]
-async fn clear_falls_back_to_a_local_clear_without_a_provider() -> anyhow::Result<()> {
-    let temp_dir = TempDir::new()?;
-    let agent = Agent::new();
-    let session = setup_session(&agent, &temp_dir, "clear-no-provider").await?;
-
-    let result = agent
-        .execute_command("/clear", &session.id)
-        .await?
-        .expect("/clear returns a message");
-    assert_eq!(message_text(&result), "Conversation cleared");
-
-    let updated = agent
-        .config
-        .session_manager
-        .get_session(&session.id, true)
-        .await?;
-    assert!(updated
-        .conversation
-        .expect("session has a conversation")
-        .messages()
-        .is_empty());
-    assert_eq!(updated.usage.total_tokens, Some(0));
 
     Ok(())
 }
@@ -356,15 +341,15 @@ impl Provider for ResetOrderProbe {
 #[tokio::test]
 async fn clear_empties_the_local_transcript_before_resetting_the_provider() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
-    let agent = Agent::new();
-    let session = setup_session(&agent, &temp_dir, "clear-ordering").await?;
+    let services = services();
+    let session = setup_session(&services, &temp_dir, "clear-ordering").await?;
 
     let provider = Arc::new(ResetOrderProbe {
-        session_manager: agent.config.session_manager.clone(),
+        session_manager: services.session_manager.clone(),
         session_id: session.id.clone(),
         local_already_cleared: AtomicBool::new(false),
     });
-    agent
+    services
         .update_provider(
             provider.clone(),
             ModelConfig::new("mock-model"),
@@ -372,7 +357,7 @@ async fn clear_empties_the_local_transcript_before_resetting_the_provider() -> a
         )
         .await?;
 
-    agent.execute_command("/clear", &session.id).await?;
+    clear(&services, &session.id).await?;
 
     assert!(
         provider.local_already_cleared.load(Ordering::SeqCst),
@@ -382,41 +367,115 @@ async fn clear_empties_the_local_transcript_before_resetting_the_provider() -> a
     Ok(())
 }
 
+/// Records the last user text the agent was asked to answer.
+struct RecordingProvider {
+    last_user_text: std::sync::Mutex<Option<String>>,
+}
+
+#[async_trait]
+impl Provider for RecordingProvider {
+    async fn stream(
+        &self,
+        _model_config: &ModelConfig,
+        _system_prompt: &str,
+        messages: &[Message],
+        _tools: &[Tool],
+    ) -> Result<MessageStream, ProviderError> {
+        let last = messages
+            .iter()
+            .rev()
+            .find(|message| message.role == rmcp::model::Role::User)
+            .map(message_text);
+        *self.last_user_text.lock().unwrap() = last;
+        let usage = ProviderUsage::new(
+            "mock-model".to_string(),
+            Usage::new(Some(10), Some(10), Some(20)),
+        );
+        Ok(stream_from_single_message(
+            Message::assistant().with_text("ok"),
+            usage,
+        ))
+    }
+
+    fn get_name(&self) -> &str {
+        "recording"
+    }
+
+    fn manages_own_context(&self) -> bool {
+        true
+    }
+}
+
+async fn send(
+    services: &Arc<StateMachineServices>,
+    session_id: &str,
+    text: &str,
+) -> anyhow::Result<Vec<String>> {
+    let session_config = SessionConfig {
+        id: session_id.to_string(),
+        schedule_id: None,
+        max_turns: None,
+    };
+    let mut stream = services
+        .reply(Message::user().with_text(text), session_config, None)
+        .await?;
+    let mut replies = Vec::new();
+    while let Some(event) = stream.next().await {
+        if let AgentEvent::Message(message) = event? {
+            if message.role == rmcp::model::Role::Assistant {
+                replies.push(message_text(&message));
+            }
+        }
+    }
+    Ok(replies)
+}
+
 #[tokio::test]
-async fn compact_is_rejected_for_providers_that_own_their_context() -> anyhow::Result<()> {
+async fn acp_passthrough_sends_the_bare_command_to_the_agent() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
-    let agent = Agent::new();
-    let session = setup_session(&agent, &temp_dir, "compact-own-context").await?;
-
-    let provider = Arc::new(MockOwnContextProvider::resettable());
-    agent
-        .update_provider(provider, ModelConfig::new("mock-model"), &session.id)
+    let services = services();
+    let session = setup_session(&services, &temp_dir, "acp-passthrough").await?;
+    let provider = Arc::new(RecordingProvider {
+        last_user_text: std::sync::Mutex::new(None),
+    });
+    services
+        .update_provider(
+            provider.clone(),
+            ModelConfig::new("mock-model"),
+            &session.id,
+        )
         .await?;
 
-    let result = agent
-        .execute_command("/compact", &session.id)
-        .await?
-        .expect("/compact returns a message");
-    assert_eq!(
-        message_text(&result),
-        compaction_unsupported_message(PROVIDER_NAME)
-    );
+    send(&services, &session.id, "/acp clear").await?;
 
-    let updated = agent
-        .config
-        .session_manager
-        .get_session(&session.id, true)
+    let sent = provider.last_user_text.lock().unwrap().clone();
+    assert!(
+        sent.as_deref()
+            .is_some_and(|text| text.starts_with("/clear")),
+        "goose must not handle a wrapped command itself, sent: {sent:?}"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn bare_acp_answers_with_usage_without_a_turn() -> anyhow::Result<()> {
+    let temp_dir = TempDir::new()?;
+    let services = services();
+    let session = setup_session(&services, &temp_dir, "acp-usage").await?;
+    let provider = Arc::new(RecordingProvider {
+        last_user_text: std::sync::Mutex::new(None),
+    });
+    services
+        .update_provider(
+            provider.clone(),
+            ModelConfig::new("mock-model"),
+            &session.id,
+        )
         .await?;
-    assert_eq!(
-        updated
-            .conversation
-            .expect("session has a conversation")
-            .messages()
-            .len(),
-        2,
-        "a rejected /compact must leave the transcript alone"
-    );
-    assert_eq!(updated.usage.total_tokens, Some(6400));
 
+    let replies = send(&services, &session.id, "/acp").await?;
+
+    assert!(replies.iter().any(|reply| reply.starts_with("Usage: /acp")));
+    assert_eq!(*provider.last_user_text.lock().unwrap(), None);
     Ok(())
 }

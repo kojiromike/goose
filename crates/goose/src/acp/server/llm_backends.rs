@@ -7,7 +7,7 @@ use crate::providers::gcloud_adc::{self, AdcStatus};
 const ANTHROPIC_ID: &str = "anthropic";
 const VERTEX_ID: &str = "vertex";
 
-impl GooseAcpAgent {
+impl AcpConnection {
     pub(super) async fn on_read_llm_backend(
         &self,
         req: ReadLlmBackendRequest,
@@ -99,7 +99,7 @@ impl GooseAcpAgent {
 
         // The restart replaces the agent the running turn is talking to, which
         // would strand that turn's answer in a process nothing is reading.
-        if needs_restart && self.has_active_run(&req.session_id).await {
+        if needs_restart && self.has_active_run(&req.session_id) {
             return Err(agent_client_protocol::Error::invalid_params().data(
                 "This chat is mid-response. Let it finish or stop it first: switching backend restarts its agent.",
             ));
@@ -148,14 +148,13 @@ impl GooseAcpAgent {
         settings: &LlmBackendSettings,
         kind: Option<LlmBackendKind>,
     ) -> Result<(), agent_client_protocol::Error> {
-        let agent = self.get_session_agent(session_id).await?;
-        let provider_name = agent
-            .provider()
-            .await
-            .internal_err()?
+        let provider_name = self
+            .session_provider(session_id)
+            .await?
             .get_name()
             .to_string();
-        let current_model_config = agent
+        let current_model_config = self
+            .services
             .model_config_for_session(session_id)
             .await
             .internal_err_ctx("Failed to resolve model config")?;
@@ -170,12 +169,14 @@ impl GooseAcpAgent {
             )
             .invalid_params_err_ctx("Invalid model config")?;
 
-        agent
-            .recreate_provider_for_session(session_id, &provider_name, model_config)
+        // The backend is fixed in the agent's spawn environment, so only a new
+        // provider (a new agent process) can move the chat onto it.
+        self.services.providers.release(session_id);
+        self.services
+            .switch_provider(session_id, &provider_name, model_config)
             .await
             .internal_err_ctx("Failed to restart this chat on the selected backend")?;
-        self.subscribe_thinking_effort_updates(session_id, &agent)
-            .await;
+        self.subscribe_thinking_effort_updates(session_id).await;
         Ok(())
     }
 
@@ -203,11 +204,7 @@ impl GooseAcpAgent {
         &self,
         session_id: &str,
     ) -> Result<Arc<dyn Provider>, agent_client_protocol::Error> {
-        self.get_session_agent(session_id)
-            .await?
-            .provider()
-            .await
-            .internal_err()
+        self.services.provider(session_id).await.internal_err()
     }
 }
 

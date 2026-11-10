@@ -12,7 +12,7 @@ use std::time::Duration;
 /// future, tearing the fetch (and its subprocess) down instead of leaking it.
 const SUPPORTED_MODELS_TIMEOUT: Duration = Duration::from_secs(10);
 
-const ACP_READINESS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+const ACP_READINESS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 
 /// `/tmp` and home directories are symlinked on macOS, so two spellings of the
 /// same directory compare unequal until resolved. A path that no longer exists
@@ -499,7 +499,7 @@ fn refresh_plan_to_response(refresh_plan: RefreshPlan) -> RefreshProviderInvento
     }
 }
 
-impl GooseAcpAgent {
+impl AcpConnection {
     pub(super) async fn on_list_providers(
         &self,
         req: ListProvidersRequest,
@@ -522,7 +522,7 @@ impl GooseAcpAgent {
         // deadline has to cover provider creation too.
         let discover = async {
             let provider = self
-                .create_provider(&req.provider_id, Vec::new(), None, true)
+                .create_provider(&req.provider_id)
                 .await
                 .internal_err_ctx("Failed to initialize provider")?;
             match provider.fetch_supported_models().await {
@@ -572,7 +572,7 @@ impl GooseAcpAgent {
 
         let result = tokio::time::timeout(
             ACP_READINESS_TIMEOUT,
-            self.create_provider(&req.provider_id, Vec::new(), None, true),
+            self.create_provider(&req.provider_id),
         )
         .await;
         let (ready, error) = match result {
@@ -938,11 +938,10 @@ impl GooseAcpAgent {
             let toolshim = refresh_job.toolshim;
             tokio::spawn(async move {
                 let mut refresh_guard = provider_inventory.refresh_guard(&identity);
-                let provider_result = AssertUnwindSafe(async {
-                    provider_factory(provider_id.clone(), Vec::new(), None, true).await
-                })
-                .catch_unwind()
-                .await;
+                let provider_result =
+                    AssertUnwindSafe(async { provider_factory(provider_id.clone()).await })
+                        .catch_unwind()
+                        .await;
 
                 let fetch_result: Result<Vec<String>> = match provider_result {
                     Ok(Ok(provider)) => {
@@ -1280,9 +1279,6 @@ impl GooseAcpAgent {
         let model_info =
             crate::providers::canonical::maybe_get_canonical_model(&req.provider, &req.model)
                 .map(|canonical_model| {
-                    // Config-declared prices outrank the registry's catalog rates;
-                    // registry cache rates survive, so tooltip math matches
-                    // estimate_model_cost exactly.
                     let pricing = crate::providers::canonical_cost::resolve_pricing(
                         &req.provider,
                         &req.model,

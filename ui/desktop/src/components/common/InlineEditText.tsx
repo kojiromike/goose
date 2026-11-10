@@ -30,8 +30,8 @@ interface InlineEditTextProps {
   disabled?: boolean;
   className?: string;
   editClassName?: string;
-  onEditStart?: () => void;
-  onEditEnd?: () => void;
+  onEditStart: () => void;
+  onEditEnd: () => void;
   allowEmpty?: boolean;
   singleClickEdit?: boolean;
   /**
@@ -82,7 +82,7 @@ export const InlineEditText: React.FC<InlineEditTextProps> = ({
     if (disabled || isSaving) return;
     setIsEditing(true);
     setEditValue(value);
-    onEditStart?.();
+    onEditStart();
   }, [disabled, isSaving, value, onEditStart]);
 
   const lastEditSignal = useRef(editRequestSignal);
@@ -96,7 +96,7 @@ export const InlineEditText: React.FC<InlineEditTextProps> = ({
   const handleCancel = useCallback(() => {
     setIsEditing(false);
     setEditValue(originalValue.current);
-    onEditEnd?.();
+    onEditEnd();
   }, [onEditEnd]);
 
   const handleSave = useCallback(async () => {
@@ -121,7 +121,7 @@ export const InlineEditText: React.FC<InlineEditTextProps> = ({
       await onSave(trimmedValue);
       originalValue.current = trimmedValue;
       setIsEditing(false);
-      onEditEnd?.();
+      onEditEnd();
     } catch (error) {
       const errMsg = errorMessage(error, intl.formatMessage(i18n.failedToSave));
       console.error('InlineEditText save error:', errMsg);
@@ -212,7 +212,13 @@ export const InlineEditText: React.FC<InlineEditTextProps> = ({
       `}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
-      title={disabled ? '' : singleClickEdit ? intl.formatMessage(i18n.clickToEdit) : intl.formatMessage(i18n.doubleClickToEdit)}
+      title={
+        disabled
+          ? ''
+          : singleClickEdit
+            ? intl.formatMessage(i18n.clickToEdit)
+            : intl.formatMessage(i18n.doubleClickToEdit)
+      }
     >
       {value || <span className="text-text-subtle italic">{resolvedPlaceholder}</span>}
     </div>

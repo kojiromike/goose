@@ -18,6 +18,7 @@ import {
 import { cancelAcpElicitationRequestsForSession } from './elicitationRequests';
 import {
   formatAcpError,
+  isAcpTurnError,
   parseAcpCreditsExhaustedError,
   type AcpCreditsExhaustedError,
 } from './errors';
@@ -41,14 +42,16 @@ export interface AcpSnapshotOptions {
   getCurrentSnapshot(): AcpChatSessionSnapshot | undefined;
 }
 
+export type PromptOutcome = { status: 'completed' } | { status: 'failed'; message?: string };
+
 export interface AcpSubmitMessageOptions extends AcpSnapshotOptions {
-  onFinish(error?: string): void | Promise<void>;
+  onFinish(outcome: PromptOutcome): void | Promise<void>;
 }
 
 export interface AcpChatSessionController {
   createSession(
     cwd: string,
-    gooseExtensions: GooseExtension[],
+    gooseExtensions: GooseExtension[] | undefined,
     recipe?: AcpRecipeOptions,
     resumeAcpSessionId?: string
   ): Promise<Session>;
@@ -115,7 +118,7 @@ async function forkSessionWithEditedMessage(
 
 async function createSession(
   cwd: string,
-  gooseExtensions: GooseExtension[],
+  gooseExtensions: GooseExtension[] | undefined,
   recipe?: AcpRecipeOptions,
   resumeAcpSessionId?: string
 ): Promise<Session> {
@@ -197,7 +200,7 @@ async function submitMessage(
       return;
     }
     if (acpChatSessionActions.finishPromptAttemptIfCurrent(sessionId, promptAttemptId)) {
-      void options.onFinish();
+      void options.onFinish({ status: 'completed' });
     }
   } catch (error) {
     if (acpChatSessionActions.clearPromptCancellation(sessionId, promptAttemptId)) {
@@ -216,20 +219,21 @@ async function submitMessage(
       ];
       acpChatSessionActions.setMessages(sessionId, messages);
       if (acpChatSessionActions.finishPromptAttemptIfCurrent(sessionId, promptAttemptId)) {
-        void options.onFinish();
+        void options.onFinish({ status: 'failed' });
       }
       return;
     }
 
-    const submitError = formatAcpError(error);
+    const message = isAcpTurnError(error) ? undefined : formatAcpError(error);
     if (acpChatSessionActions.finishPromptAttemptIfCurrent(sessionId, promptAttemptId)) {
-      void options.onFinish(submitError);
+      void options.onFinish({ status: 'failed', message });
     }
   }
 }
 
 function stop(sessionId: string): void {
-  const storedPromptAttemptId = acpChatSessionStore.getSnapshot(sessionId)?.activePromptAttemptId;
+  const snapshot = acpChatSessionStore.getSnapshot(sessionId);
+  const storedPromptAttemptId = snapshot?.activePromptAttemptId;
   const hasStoredAcpPrompt = storedPromptAttemptId !== null && storedPromptAttemptId !== undefined;
 
   if (hasStoredAcpPrompt) {
@@ -245,12 +249,17 @@ function stop(sessionId: string): void {
   // A run this window did not start (an agent orchestrating this session sent the
   // prompt) has no local attempt to cancel, but the backend still reports it as
   // active, and only session/cancel stops it.
-  if (acpChatSessionStore.getSnapshot(sessionId)?.activeRunId) {
+  if (snapshot?.activeRunId) {
     cancelAcpPermissionRequestsForSession(sessionId);
     cancelAcpElicitationRequestsForSession(sessionId);
     acpCancelPrompt(sessionId).catch((error) => {
       console.warn('Failed to cancel ACP prompt:', error);
     });
+  }
+
+  // A session load has nothing to cancel; ending it here would leave the replay fast path.
+  if (snapshot?.chatState === ChatState.LoadingConversation) {
+    return;
   }
 
   acpChatSessionActions.setChatState(sessionId, ChatState.Idle);

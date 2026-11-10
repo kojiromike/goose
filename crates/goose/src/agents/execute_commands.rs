@@ -1,14 +1,10 @@
-use std::collections::HashMap;
-use std::path::Path;
+use crate::conversation::message::{Message, MessageContent};
 
-use anyhow::{anyhow, Result};
-
-use crate::context_mgmt::compact_messages;
-use crate::conversation::message::Message;
-use crate::recipe::Recipe;
-use crate::slash_commands::{recipe_slash_command, skill_slash_command};
-
-use super::Agent;
+pub fn slash_commands_enabled() -> bool {
+    crate::config::Config::global()
+        .get_param::<bool>("GOOSE_SLASH_COMMANDS_ENABLED")
+        .unwrap_or(true)
+}
 
 pub const COMPACT_TRIGGERS: &[&str] =
     &["/compact", "Please compact this conversation", "/summarize"];
@@ -56,7 +52,7 @@ static COMMANDS: &[CommandDef] = &[
     },
     CommandDef {
         name: "status",
-        description: "Show session status: model, provider, mode, and token usage",
+        description: "Show session status: session ID, model, provider, mode, and token usage",
     },
     CommandDef {
         name: PASSTHROUGH_COMMAND,
@@ -120,22 +116,69 @@ pub fn unwrap_passthrough_command(message_text: &str) -> Option<String> {
     })
 }
 
+const PASSTHROUGH_NOTE_OPERATION: &str = "slash_command";
+const PASSTHROUGH_NOTE: &str = "passthrough";
+
+/// Rewrite an `/acp <command>` message so the agent receives the bare command,
+/// and mark it so goose's own slash-command dispatch leaves it alone.
+pub fn apply_passthrough_command(message: &mut Message) -> bool {
+    let text = message.agent_visible_content().as_concat_text();
+    let Some(command) = unwrap_passthrough_command(&text) else {
+        return false;
+    };
+    replace_agent_visible_text(message, &command);
+    message
+        .metadata
+        .set_operation_note(PASSTHROUGH_NOTE_OPERATION, PASSTHROUGH_NOTE, true.into());
+    true
+}
+
+pub fn is_passthrough_command(message: &Message) -> bool {
+    message
+        .metadata
+        .operation_note(PASSTHROUGH_NOTE_OPERATION, PASSTHROUGH_NOTE)
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+}
+
+fn replace_agent_visible_text(message: &mut Message, text: &str) {
+    let mut replaced = false;
+    message.content.retain_mut(|content| {
+        if content
+            .filter_for_audience(rmcp::model::Role::Assistant)
+            .is_none()
+        {
+            return true;
+        }
+        let MessageContent::Text(block) = content else {
+            return true;
+        };
+        if replaced {
+            return false;
+        }
+        block.text = text.to_string();
+        replaced = true;
+        true
+    });
+}
+
 pub fn list_commands() -> &'static [CommandDef] {
     COMMANDS
 }
 
-pub fn is_known_slash_command(message_text: &str, working_dir: Option<&Path>) -> bool {
-    let Some(parsed) = parse_slash_command(message_text) else {
-        return false;
-    };
+pub fn context_management_unsupported_message(command: &str, provider: &str) -> String {
+    format!(
+        "/{command} is not available for provider '{provider}' because it manages its own conversation context"
+    )
+}
 
-    COMMANDS
-        .iter()
-        .any(|command| command.name == parsed.command)
-        || recipe_slash_command::get_recipe_for_command(parsed.command).is_some()
-        || skill_slash_command::list_commands(working_dir)
-            .into_iter()
-            .any(|command| command.name.eq_ignore_ascii_case(parsed.command))
+/// Shown when `/clear` emptied goose's transcript but the provider still holds
+/// the real conversation.
+pub fn stale_provider_context_message(provider_name: &str, error: &str) -> String {
+    format!(
+        "Cleared goose's transcript, but '{provider_name}' still holds the previous conversation \
+         and will keep sending it to the model: {error}. Start a new session for a full reset."
+    )
 }
 
 fn is_clear_goal_param(params_str: &str) -> bool {
@@ -154,485 +197,9 @@ pub fn command_starts_turn(message_text: &str) -> bool {
         && !is_clear_goal_param(parsed.params_str)
 }
 
-impl Agent {
-    pub async fn execute_command(
-        &self,
-        message_text: &str,
-        session_id: &str,
-    ) -> Result<Option<Message>> {
-        let Some(parsed) = parse_slash_command(message_text) else {
-            return Ok(None);
-        };
-
-        let command = parsed.command;
-        let params_str = parsed.params_str;
-
-        let params: Vec<&str> = if params_str.is_empty() {
-            vec![]
-        } else {
-            params_str.split_whitespace().collect()
-        };
-
-        match command {
-            "prompts" => self.handle_prompts_command(&params, session_id).await,
-            "prompt" => self.handle_prompt_command(&params, session_id).await,
-            "compact" => self.handle_compact_command(session_id).await,
-            "clear" => self.handle_clear_command(session_id).await,
-            "skills" => self.handle_skills_command(session_id).await,
-            "doctor" => Ok(Some(crate::doctor::run(self, session_id).await?)),
-            "status" => self.handle_status_command(session_id).await,
-            // Only the bare `/acp` reaches here; `reply` intercepts the form
-            // with a command and forwards it to the provider instead.
-            PASSTHROUGH_COMMAND => Ok(Some(Message::assistant().with_text(
-                "Usage: `/acp <command>` — sends the command to the underlying agent instead of goose, e.g. `/acp compact`.",
-            ))),
-            "goal" => self.handle_goal_command(params_str).await,
-            "grind" => self.handle_grind_command(params_str).await,
-            _ => {
-                if let Some(message) = self
-                    .handle_recipe_command(command, params_str, session_id)
-                    .await?
-                {
-                    #[cfg(feature = "telemetry")]
-                    crate::posthog::emit_custom_slash_command_used();
-                    return Ok(Some(message));
-                }
-
-                self.handle_skill_command(command, params_str, session_id)
-                    .await
-            }
-        }
-    }
-
-    async fn handle_compact_command(&self, session_id: &str) -> Result<Option<Message>> {
-        let provider = self.provider().await?;
-        if provider.manages_own_context() {
-            return Ok(Some(user_only_assistant_text(
-                compaction_unsupported_message(provider.get_name()),
-            )));
-        }
-
-        let manager = self.config.session_manager.clone();
-        let session = manager.get_session(session_id, true).await?;
-        let conversation = session
-            .conversation
-            .ok_or_else(|| anyhow!("Session has no conversation"))?;
-
-        let model_config = self.model_config_for_session(session_id).await?;
-        let compaction = compact_messages(
-            provider.as_ref(),
-            &model_config,
-            session_id,
-            &conversation,
-            true, // is_manual_compact
-        )
-        .await?;
-
-        manager
-            .replace_conversation(session_id, &compaction.conversation)
-            .await?;
-
-        self.update_session_metrics(
-            session_id,
-            session.schedule_id,
-            &compaction.usage,
-            Some(compaction.retained_context_tokens),
-        )
-        .await?;
-
-        Ok(Some(user_only_assistant_text("Compaction complete")))
-    }
-
-    async fn handle_clear_command(&self, session_id: &str) -> Result<Option<Message>> {
-        use crate::conversation::Conversation;
-
-        // Clear locally before asking the provider to reset: a provider-side
-        // reset cannot be undone, so a failed local clear must leave both
-        // histories in place rather than only goose's.
-        let manager = self.config.session_manager.clone();
-        manager
-            .replace_conversation(session_id, &Conversation::default())
-            .await?;
-
-        // No provider means nothing agent-side to reset: a local-only clear.
-        if let Ok(provider) = self.provider().await {
-            if let Err(e) = provider.reset_context().await {
-                tracing::warn!(provider = provider.get_name(), error = %e, "provider-side context reset failed");
-                return Ok(Some(user_only_assistant_text(
-                    stale_provider_context_message(provider.get_name(), &e.to_string()),
-                )));
-            }
-        }
-
-        manager
-            .update(session_id)
-            .usage(goose_providers::conversation::token_usage::Usage::new(
-                Some(0),
-                Some(0),
-                Some(0),
-            ))
-            .apply()
-            .await?;
-
-        Ok(Some(user_only_assistant_text("Conversation cleared")))
-    }
-
-    async fn handle_skills_command(&self, session_id: &str) -> Result<Option<Message>> {
-        let working_dir = self
-            .config
-            .session_manager
-            .get_session(session_id, false)
-            .await
-            .ok()
-            .map(|s| s.working_dir);
-        let output = skill_slash_command::format_installed_skills(working_dir.as_deref());
-        Ok(Some(Message::assistant().with_text(output)))
-    }
-
-    async fn handle_status_command(&self, session_id: &str) -> Result<Option<Message>> {
-        let provider = self.provider().await?;
-        let model_config = self.model_config_for_session(session_id).await?;
-        let context_limit =
-            crate::context_limit::get_context_limit(provider.as_ref(), &model_config.model_name)
-                .await?;
-
-        let goose_mode = self.goose_mode().await;
-
-        let metadata = self
-            .config
-            .session_manager
-            .get_session(session_id, false)
-            .await
-            .ok();
-
-        // `usage` is the current context-window usage (reset by /compact);
-        // `accumulated_usage` is the lifetime sum across all responses. The context
-        // percentage must use the former, or it inflates and pegs at 100% in any
-        // long or post-compaction session.
-        let context_tokens = metadata
-            .as_ref()
-            .and_then(|s| s.usage.total_tokens)
-            .unwrap_or(0)
-            .max(0) as usize;
-        let lifetime_tokens = metadata
-            .as_ref()
-            .and_then(|s| s.accumulated_usage.total_tokens)
-            .unwrap_or(0)
-            .max(0) as usize;
-
-        let context_pct = if context_limit > 0 {
-            let pct = ((context_tokens as f64 / context_limit as f64) * 100.0).round() as usize;
-            format!("{}%", pct.min(100))
-        } else {
-            "N/A".to_string()
-        };
-
-        let text = format!(
-            "**Session status**\n\n\
-             - Model: {}\n\
-             - Provider: {}\n\
-             - Mode: {}\n\
-             - Tokens (lifetime): {}\n\
-             - Context: {} / {} tokens ({})",
-            model_config.model_name,
-            provider.get_name(),
-            goose_mode,
-            lifetime_tokens,
-            context_tokens,
-            context_limit,
-            context_pct,
-        );
-
-        Ok(Some(user_only_assistant_text(text)))
-    }
-
-    async fn handle_prompts_command(
-        &self,
-        params: &[&str],
-        session_id: &str,
-    ) -> Result<Option<Message>> {
-        let extension_filter = params.first().map(|s| s.to_string());
-
-        let prompts = self.list_extension_prompts(session_id).await;
-
-        if let Some(filter) = &extension_filter {
-            if !prompts.contains_key(filter) {
-                let error_msg = format!("Extension '{}' not found", filter);
-                return Ok(Some(Message::assistant().with_text(error_msg)));
-            }
-        }
-
-        let filtered_prompts: HashMap<String, Vec<String>> = prompts
-            .into_iter()
-            .filter(|(ext, _)| extension_filter.as_ref().is_none_or(|f| f == ext))
-            .map(|(extension, prompt_list)| {
-                let names = prompt_list.into_iter().map(|p| p.name).collect();
-                (extension, names)
-            })
-            .collect();
-
-        let mut output = String::new();
-        if filtered_prompts.is_empty() {
-            output.push_str("No prompts available.\n");
-        } else {
-            output.push_str("Available prompts:\n\n");
-            for (extension, prompt_names) in filtered_prompts {
-                output.push_str(&format!("**{}**:\n", extension));
-                for name in prompt_names {
-                    output.push_str(&format!("  - {}\n", name));
-                }
-                output.push('\n');
-            }
-        }
-
-        Ok(Some(Message::assistant().with_text(output)))
-    }
-
-    async fn handle_prompt_command(
-        &self,
-        params: &[&str],
-        session_id: &str,
-    ) -> Result<Option<Message>> {
-        if params.is_empty() {
-            return Ok(Some(
-                Message::assistant().with_text("Prompt name argument is required"),
-            ));
-        }
-
-        let prompt_name = params[0].to_string();
-        let is_info = params.get(1).map(|s| *s == "--info").unwrap_or(false);
-
-        if is_info {
-            let prompts = self.list_extension_prompts(session_id).await;
-            let mut prompt_info = None;
-
-            for (extension, prompt_list) in prompts {
-                if let Some(prompt) = prompt_list.iter().find(|p| p.name == prompt_name) {
-                    let mut output = format!("**Prompt: {}**\n\n", prompt.name);
-                    if let Some(desc) = &prompt.description {
-                        output.push_str(&format!("Description: {}\n\n", desc));
-                    }
-                    output.push_str(&format!("Extension: {}\n\n", extension));
-
-                    if let Some(args) = &prompt.arguments {
-                        output.push_str("Arguments:\n");
-                        for arg in args {
-                            output.push_str(&format!("  - {}", arg.name));
-                            if let Some(desc) = &arg.description {
-                                output.push_str(&format!(": {}", desc));
-                            }
-                            output.push('\n');
-                        }
-                    }
-
-                    prompt_info = Some(output);
-                    break;
-                }
-            }
-
-            return Ok(Some(Message::assistant().with_text(
-                prompt_info.unwrap_or_else(|| format!("Prompt '{}' not found", prompt_name)),
-            )));
-        }
-
-        let mut arguments = HashMap::new();
-        for param in params.iter().skip(1) {
-            if let Some((key, value)) = param.split_once('=') {
-                let value = value.trim_matches('"');
-                arguments.insert(key.to_string(), value.to_string());
-            }
-        }
-
-        let arguments_value = serde_json::to_value(arguments)
-            .map_err(|e| anyhow!("Failed to serialize arguments: {}", e))?;
-
-        match self
-            .get_prompt(session_id, &prompt_name, arguments_value)
-            .await
-        {
-            Ok(prompt_result) => {
-                for (i, prompt_message) in prompt_result.messages.into_iter().enumerate() {
-                    let msg = Message::from(prompt_message);
-
-                    let expected_role = if i % 2 == 0 {
-                        rmcp::model::Role::User
-                    } else {
-                        rmcp::model::Role::Assistant
-                    };
-
-                    if msg.role != expected_role {
-                        let error_msg = format!(
-                            "Expected {:?} message at position {}, but found {:?}",
-                            expected_role, i, msg.role
-                        );
-                        return Ok(Some(Message::assistant().with_text(error_msg)));
-                    }
-
-                    self.config
-                        .session_manager
-                        .clone()
-                        .add_message(session_id, &msg)
-                        .await?;
-                }
-
-                let last_message = self
-                    .config
-                    .session_manager
-                    .get_session(session_id, true)
-                    .await?
-                    .conversation
-                    .ok_or_else(|| anyhow!("No conversation found"))?
-                    .last()
-                    .cloned()
-                    .ok_or_else(|| anyhow!("No messages in conversation"))?;
-
-                Ok(Some(last_message))
-            }
-            Err(e) => Ok(Some(
-                Message::assistant().with_text(format!("Error getting prompt: {}", e)),
-            )),
-        }
-    }
-
-    async fn handle_recipe_command(
-        &self,
-        command: &str,
-        params_str: &str,
-        session_id: &str,
-    ) -> Result<Option<Message>> {
-        match recipe_slash_command::resolve_command(command, params_str) {
-            Ok(None) => Ok(None),
-            Ok(Some((recipe, prompt))) => {
-                self.apply_resolved_recipe_command(command, recipe, prompt, session_id)
-                    .await
-            }
-            Err(text) => Ok(Some(Message::assistant().with_text(text))),
-        }
-    }
-
-    async fn apply_resolved_recipe_command(
-        &self,
-        command: &str,
-        recipe: Recipe,
-        prompt: String,
-        session_id: &str,
-    ) -> Result<Option<Message>> {
-        if let Err(error) = self
-            .apply_recipe_components(recipe.response.clone(), true)
-            .await
-        {
-            return Ok(Some(
-                Message::assistant().with_text(format!("Recipe /{command} is not valid: {error}")),
-            ));
-        }
-        self.config
-            .session_manager
-            .update(session_id)
-            .recipe(Some(recipe))
-            .apply()
-            .await?;
-        Ok(Some(Message::user().with_text(prompt)))
-    }
-
-    async fn handle_skill_command(
-        &self,
-        command: &str,
-        params_str: &str,
-        session_id: &str,
-    ) -> Result<Option<Message>> {
-        let working_dir = self
-            .config
-            .session_manager
-            .get_session(session_id, false)
-            .await
-            .ok()
-            .map(|session| session.working_dir);
-
-        match skill_slash_command::resolve_command(command, params_str, working_dir.as_deref()) {
-            Ok(None) => Ok(None),
-            Ok(Some(prompt)) => Ok(Some(Message::user().with_text(prompt))),
-            Err(text) => Ok(Some(Message::assistant().with_text(text))),
-        }
-    }
-
-    async fn handle_goal_command(&self, params_str: &str) -> Result<Option<Message>> {
-        if params_str.is_empty() {
-            let current = self.get_goal().await;
-            let text = match current {
-                Some(goal) => format!("Current goal: {goal}"),
-                None => "No goal set. Use `/goal <description>` to set one.".to_string(),
-            };
-            return Ok(Some(Message::assistant().with_text(text)));
-        }
-
-        if is_clear_goal_param(params_str) {
-            self.set_goal(None).await;
-            return Ok(Some(
-                Message::assistant().with_text("Goal cleared. The agent will finish normally."),
-            ));
-        }
-
-        let goal = params_str.to_string();
-        self.set_goal(Some(goal.clone())).await;
-        Ok(Some(Message::assistant().with_text(format!(
-            "Goal set. The agent will verify this goal is met before finishing:\n\n> {goal}"
-        ))))
-    }
-
-    async fn handle_grind_command(&self, params_str: &str) -> Result<Option<Message>> {
-        if params_str.is_empty() {
-            let current = self.get_grind().await;
-            let text = match current {
-                Some(goal) => format!("Current grind goal: {goal}"),
-                None => "No grind goal set. Use `/grind <description>` to set one.".to_string(),
-            };
-            return Ok(Some(Message::assistant().with_text(text)));
-        }
-
-        if is_clear_goal_param(params_str) {
-            self.set_grind(None).await;
-            return Ok(Some(
-                Message::assistant().with_text("Grind cleared. The agent will finish normally."),
-            ));
-        }
-
-        let goal = params_str.to_string();
-        self.set_grind(Some(goal.clone())).await;
-        Ok(Some(Message::assistant().with_text(format!(
-            "Grind goal set. The agent will keep working until max_turns is reached:\n\n> {goal}"
-        ))))
-    }
-}
-
-/// Shown when `/clear` emptied goose's transcript but the provider still holds
-/// the real conversation. The token counters are deliberately left alone in that
-/// case, so the meter keeps reflecting what the model can still see.
-pub fn stale_provider_context_message(provider_name: &str, error: &str) -> String {
-    format!(
-        "Cleared goose's transcript, but '{provider_name}' still holds the previous conversation \
-         and will keep sending it to the model: {error}. Start a new session for a full reset."
-    )
-}
-
-pub fn compaction_unsupported_message(provider_name: &str) -> String {
-    format!(
-        "Compaction is not supported with '{provider_name}' because it manages its own \
-         conversation context. Try /clear, which starts the agent's conversation over for \
-         providers that can reset it; if it reports that the previous conversation is still \
-         held, start a new session instead."
-    )
-}
-
-fn user_only_assistant_text(text: impl Into<String>) -> Message {
-    Message::assistant().with_text(text).user_only()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::conversation::message::MessageContent;
-    use crate::recipe::Response;
-    use serde_json::json;
 
     #[test]
     fn parse_slash_command_splits_on_literal_space() {
@@ -651,6 +218,39 @@ mod tests {
         let parsed = parse_slash_command("/speckit.plan\nhello").unwrap();
         assert_eq!(parsed.command, "speckit.plan\nhello");
         assert_eq!(parsed.params_str, "");
+    }
+
+    #[test]
+    fn apply_passthrough_command_collapses_agent_blocks_and_keeps_user_only_blocks() {
+        use rmcp::model::{Annotations, Role, TextContent};
+
+        let user_only = TextContent::new("SECRET_USER_ONLY")
+            .with_annotations(Annotations::default().with_audience(vec![Role::User]));
+        let mut message = Message::user()
+            .with_text("/acp compact")
+            .with_text("trailing")
+            .with_content(MessageContent::Text(user_only));
+
+        assert!(apply_passthrough_command(&mut message));
+
+        let agent_visible = message.agent_visible_content();
+        assert_eq!(agent_visible.content.len(), 1);
+        assert_eq!(agent_visible.as_concat_text(), "/compact\ntrailing");
+        assert!(is_passthrough_command(&message));
+        assert!(message
+            .content
+            .iter()
+            .filter_map(|c| c.as_text())
+            .any(|text| text == "SECRET_USER_ONLY"));
+    }
+
+    #[test]
+    fn apply_passthrough_command_leaves_other_messages_unmarked() {
+        let mut message = Message::user().with_text("/compact");
+        assert!(!apply_passthrough_command(&mut message));
+        assert!(!is_passthrough_command(&message));
+        let mut bare = Message::user().with_text("/acp");
+        assert!(!apply_passthrough_command(&mut bare));
     }
 
     #[test]
@@ -715,61 +315,9 @@ mod tests {
     }
 
     #[test]
-    fn user_only_assistant_text_is_durable_text_not_system_notification() {
-        let message = user_only_assistant_text("Conversation cleared");
-
-        assert!(message.metadata.user_visible);
-        assert!(!message.metadata.agent_visible);
-        assert_eq!(message.role, rmcp::model::Role::Assistant);
-        assert!(matches!(
-            message.content.as_slice(),
-            [MessageContent::Text(text)] if text.text == "Conversation cleared"
-        ));
-    }
-
-    #[test]
     fn status_is_registered_as_a_builtin_command() {
         assert!(list_commands()
             .iter()
             .any(|command| command.name == "status"));
-    }
-
-    #[tokio::test]
-    async fn invalid_rendered_recipe_schema_returns_assistant_response() {
-        let agent = Agent::new();
-        let recipe = Recipe::builder()
-            .title("Invalid rendered schema")
-            .description("Invalid rendered schema")
-            .instructions("Return structured output")
-            .response(Response {
-                json_schema: Some(json!({
-                    "type": "object",
-                    "properties": {
-                        "result": {
-                            "type": "string",
-                            "pattern": "["
-                        }
-                    }
-                })),
-            })
-            .build()
-            .expect("recipe shape is otherwise valid");
-
-        let response = agent
-            .apply_resolved_recipe_command(
-                "invalid-rendered-schema",
-                recipe,
-                "Return structured output".to_string(),
-                "unused-session",
-            )
-            .await
-            .unwrap()
-            .unwrap();
-
-        assert_eq!(response.role, rmcp::model::Role::Assistant);
-        assert!(response
-            .as_concat_text()
-            .contains("Recipe /invalid-rendered-schema is not valid"));
-        assert!(agent.final_output_tool.lock().await.is_none());
     }
 }

@@ -238,6 +238,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     sessionLoadError
   ) => {
     const entry = getOrCreateEntry(sessionId);
+    resetReplayState(entry);
     entry.sessionLoadError = sessionLoadError;
     entry.progressMessage = undefined;
     entry.chatState = ChatState.Idle;

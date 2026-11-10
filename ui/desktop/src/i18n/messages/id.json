@@ -20,15 +20,6 @@
   "acpReadinessPanel.connectionNotChecked": {
     "defaultMessage": "Periksa koneksi akun Anda sebelum melanjutkan."
   },
-  "alertBox.autoCompactAt": {
-    "defaultMessage": "Padatkan otomatis pada"
-  },
-  "alertBox.compactNow": {
-    "defaultMessage": "Padatkan sekarang"
-  },
-  "alertBox.failedToSaveThreshold": {
-    "defaultMessage": "Gagal menyimpan ambang batas: {error}"
-  },
   "announcementModal.gotIt": {
     "defaultMessage": "Mengerti!"
   },
@@ -215,9 +206,6 @@
   "chat.notification.taskComplete.title": {
     "defaultMessage": "Goose telah menyelesaikan tugas."
   },
-  "chatInput.contextWindow": {
-    "defaultMessage": "Jendela konteks"
-  },
   "chatInput.dictationError": {
     "defaultMessage": "Kesalahan Dikte"
   },
@@ -358,6 +346,63 @@
   },
   "confirmationModal.processing": {
     "defaultMessage": "Memproses..."
+  },
+  "contextWindowIndicator.open": {
+    "defaultMessage": "{used} dari {limit} token terpakai. Tampilkan isi jendela konteks"
+  },
+  "contextXray.autoCompactionPending": {
+    "defaultMessage": "Melewati ambang pemadatan otomatis: percakapan dipadatkan sebelum permintaan berikutnya dikirim."
+  },
+  "contextXray.category.additionalInstructions": {
+    "defaultMessage": "Instruksi & petunjuk"
+  },
+  "contextXray.category.compactionSummary": {
+    "defaultMessage": "Ringkasan kompaksi"
+  },
+  "contextXray.category.extensionInstructions": {
+    "defaultMessage": "Instruksi ekstensi"
+  },
+  "contextXray.category.messages": {
+    "defaultMessage": "Percakapan"
+  },
+  "contextXray.category.systemPrompt": {
+    "defaultMessage": "Prompt sistem"
+  },
+  "contextXray.category.toolDefinitions": {
+    "defaultMessage": "Definisi alat"
+  },
+  "contextXray.category.turnContext": {
+    "defaultMessage": "Konteks giliran"
+  },
+  "contextXray.compactNow": {
+    "defaultMessage": "Kompaksi sekarang"
+  },
+  "contextXray.free": {
+    "defaultMessage": "Kosong"
+  },
+  "contextXray.loadError": {
+    "defaultMessage": "Tidak dapat memuat laporan konteks."
+  },
+  "contextXray.modelSummary": {
+    "defaultMessage": "{model} · jendela konteks {limit} token"
+  },
+  "contextXray.providerManagesContext": {
+    "defaultMessage": "{provider} menyimpan riwayat percakapannya sendiri dan hanya menerima prompt terbaru dari goose, sehingga tidak ada permintaan yang bisa diuraikan."
+  },
+  "contextXray.refresh": {
+    "defaultMessage": "Muat ulang"
+  },
+  "contextXray.retry": {
+    "defaultMessage": "Coba lagi"
+  },
+  "contextXray.title": {
+    "defaultMessage": "Jendela konteks"
+  },
+  "contextXray.tokenizerNote": {
+    "defaultMessage": "Jumlah token diperkirakan dengan tokenizer o200k."
+  },
+  "contextXray.usage": {
+    "defaultMessage": "dari {limit} token · {percent} dari jendela konteks"
   },
   "conversationLimitsDropdown.conversationLimits": {
     "defaultMessage": "Batas Percakapan"
@@ -1124,6 +1169,12 @@
   "extensionInstallModal.ok": {
     "defaultMessage": "OK"
   },
+  "extensionInstallModal.policyErrorMessage": {
+    "defaultMessage": "The extension allowlist policy could not be retrieved. Extension installation is blocked until the policy is available. Contact your administrator to check the GOOSE_ALLOWLIST configuration."
+  },
+  "extensionInstallModal.policyErrorTitle": {
+    "defaultMessage": "Extension Policy Unavailable"
+  },
   "extensionInstallModal.trustedMessage": {
     "defaultMessage": "Apakah Anda yakin ingin memasang ekstensi {name}? Perintah: {command}"
   },
@@ -1850,6 +1901,36 @@
   "launcher.placeholder": {
     "defaultMessage": "Tanyakan apa saja kepada goose..."
   },
+  "liveVoice.connecting": {
+    "defaultMessage": "Connecting Live voice"
+  },
+  "liveVoice.emptyComposerRequired": {
+    "defaultMessage": "Clear the message and attachments to use Live voice"
+  },
+  "liveVoice.error": {
+    "defaultMessage": "Live voice failed. Try again"
+  },
+  "liveVoice.live": {
+    "defaultMessage": "Stop Live voice"
+  },
+  "liveVoice.mute": {
+    "defaultMessage": "Mute microphone"
+  },
+  "liveVoice.returnToActive": {
+    "defaultMessage": "Return to active Live voice"
+  },
+  "liveVoice.stopping": {
+    "defaultMessage": "Stopping Live voice"
+  },
+  "liveVoice.unmute": {
+    "defaultMessage": "Unmute microphone"
+  },
+  "liveVoiceSettings.description": {
+    "defaultMessage": "Lakukan percakapan suara real-time dengan Goose"
+  },
+  "liveVoiceSettings.title": {
+    "defaultMessage": "Suara langsung"
+  },
   "loadingGoose.compacting": {
     "defaultMessage": "goose sedang meringkas percakapan..."
   },
@@ -2052,13 +2133,16 @@
     "defaultMessage": "URL tidak valid"
   },
   "mcpAppRenderer.movePipWindow": {
-    "defaultMessage": "Pindahkan jendela Picture-in-Picture (gunakan tombol panah)"
+    "defaultMessage": "Pindahkan jendela Picture-in-Picture"
   },
   "mcpAppRenderer.pictureInPicture": {
     "defaultMessage": "Picture-in-Picture"
   },
   "mcpAppRenderer.playingInPip": {
     "defaultMessage": "Memutar dalam Picture-in-Picture"
+  },
+  "mcpAppRenderer.resizePipWindow": {
+    "defaultMessage": "Ubah ukuran jendela Picture-in-Picture"
   },
   "mentionPopover.itemsFound": {
     "defaultMessage": "{count,plural,one{# item ditemukan} other{# item ditemukan}}"
@@ -2080,6 +2164,18 @@
   },
   "messageCopyLink.copy": {
     "defaultMessage": "Salin"
+  },
+  "messageList.hiddenMessages": {
+    "defaultMessage": "{count, plural, other {# pesan disembunyikan}}"
+  },
+  "messageList.modelChanged": {
+    "defaultMessage": "Model diubah: {previousModel} → {currentModel}"
+  },
+  "messageList.requestedModel": {
+    "defaultMessage": "{model} (diminta)"
+  },
+  "messageList.showAllMessages": {
+    "defaultMessage": "Tampilkan semua"
   },
   "messageQueue.cancel": {
     "defaultMessage": "Batal"
@@ -2531,6 +2627,9 @@
   "navigationPanel.endSuccess": {
     "defaultMessage": "“{name}” diakhiri"
   },
+  "navigationPanel.loadingChats": {
+    "defaultMessage": "Memuat obrolan…"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Dibuat"
   },
@@ -2792,15 +2891,6 @@
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "Apa yang kami kumpulkan:"
   },
-  "progressiveMessageList.loadingMessages": {
-    "defaultMessage": "Memuat pesan... ({renderedCount}/{totalCount})"
-  },
-  "progressiveMessageList.modelChanged": {
-    "defaultMessage": "Model diubah: {previousModel} → {currentModel}"
-  },
-  "progressiveMessageList.searchHint": {
-    "defaultMessage": "Tekan Cmd/Ctrl+F untuk segera memuat semua pesan untuk pencarian"
-  },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "Semua prompt disetel ulang ke default"
   },
@@ -2882,9 +2972,6 @@
   "providerCard.deprecatedReplacement": {
     "defaultMessage": "Tidak digunakan lagi — gunakan {replacement} sebagai gantinya."
   },
-  "providerCard.noMetadata": {
-    "defaultMessage": "Kesalahan ProviderCard: Tidak ada metadata yang disediakan"
-  },
   "providerCard.unknownProvider": {
     "defaultMessage": "Penyedia Tidak Dikenal"
   },
@@ -2893,9 +2980,6 @@
   },
   "providerCatalogPicker.apiFormat": {
     "defaultMessage": "Format API"
-  },
-  "providerCatalogPicker.cancel": {
-    "defaultMessage": "Batal"
   },
   "providerCatalogPicker.chooseProvider": {
     "defaultMessage": "Pilih Penyedia"
@@ -3378,7 +3462,7 @@
     "defaultMessage": "Tidak ada resep tersimpan"
   },
   "recipesView.noSavedRecipesDescription": {
-    "defaultMessage": "Resep yang disimpan dari obrolan akan muncul di sini."
+    "defaultMessage": "Resep yang disimpan akan muncul di sini."
   },
   "recipesView.openInNewWindow": {
     "defaultMessage": "Buka di jendela baru"
@@ -3915,7 +3999,7 @@
     "defaultMessage": "Gunakan model ML untuk mendeteksi potensi injeksi prompt dalam obrolan Anda"
   },
   "securityToggle.thresholdDescription": {
-    "defaultMessage": "Nilai yang lebih tinggi lebih ketat (0,01 = sangat longgar, 1,0 = paling ketat)"
+    "defaultMessage": "Nilai yang lebih rendah lebih ketat (0,01 = paling ketat, 1,0 = sangat longgar)"
   },
   "securityToggle.warpNotice": {
     "defaultMessage": "Deteksi injeksi perintah bekerja paling baik saat terhubung ke WARP (diperlukan untuk menjangkau layanan klasifikasi)."
@@ -3933,7 +4017,7 @@
     "defaultMessage": "JSON sesi disalin"
   },
   "sessionActionsHeader.copiedModelInteractions": {
-    "defaultMessage": "Recent model interactions copied"
+    "defaultMessage": "Interaksi model terbaru disalin"
   },
   "sessionActionsHeader.copiedText": {
     "defaultMessage": "Teks disalin"
@@ -3966,10 +4050,10 @@
     "defaultMessage": "Memuat JSON..."
   },
   "sessionActionsHeader.modelInteractionsFailed": {
-    "defaultMessage": "Failed to load model interactions: {error}"
+    "defaultMessage": "Gagal memuat interaksi model: {error}"
   },
   "sessionActionsHeader.modelInteractionsTitle": {
-    "defaultMessage": "Recent model interactions"
+    "defaultMessage": "Interaksi model terbaru"
   },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "Gagal mengganti nama sesi: {error}"
@@ -3996,7 +4080,7 @@
     "defaultMessage": "Lihat JSON sesi"
   },
   "sessionActionsHeader.viewModelInteractions": {
-    "defaultMessage": "View recent model interactions"
+    "defaultMessage": "Lihat interaksi model terbaru"
   },
   "sessionIndicators.exited": {
     "defaultMessage": "Macet: proses agen berhenti"
@@ -4088,9 +4172,6 @@
   "sessions.action.openNewWindow": {
     "defaultMessage": "Buka di jendela baru"
   },
-  "sessions.action.shareNostr": {
-    "defaultMessage": "Bagikan tautan Nostr terenkripsi"
-  },
   "sessions.action.unarchive": {
     "defaultMessage": "Pulihkan dari arsip"
   },
@@ -4133,21 +4214,6 @@
   "sessions.import": {
     "defaultMessage": "Impor Sesi"
   },
-  "sessions.importNostr": {
-    "defaultMessage": "Impor Tautan"
-  },
-  "sessions.importNostr.description": {
-    "defaultMessage": "Tempel tautan berbagi Nostr Goose untuk mengambil, mendekripsi, dan mengimpor sesi."
-  },
-  "sessions.importNostr.placeholder": {
-    "defaultMessage": "goose://sessions/nostr?nevent=...&key=..."
-  },
-  "sessions.importNostr.title": {
-    "defaultMessage": "Impor Sesi Nostr"
-  },
-  "sessions.importing": {
-    "defaultMessage": "Mengimpor..."
-  },
   "sessions.includeAcp": {
     "defaultMessage": "Sertakan sesi ACP"
   },
@@ -4186,12 +4252,6 @@
   },
   "sessions.searching": {
     "defaultMessage": "Mencari sesi..."
-  },
-  "sessions.shareNostr.description": {
-    "defaultMessage": "Siapa pun yang memiliki tautan ini dapat mengambil dan mendekripsi sesi. Perlakukan seperti rahasia."
-  },
-  "sessions.shareNostr.title": {
-    "defaultMessage": "Tautan Berbagi Nostr Terenkripsi"
   },
   "sessions.tab.active": {
     "defaultMessage": "Aktif"
@@ -4232,12 +4292,6 @@
   "sessions.toast.imported": {
     "defaultMessage": "Sesi berhasil diimpor"
   },
-  "sessions.toast.shareNostr": {
-    "defaultMessage": "Tautan berbagi Nostr terenkripsi dibuat"
-  },
-  "sessions.toast.shareNostrFailed": {
-    "defaultMessage": "Gagal membuat tautan berbagi Nostr: {error}"
-  },
   "sessions.toast.unarchiveFailed": {
     "defaultMessage": "Gagal memulihkan sesi: {error}"
   },
@@ -4249,6 +4303,96 @@
   },
   "sessions.toast.updated": {
     "defaultMessage": "Deskripsi sesi berhasil diperbarui"
+  },
+  "settings.agentLoop.operations.auto.placeholder": {
+    "defaultMessage": "Otomatis"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.configured": {
+    "defaultMessage": "Terkonfigurasi"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.label": {
+    "defaultMessage": "Kunci API TypeSafe"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.placeholder": {
+    "defaultMessage": "Masukkan kunci API"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.remove": {
+    "defaultMessage": "Hapus kunci"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.save": {
+    "defaultMessage": "Simpan kunci"
+  },
+  "settings.agentLoop.operations.autoEffort.description": {
+    "defaultMessage": "Menggunakan Jev untuk memilih tingkat penalaran bagi setiap permintaan. Teks permintaan dikirim ke TypeSafe AI; perintah garis miring skill dan resep menyertakan instruksi lokal yang telah diperluas."
+  },
+  "settings.agentLoop.operations.autoEffort.title": {
+    "defaultMessage": "Tingkat penalaran otomatis"
+  },
+  "settings.agentLoop.operations.blockLimit.label": {
+    "defaultMessage": "Batas pemblokiran"
+  },
+  "settings.agentLoop.operations.contextCompaction.description": {
+    "defaultMessage": "Meringkas riwayat percakapan sebelum jendela konteks penuh."
+  },
+  "settings.agentLoop.operations.contextCompaction.title": {
+    "defaultMessage": "Pemadatan konteks"
+  },
+  "settings.agentLoop.operations.cutoff.label": {
+    "defaultMessage": "Batas"
+  },
+  "settings.agentLoop.operations.enable": {
+    "defaultMessage": "Aktifkan {operation}"
+  },
+  "settings.agentLoop.operations.failureTimeout.label": {
+    "defaultMessage": "Batas waktu kegagalan"
+  },
+  "settings.agentLoop.operations.heading": {
+    "defaultMessage": "Operasi yang dapat dikonfigurasi"
+  },
+  "settings.agentLoop.operations.maxTurns.description": {
+    "defaultMessage": "Menghentikan kerja otonom dan meminta pengguna sebelum melanjutkan."
+  },
+  "settings.agentLoop.operations.maxTurns.title": {
+    "defaultMessage": "Putaran maksimum"
+  },
+  "settings.agentLoop.operations.recipeRetry.description": {
+    "defaultMessage": "Menjalankan ulang pemeriksaan resep saat pemeriksaan keberhasilan yang dikonfigurasi gagal."
+  },
+  "settings.agentLoop.operations.recipeRetry.title": {
+    "defaultMessage": "Coba ulang resep"
+  },
+  "settings.agentLoop.operations.retryTimeout.label": {
+    "defaultMessage": "Batas waktu coba ulang"
+  },
+  "settings.agentLoop.operations.slashCommands.description": {
+    "defaultMessage": "Mengenali perintah seperti /compact, /skills, dan pintasan resep."
+  },
+  "settings.agentLoop.operations.slashCommands.title": {
+    "defaultMessage": "Perintah garis miring"
+  },
+  "settings.agentLoop.operations.stopHooks.description": {
+    "defaultMessage": "Memungkinkan hook memblokir penyelesaian sekaligus mencegah siklus berhenti tanpa akhir."
+  },
+  "settings.agentLoop.operations.stopHooks.title": {
+    "defaultMessage": "Hook penghentian"
+  },
+  "settings.agentLoop.operations.threshold.label": {
+    "defaultMessage": "Ambang %"
+  },
+  "settings.agentLoop.operations.tokenLimit.label": {
+    "defaultMessage": "Batas token"
+  },
+  "settings.agentLoop.operations.toolPairCompaction.description": {
+    "defaultMessage": "Meringkas permintaan dan respons alat lama untuk menghemat konteks. Batas ditentukan otomatis jika dikosongkan."
+  },
+  "settings.agentLoop.operations.toolPairCompaction.title": {
+    "defaultMessage": "Pemadatan pasangan alat"
+  },
+  "settings.agentLoop.operations.turns.label": {
+    "defaultMessage": "Putaran"
+  },
+  "settings.agentLoop.title": {
+    "defaultMessage": "Loop agen"
   },
   "settings.appearance.description": {
     "defaultMessage": "Konfigurasikan tampilan goose di sistem Anda"
@@ -4460,6 +4604,21 @@
   "shortcutRecorder.save": {
     "defaultMessage": "Simpan"
   },
+  "showThinkingSetting.always": {
+    "defaultMessage": "Selalu"
+  },
+  "showThinkingSetting.collapsed": {
+    "defaultMessage": "Diciutkan"
+  },
+  "showThinkingSetting.description": {
+    "defaultMessage": "Tampilkan pemikiran model di obrolan. Dengan opsi \"Diciutkan\", pemikiran tetap tertutup sampai Anda membukanya."
+  },
+  "showThinkingSetting.never": {
+    "defaultMessage": "Tidak pernah"
+  },
+  "showThinkingSetting.title": {
+    "defaultMessage": "Tampilkan Pemikiran"
+  },
   "skillsView.addSkill": {
     "defaultMessage": "Tambah Keterampilan"
   },
@@ -4618,6 +4777,12 @@
   },
   "subRecipeModal.subtitle": {
     "defaultMessage": "Konfigurasikan subresep yang dapat dipanggil sebagai alat selama eksekusi resep"
+  },
+  "subagentSessionNotice.loadLatestProgress": {
+    "defaultMessage": "Muat progres terbaru"
+  },
+  "subagentSessionNotice.notice": {
+    "defaultMessage": "Progres subagen tidak ditampilkan secara langsung di sini."
   },
   "switchModelModal.backToModelList": {
     "defaultMessage": "Kembali ke daftar model"

@@ -2,20 +2,16 @@ use crate::agents::extension::PlatformExtensionContext;
 use crate::agents::mcp_client::{Error, McpClientTrait};
 use crate::agents::platform_extensions::SessionDriver;
 use crate::agents::tool_execution::ToolCallContext;
-use crate::agents::{AgentEvent, SessionConfig};
-use crate::config::{Config, ExtensionConfig, GooseMode};
+use crate::config::GooseMode;
 use crate::context_mgmt::format_message_for_compacting;
 use crate::conversation::message::Message;
 use crate::conversation::Conversation;
-use crate::execution::manager::AgentManager;
-use crate::providers;
 use crate::providers::base::Provider;
 use crate::session::extension_data::EnabledExtensionsState;
 use crate::session::session_manager::{Session, SessionType};
 use crate::session::{ExtensionState, StagedPromptState};
 use anyhow::Result;
 use async_trait::async_trait;
-use futures::StreamExt;
 use rmcp::model::{
     CallToolResult, ContentBlock, Implementation, InitializeResult, JsonObject, ListToolsResult,
     ServerCapabilities, Tool,
@@ -27,38 +23,6 @@ use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 
 pub static EXTENSION_NAME: &str = "orchestrator";
-
-struct CancelTokenGuard {
-    manager: Arc<AgentManager>,
-    session_id: String,
-    disarmed: bool,
-}
-
-impl CancelTokenGuard {
-    fn new(manager: Arc<AgentManager>, session_id: String) -> Self {
-        Self {
-            manager,
-            session_id,
-            disarmed: false,
-        }
-    }
-
-    fn disarm(&mut self) {
-        self.disarmed = true;
-    }
-}
-
-impl Drop for CancelTokenGuard {
-    fn drop(&mut self) {
-        if !self.disarmed {
-            let manager = self.manager.clone();
-            let session_id = self.session_id.clone();
-            tokio::spawn(async move {
-                manager.unregister_cancel_token(&session_id).await;
-            });
-        }
-    }
-}
 
 const DEFAULT_LIST_LIMIT: usize = 10;
 
@@ -133,60 +97,37 @@ impl OrchestratorClient {
         Ok(Self { info, context })
     }
 
-    /// Present when a client owns this session (the ACP server). Sessions this
-    /// extension starts or messages then run through that client, so the user sees
-    /// them, instead of on a process-wide agent nobody is watching.
-    fn session_driver(&self) -> Option<Arc<dyn SessionDriver>> {
+    /// Present when a client owns the caller's session (the ACP server). Sessions this
+    /// extension starts or messages run through that client, so the user sees them.
+    fn session_driver(&self, session_id: &str) -> Option<Arc<dyn SessionDriver>> {
         self.context
             .extension_manager
             .as_ref()?
             .upgrade()?
-            .session_driver()
+            .session_driver(session_id)
     }
 
-    async fn get_agent_manager(&self) -> Result<Arc<AgentManager>, String> {
-        AgentManager::instance()
-            .await
-            .map_err(|e| format!("Failed to get agent manager: {}", e))
+    fn require_session_driver(&self, session_id: &str) -> Result<Arc<dyn SessionDriver>, String> {
+        self.session_driver(session_id).ok_or_else(|| {
+            "The orchestrator needs a client that shows the sessions it runs, such as goose desktop"
+                .to_string()
+        })
     }
 
-    async fn get_provider(&self) -> Result<Arc<dyn Provider>, String> {
-        let extension_manager = self
-            .context
-            .extension_manager
-            .as_ref()
-            .and_then(|weak| weak.upgrade())
-            .ok_or("Extension manager not available")?;
-
-        let provider_guard = extension_manager.get_provider().lock().await;
-        provider_guard
-            .as_ref()
-            .cloned()
-            .ok_or_else(|| "Provider not available".to_string())
+    async fn get_provider(&self, session_id: &str) -> Result<Arc<dyn Provider>, String> {
+        self.context.provider_for_session(session_id).await
     }
 
     async fn parent_model_config(
         &self,
-        provider_name: &str,
+        session_id: &str,
     ) -> Result<goose_providers::model::ModelConfig, String> {
-        if let Some(session) = self.context.session.as_ref() {
-            return self.context.model_config_for_session(&session.id).await;
-        }
-
-        let model_name = Config::global()
-            .get_goose_model()
-            .map_err(|_| "Could not resolve model config: missing model".to_string())?;
-        crate::model_config::model_config_from_user_config(provider_name, &model_name)
-            .map_err(|e| format!("Could not resolve model config: {e}"))
-    }
-
-    fn parent_extensions(&self) -> Vec<ExtensionConfig> {
-        let extension_data = self.context.session.as_ref().map(|s| &s.extension_data);
-        EnabledExtensionsState::extensions_or_default(extension_data, Config::global())
+        self.context.model_config_for_session(session_id).await
     }
 
     async fn handle_list_sessions(
         &self,
+        caller_session_id: &str,
         arguments: Option<JsonObject>,
     ) -> Result<CallToolResult, String> {
         let type_filter = arguments
@@ -201,7 +142,7 @@ impl OrchestratorClient {
             .map(|v| v as usize)
             .unwrap_or(DEFAULT_LIST_LIMIT);
 
-        let manager = self.get_agent_manager().await?;
+        let driver = self.session_driver(caller_session_id);
 
         let mut sessions = if let Some(type_str) = type_filter {
             let session_type: SessionType = type_str
@@ -231,20 +172,18 @@ impl OrchestratorClient {
             )]));
         }
 
-        let active_ids = manager.list_active_session_ids().await;
-
         let mut lines = vec![format!(
             "Showing {} of {} session(s):\n",
             sessions.len(),
             total
         )];
         for session in &sessions {
-            let is_loaded = active_ids.contains(&session.id);
-            let is_busy = if is_loaded {
-                manager.is_session_busy(&session.id).await
-            } else {
-                false
-            };
+            let is_loaded = driver
+                .as_ref()
+                .is_some_and(|driver| driver.is_loaded(&session.id));
+            let is_busy = driver
+                .as_ref()
+                .is_some_and(|driver| driver.is_running(&session.id));
 
             let status = if is_busy {
                 "🔄 busy"
@@ -289,8 +228,9 @@ impl OrchestratorClient {
             .await
             .map_err(|e| format!("Session '{}' not found: {}", session_id, e))?;
 
-        let manager = self.get_agent_manager().await?;
-        let is_busy = manager.is_session_busy(&session_id).await;
+        let is_busy = self
+            .session_driver(session_id_for_llm)
+            .is_some_and(|driver| driver.is_running(&session_id));
 
         let mut output = vec![format!(
             "# Session: {} ({})\n\nType: {} | Status: {} | Working dir: {}\nMessages: {} | Updated: {}\n",
@@ -357,7 +297,7 @@ impl OrchestratorClient {
         session_id: &str,
         messages: &[Message],
     ) -> Result<String, String> {
-        let provider = self.get_provider().await?;
+        let provider = self.get_provider(session_id).await?;
 
         let conversation_text = agent_visible_session_messages(&Conversation::new_unvalidated(
             messages.iter().cloned(),
@@ -377,7 +317,7 @@ impl OrchestratorClient {
             conversation_text
         ));
 
-        let model_config = self.parent_model_config(provider.get_name()).await?;
+        let model_config = self.parent_model_config(session_id).await?;
         let (response, _usage) = crate::model_config::complete_one_shot(
             provider.as_ref(),
             &model_config,
@@ -422,12 +362,7 @@ impl OrchestratorClient {
         let path = if raw_path.is_absolute() {
             raw_path
         } else {
-            let base = self
-                .context
-                .session
-                .as_ref()
-                .map(|s| s.working_dir.clone())
-                .unwrap_or_else(|| PathBuf::from("."));
+            let base = self.caller_session(session_id).await?.working_dir;
             base.join(&raw_path)
         };
 
@@ -448,6 +383,7 @@ impl OrchestratorClient {
             return Err("stage needs a prompt to stage".to_string());
         }
 
+        let driver = self.require_session_driver(session_id)?;
         let mode = GooseMode::default();
 
         let session = self
@@ -457,73 +393,47 @@ impl OrchestratorClient {
             .await
             .map_err(|e| format!("Failed to create session: {}", e))?;
 
-        if let Some(driver) = self.session_driver() {
-            // The client activates the session from what is saved, so save the
-            // provider, model, and extensions this session runs with.
-            let parent_provider = self.get_provider().await?;
-            let model_config = self.parent_model_config(parent_provider.get_name()).await?;
-            // Copy only the caller's extension set. The rest of its extension data is
-            // per-session state (todos, the provider's resumable session id) that
-            // belongs to the caller alone.
-            let caller = self.caller_session(session_id).await?;
-            let mut extension_data = session.extension_data.clone();
-            if let Some(enabled) =
-                EnabledExtensionsState::from_extension_data(&caller.extension_data)
-            {
-                enabled
-                    .to_extension_data(&mut extension_data)
-                    .map_err(|e| format!("Failed to copy extensions: {}", e))?;
-            }
-            let staged = prompt.as_ref().filter(|_| stage);
-            if let Some(text) = staged {
-                StagedPromptState { text: text.clone() }
-                    .to_extension_data(&mut extension_data)
-                    .map_err(|e| format!("Failed to stage prompt: {}", e))?;
-            }
-            self.context
-                .session_manager
-                .update(&session.id)
-                .provider_name(parent_provider.get_name())
-                .model_config(model_config)
-                .extension_data(extension_data)
-                .apply()
-                .await
-                .map_err(|e| format!("Failed to configure session: {}", e))?;
-            driver.announce_session(&session.id).await;
-            if staged.is_some() {
-                return Ok(CallToolResult::success(vec![ContentBlock::text(format!(
-                    "Staged session '{}' with ID: {}. It appears in the user's session list with the prompt waiting in its input; nothing runs until the user sends it.",
-                    name, session.id
-                ))]));
-            }
-            if let Some(prompt) = prompt {
-                prompt_in_background(driver, session.id.clone(), prompt);
-            }
+        // The client activates the session from what is saved, so save the
+        // provider, model, and extensions this session runs with.
+        let parent_provider = self.get_provider(session_id).await?;
+        let model_config = self.parent_model_config(session_id).await?;
+        // Copy only the caller's extension set. The rest of its extension data is
+        // per-session state (todos, the provider's resumable session id) that
+        // belongs to the caller alone.
+        let caller = self.caller_session(session_id).await?;
+        let mut extension_data = session.extension_data.clone();
+        if let Some(enabled) = EnabledExtensionsState::from_extension_data(&caller.extension_data) {
+            enabled
+                .to_extension_data(&mut extension_data)
+                .map_err(|e| format!("Failed to copy extensions: {}", e))?;
+        }
+        let staged = prompt.as_ref().filter(|_| stage);
+        if let Some(text) = staged {
+            StagedPromptState { text: text.clone() }
+                .to_extension_data(&mut extension_data)
+                .map_err(|e| format!("Failed to stage prompt: {}", e))?;
+        }
+        self.context
+            .session_manager
+            .update(&session.id)
+            .provider_name(parent_provider.get_name())
+            .model_config(model_config)
+            .extension_data(extension_data)
+            .apply()
+            .await
+            .map_err(|e| format!("Failed to configure session: {}", e))?;
+        driver.announce_session(&session.id).await;
+        if staged.is_some() {
             return Ok(CallToolResult::success(vec![ContentBlock::text(format!(
-                "Started agent session '{}' with ID: {}. It appears in the user's session list.\n\nUse send_message with this session_id to interact with it.",
+                "Staged session '{}' with ID: {}. It appears in the user's session list with the prompt waiting in its input; nothing runs until the user sends it.",
                 name, session.id
             ))]));
         }
-
-        let manager = self.get_agent_manager().await?;
-        let agent = manager
-            .get_or_create_agent(session.id.clone())
-            .await
-            .map_err(|e| format!("Failed to create agent: {}", e))?;
-
-        let parent_provider = self.get_provider().await?;
-        let extensions = self.parent_extensions();
-        let model_config = self.parent_model_config(parent_provider.get_name()).await?;
-        let provider = providers::create(parent_provider.get_name(), extensions)
-            .await
-            .map_err(|e| format!("Failed to create provider for new agent: {}", e))?;
-        agent
-            .update_provider(provider, model_config, &session.id)
-            .await
-            .map_err(|e| format!("Failed to set provider on new agent: {}", e))?;
-
+        if let Some(prompt) = prompt {
+            prompt_in_background(driver, session.id.clone(), prompt);
+        }
         Ok(CallToolResult::success(vec![ContentBlock::text(format!(
-            "Started agent session '{}' with ID: {}\n\nUse send_message with this session_id to interact with it.",
+            "Started agent session '{}' with ID: {}. It appears in the user's session list.\n\nUse send_message with this session_id to interact with it.",
             name, session.id
         ))]))
     }
@@ -592,123 +502,34 @@ impl OrchestratorClient {
         self.authorize_send_message(parent_session_id, &session_id)
             .await?;
 
-        if let Some(driver) = self.session_driver() {
-            let background = args
-                .get("background")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-            if background {
-                prompt_in_background(driver, session_id.clone(), message_text);
-                return Ok(CallToolResult::success(vec![ContentBlock::text(format!(
-                    "Sent to session {}. It is working on the message; use view_session to check on it.",
-                    session_id
-                ))]));
-            }
-            let reply = driver
-                .prompt(&session_id, &message_text, parent_cancel.clone())
-                .await?;
-            return Ok(reply_result(&session_id, reply));
+        let driver = self.require_session_driver(parent_session_id)?;
+        let background = args
+            .get("background")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        if background {
+            prompt_in_background(driver, session_id.clone(), message_text);
+            return Ok(CallToolResult::success(vec![ContentBlock::text(format!(
+                "Sent to session {}. It is working on the message; use view_session to check on it.",
+                session_id
+            ))]));
         }
-
-        let manager = self.get_agent_manager().await?;
-
-        let agent = manager
-            .get_or_create_agent(session_id.clone())
-            .await
-            .map_err(|e| format!("Failed to get agent for session '{}': {}", session_id, e))?;
-
-        if agent.provider().await.is_err() {
-            if let Ok(parent_provider) = self.get_provider().await {
-                let extensions = self.parent_extensions();
-                let model_config = self.parent_model_config(parent_provider.get_name()).await?;
-                if let Ok(provider) =
-                    providers::create(parent_provider.get_name(), extensions).await
-                {
-                    agent
-                        .update_provider(provider, model_config, &session_id)
-                        .await
-                        .map_err(|e| format!("Failed to set provider: {}", e))?;
-                }
-            }
-        }
-
-        let cancel_token = CancellationToken::new();
-        manager
-            .try_register_cancel_token(&session_id, cancel_token.clone())
-            .await
-            .map_err(|_| {
-                format!(
-                    "Session '{}' is currently busy. Use interrupt_agent first, or wait.",
-                    session_id
-                )
-            })?;
-
-        let mut guard = CancelTokenGuard::new(manager.clone(), session_id.clone());
-
-        let user_message = Message::user().with_text(&message_text);
-        let session_config = SessionConfig {
-            id: session_id.clone(),
-            schedule_id: None,
-            max_turns: None,
-            retry_config: None,
-        };
-
-        let mut stream = agent
-            .reply(user_message, session_config, Some(cancel_token.clone()))
-            .await
-            .map_err(|e| format!("Failed to start reply: {}", e))?;
-
-        let mut response_parts: Vec<String> = Vec::new();
-        let mut cancelled = false;
-
-        loop {
-            tokio::select! {
-                _ = parent_cancel.cancelled() => {
-                    cancel_token.cancel();
-                    cancelled = true;
-                    break;
-                }
-                event = stream.next() => {
-                    match event {
-                        Some(Ok(AgentEvent::Message(msg))) => {
-                            let text = msg.as_concat_text();
-                            if !text.is_empty() {
-                                response_parts.push(text);
-                            }
-                        }
-                        Some(Ok(_)) => {}
-                        Some(Err(e)) => {
-                            response_parts.push(format!("Error during agent processing: {}", e));
-                            break;
-                        }
-                        None => break,
-                    }
-                }
-            }
-        }
-
-        drop(stream);
-        guard.disarm();
-        manager.unregister_cancel_token(&session_id).await;
-
-        if cancelled {
-            return Err("Cancelled by parent session".into());
-        }
-
-        Ok(reply_result(&session_id, response_parts.join("\n\n")))
+        let reply = driver
+            .prompt(&session_id, &message_text, parent_cancel.clone())
+            .await?;
+        Ok(reply_result(&session_id, reply))
     }
 
     async fn handle_interrupt_agent(
         &self,
+        caller_session_id: &str,
         arguments: Option<JsonObject>,
     ) -> Result<CallToolResult, String> {
         let args = arguments.ok_or("Missing arguments")?;
         let session_id = extract_string(&args, "session_id")?;
 
-        let manager = self.get_agent_manager().await?;
-
-        manager
-            .cancel_session(&session_id)
+        self.require_session_driver(caller_session_id)?
+            .interrupt(&session_id)
             .await
             .map_err(|e| format!("Failed to interrupt session '{}': {}", session_id, e))?;
 
@@ -810,14 +631,17 @@ impl McpClientTrait for OrchestratorClient {
         cancel_token: CancellationToken,
     ) -> Result<CallToolResult, Error> {
         let result = match name {
-            "list_sessions" => self.handle_list_sessions(arguments).await,
+            "list_sessions" => self.handle_list_sessions(&ctx.session_id, arguments).await,
             "view_session" => self.handle_view_session(&ctx.session_id, arguments).await,
             "start_agent" => self.handle_start_agent(&ctx.session_id, arguments).await,
             "send_message" => {
                 self.handle_send_message(&ctx.session_id, &cancel_token, arguments)
                     .await
             }
-            "interrupt_agent" => self.handle_interrupt_agent(arguments).await,
+            "interrupt_agent" => {
+                self.handle_interrupt_agent(&ctx.session_id, arguments)
+                    .await
+            }
             _ => Err(format!("Unknown tool: {}", name)),
         };
 
@@ -860,14 +684,13 @@ mod tests {
 
     fn client_for(
         session_manager: Arc<SessionManager>,
-        session: Option<crate::session::Session>,
+        _session: Option<crate::session::Session>,
     ) -> OrchestratorClient {
         OrchestratorClient::new(PlatformExtensionContext {
             extension_manager: None,
+            providers: Default::default(),
             session_manager,
             scheduler: None,
-            session: session.map(Arc::new),
-            use_login_shell_path: false,
         })
         .unwrap()
     }

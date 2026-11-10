@@ -20,15 +20,6 @@
   "acpReadinessPanel.connectionNotChecked": {
     "defaultMessage": "Comprueba la conexión de tu cuenta antes de continuar."
   },
-  "alertBox.autoCompactAt": {
-    "defaultMessage": "Compactar automáticamente al"
-  },
-  "alertBox.compactNow": {
-    "defaultMessage": "Compactar ahora"
-  },
-  "alertBox.failedToSaveThreshold": {
-    "defaultMessage": "No se pudo guardar el umbral: {error}"
-  },
   "announcementModal.gotIt": {
     "defaultMessage": "¡Entendido!"
   },
@@ -215,9 +206,6 @@
   "chat.notification.taskComplete.title": {
     "defaultMessage": "Goose terminó la tarea."
   },
-  "chatInput.contextWindow": {
-    "defaultMessage": "Ventana de contexto"
-  },
   "chatInput.dictationError": {
     "defaultMessage": "Error de dictado"
   },
@@ -358,6 +346,63 @@
   },
   "confirmationModal.processing": {
     "defaultMessage": "Procesando..."
+  },
+  "contextWindowIndicator.open": {
+    "defaultMessage": "{used} de {limit} tokens usados. Mostrar qué hay en la ventana de contexto"
+  },
+  "contextXray.autoCompactionPending": {
+    "defaultMessage": "Se superó el umbral de compactación automática: la conversación se compacta antes de enviar la siguiente solicitud."
+  },
+  "contextXray.category.additionalInstructions": {
+    "defaultMessage": "Instrucciones y sugerencias"
+  },
+  "contextXray.category.compactionSummary": {
+    "defaultMessage": "Resumen de compactación"
+  },
+  "contextXray.category.extensionInstructions": {
+    "defaultMessage": "Instrucciones de extensiones"
+  },
+  "contextXray.category.messages": {
+    "defaultMessage": "Conversación"
+  },
+  "contextXray.category.systemPrompt": {
+    "defaultMessage": "Prompt del sistema"
+  },
+  "contextXray.category.toolDefinitions": {
+    "defaultMessage": "Definiciones de herramientas"
+  },
+  "contextXray.category.turnContext": {
+    "defaultMessage": "Contexto del turno"
+  },
+  "contextXray.compactNow": {
+    "defaultMessage": "Compactar ahora"
+  },
+  "contextXray.free": {
+    "defaultMessage": "Libre"
+  },
+  "contextXray.loadError": {
+    "defaultMessage": "No se pudo cargar el informe de contexto."
+  },
+  "contextXray.modelSummary": {
+    "defaultMessage": "{model} · ventana de contexto de {limit} tokens"
+  },
+  "contextXray.providerManagesContext": {
+    "defaultMessage": "{provider} mantiene su propio historial de conversación y solo recibe de goose el último mensaje, así que no hay ninguna solicitud que desglosar."
+  },
+  "contextXray.refresh": {
+    "defaultMessage": "Actualizar"
+  },
+  "contextXray.retry": {
+    "defaultMessage": "Reintentar"
+  },
+  "contextXray.title": {
+    "defaultMessage": "Ventana de contexto"
+  },
+  "contextXray.tokenizerNote": {
+    "defaultMessage": "El recuento de tokens se estima con el tokenizador o200k."
+  },
+  "contextXray.usage": {
+    "defaultMessage": "de {limit} tokens · {percent} de la ventana de contexto"
   },
   "conversationLimitsDropdown.conversationLimits": {
     "defaultMessage": "Límites de conversación"
@@ -1124,6 +1169,12 @@
   "extensionInstallModal.ok": {
     "defaultMessage": "OK"
   },
+  "extensionInstallModal.policyErrorMessage": {
+    "defaultMessage": "The extension allowlist policy could not be retrieved. Extension installation is blocked until the policy is available. Contact your administrator to check the GOOSE_ALLOWLIST configuration."
+  },
+  "extensionInstallModal.policyErrorTitle": {
+    "defaultMessage": "Extension Policy Unavailable"
+  },
   "extensionInstallModal.trustedMessage": {
     "defaultMessage": "¿Seguro que quieres instalar la extensión {name}? Comando: {command}"
   },
@@ -1850,6 +1901,36 @@
   "launcher.placeholder": {
     "defaultMessage": "Pregúntale lo que sea a goose..."
   },
+  "liveVoice.connecting": {
+    "defaultMessage": "Connecting Live voice"
+  },
+  "liveVoice.emptyComposerRequired": {
+    "defaultMessage": "Clear the message and attachments to use Live voice"
+  },
+  "liveVoice.error": {
+    "defaultMessage": "Live voice failed. Try again"
+  },
+  "liveVoice.live": {
+    "defaultMessage": "Stop Live voice"
+  },
+  "liveVoice.mute": {
+    "defaultMessage": "Mute microphone"
+  },
+  "liveVoice.returnToActive": {
+    "defaultMessage": "Return to active Live voice"
+  },
+  "liveVoice.stopping": {
+    "defaultMessage": "Stopping Live voice"
+  },
+  "liveVoice.unmute": {
+    "defaultMessage": "Unmute microphone"
+  },
+  "liveVoiceSettings.description": {
+    "defaultMessage": "Mantén una conversación de voz en tiempo real con Goose"
+  },
+  "liveVoiceSettings.title": {
+    "defaultMessage": "Voz en directo"
+  },
   "loadingGoose.compacting": {
     "defaultMessage": "goose está compactando la conversación..."
   },
@@ -2052,13 +2133,16 @@
     "defaultMessage": "URL no válida"
   },
   "mcpAppRenderer.movePipWindow": {
-    "defaultMessage": "Mover la ventana de imagen en imagen (usa las teclas de flecha)"
+    "defaultMessage": "Mover la ventana de imagen en imagen"
   },
   "mcpAppRenderer.pictureInPicture": {
     "defaultMessage": "Imagen en imagen"
   },
   "mcpAppRenderer.playingInPip": {
     "defaultMessage": "Reproduciendo en imagen en imagen"
+  },
+  "mcpAppRenderer.resizePipWindow": {
+    "defaultMessage": "Cambiar el tamaño de la ventana de imagen en imagen"
   },
   "mentionPopover.itemsFound": {
     "defaultMessage": "{count,plural,one{# elemento encontrado} other{# elementos encontrados}}"
@@ -2080,6 +2164,18 @@
   },
   "messageCopyLink.copy": {
     "defaultMessage": "Copiar"
+  },
+  "messageList.hiddenMessages": {
+    "defaultMessage": "{count, plural, one {# mensaje oculto} other {# mensajes ocultos}}"
+  },
+  "messageList.modelChanged": {
+    "defaultMessage": "Modelo cambiado: {previousModel} → {currentModel}"
+  },
+  "messageList.requestedModel": {
+    "defaultMessage": "{model} (solicitado)"
+  },
+  "messageList.showAllMessages": {
+    "defaultMessage": "Mostrar todo"
   },
   "messageQueue.cancel": {
     "defaultMessage": "Cancelar"
@@ -2531,6 +2627,9 @@
   "navigationPanel.endSuccess": {
     "defaultMessage": "“{name}” finalizada"
   },
+  "navigationPanel.loadingChats": {
+    "defaultMessage": "Cargando chats…"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Creado"
   },
@@ -2792,15 +2891,6 @@
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "Lo que recopilamos:"
   },
-  "progressiveMessageList.loadingMessages": {
-    "defaultMessage": "Cargando mensajes... ({renderedCount}/{totalCount})"
-  },
-  "progressiveMessageList.modelChanged": {
-    "defaultMessage": "Modelo cambiado: {previousModel} → {currentModel}"
-  },
-  "progressiveMessageList.searchHint": {
-    "defaultMessage": "Pulsa Cmd/Ctrl+F para cargar todos los mensajes de inmediato y buscar"
-  },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "Todos los prompts se restablecieron a sus valores por defecto"
   },
@@ -2882,9 +2972,6 @@
   "providerCard.deprecatedReplacement": {
     "defaultMessage": "Obsoleto: usa {replacement} en su lugar."
   },
-  "providerCard.noMetadata": {
-    "defaultMessage": "Error de ProviderCard: no se proporcionaron metadatos"
-  },
   "providerCard.unknownProvider": {
     "defaultMessage": "Proveedor desconocido"
   },
@@ -2893,9 +2980,6 @@
   },
   "providerCatalogPicker.apiFormat": {
     "defaultMessage": "Formato de API"
-  },
-  "providerCatalogPicker.cancel": {
-    "defaultMessage": "Cancelar"
   },
   "providerCatalogPicker.chooseProvider": {
     "defaultMessage": "Elegir proveedor"
@@ -3378,7 +3462,7 @@
     "defaultMessage": "No hay recetas guardadas"
   },
   "recipesView.noSavedRecipesDescription": {
-    "defaultMessage": "Las recetas guardadas desde los chats aparecerán aquí."
+    "defaultMessage": "Las recetas guardadas aparecerán aquí."
   },
   "recipesView.openInNewWindow": {
     "defaultMessage": "Abrir en una ventana nueva"
@@ -3915,7 +3999,7 @@
     "defaultMessage": "Usa modelos de ML para detectar posibles inyecciones de prompt en tu chat"
   },
   "securityToggle.thresholdDescription": {
-    "defaultMessage": "Los valores más altos son más estrictos (0.01 = muy permisivo, 1.0 = máximo estricto)"
+    "defaultMessage": "Los valores más bajos son más estrictos (0.01 = máximo estricto, 1.0 = muy permisivo)"
   },
   "securityToggle.warpNotice": {
     "defaultMessage": "La detección de inyección de comandos funciona mejor cuando estás conectado a WARP (necesario para llegar al servicio de clasificación)."
@@ -3933,7 +4017,7 @@
     "defaultMessage": "JSON de la sesión copiado"
   },
   "sessionActionsHeader.copiedModelInteractions": {
-    "defaultMessage": "Recent model interactions copied"
+    "defaultMessage": "Interacciones recientes del modelo copiadas"
   },
   "sessionActionsHeader.copiedText": {
     "defaultMessage": "Texto copiado"
@@ -3966,10 +4050,10 @@
     "defaultMessage": "Cargando JSON..."
   },
   "sessionActionsHeader.modelInteractionsFailed": {
-    "defaultMessage": "Failed to load model interactions: {error}"
+    "defaultMessage": "No se pudieron cargar las interacciones del modelo: {error}"
   },
   "sessionActionsHeader.modelInteractionsTitle": {
-    "defaultMessage": "Recent model interactions"
+    "defaultMessage": "Interacciones recientes del modelo"
   },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "No se pudo renombrar la sesión: {error}"
@@ -3996,7 +4080,7 @@
     "defaultMessage": "Ver el JSON de la sesión"
   },
   "sessionActionsHeader.viewModelInteractions": {
-    "defaultMessage": "View recent model interactions"
+    "defaultMessage": "Ver interacciones recientes del modelo"
   },
   "sessionIndicators.exited": {
     "defaultMessage": "Atascada: el proceso del agente terminó"
@@ -4088,9 +4172,6 @@
   "sessions.action.openNewWindow": {
     "defaultMessage": "Abrir en una ventana nueva"
   },
-  "sessions.action.shareNostr": {
-    "defaultMessage": "Compartir enlace cifrado de Nostr"
-  },
   "sessions.action.unarchive": {
     "defaultMessage": "Restaurar del archivo"
   },
@@ -4133,21 +4214,6 @@
   "sessions.import": {
     "defaultMessage": "Importar sesión"
   },
-  "sessions.importNostr": {
-    "defaultMessage": "Importar enlace"
-  },
-  "sessions.importNostr.description": {
-    "defaultMessage": "Pega un enlace de Goose para compartir por Nostr para obtener, descifrar e importar la sesión."
-  },
-  "sessions.importNostr.placeholder": {
-    "defaultMessage": "goose://sessions/nostr?nevent=...&key=..."
-  },
-  "sessions.importNostr.title": {
-    "defaultMessage": "Importar sesión de Nostr"
-  },
-  "sessions.importing": {
-    "defaultMessage": "Importando..."
-  },
   "sessions.includeAcp": {
     "defaultMessage": "Incluir sesiones ACP"
   },
@@ -4186,12 +4252,6 @@
   },
   "sessions.searching": {
     "defaultMessage": "Buscando sesiones..."
-  },
-  "sessions.shareNostr.description": {
-    "defaultMessage": "Cualquiera que tenga este enlace puede obtener y descifrar la sesión. Trátalo como un secreto."
-  },
-  "sessions.shareNostr.title": {
-    "defaultMessage": "Enlace cifrado de Nostr para compartir"
   },
   "sessions.tab.active": {
     "defaultMessage": "Activas"
@@ -4232,12 +4292,6 @@
   "sessions.toast.imported": {
     "defaultMessage": "Sesión importada correctamente"
   },
-  "sessions.toast.shareNostr": {
-    "defaultMessage": "Enlace cifrado de Nostr creado para compartir"
-  },
-  "sessions.toast.shareNostrFailed": {
-    "defaultMessage": "No se pudo crear el enlace de Nostr para compartir: {error}"
-  },
   "sessions.toast.unarchiveFailed": {
     "defaultMessage": "No se pudo restaurar la sesión: {error}"
   },
@@ -4249,6 +4303,96 @@
   },
   "sessions.toast.updated": {
     "defaultMessage": "Descripción de la sesión actualizada correctamente"
+  },
+  "settings.agentLoop.operations.auto.placeholder": {
+    "defaultMessage": "Automático"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.configured": {
+    "defaultMessage": "Configurada"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.label": {
+    "defaultMessage": "Clave de API de TypeSafe"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.placeholder": {
+    "defaultMessage": "Introduce la clave de API"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.remove": {
+    "defaultMessage": "Eliminar clave"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.save": {
+    "defaultMessage": "Guardar clave"
+  },
+  "settings.agentLoop.operations.autoEffort.description": {
+    "defaultMessage": "Usa Jev para elegir el esfuerzo de razonamiento de cada solicitud. El texto se envía a TypeSafe AI; los comandos de habilidades y recetas incluyen sus instrucciones locales ampliadas."
+  },
+  "settings.agentLoop.operations.autoEffort.title": {
+    "defaultMessage": "Esfuerzo de razonamiento automático"
+  },
+  "settings.agentLoop.operations.blockLimit.label": {
+    "defaultMessage": "Límite de bloqueos"
+  },
+  "settings.agentLoop.operations.contextCompaction.description": {
+    "defaultMessage": "Resume el historial de la conversación antes de que se llene la ventana de contexto."
+  },
+  "settings.agentLoop.operations.contextCompaction.title": {
+    "defaultMessage": "Compactación del contexto"
+  },
+  "settings.agentLoop.operations.cutoff.label": {
+    "defaultMessage": "Límite"
+  },
+  "settings.agentLoop.operations.enable": {
+    "defaultMessage": "Activar {operation}"
+  },
+  "settings.agentLoop.operations.failureTimeout.label": {
+    "defaultMessage": "Tiempo de espera por fallo"
+  },
+  "settings.agentLoop.operations.heading": {
+    "defaultMessage": "Operaciones configurables"
+  },
+  "settings.agentLoop.operations.maxTurns.description": {
+    "defaultMessage": "Detiene el trabajo autónomo y pregunta al usuario antes de continuar."
+  },
+  "settings.agentLoop.operations.maxTurns.title": {
+    "defaultMessage": "Máximo de turnos"
+  },
+  "settings.agentLoop.operations.recipeRetry.description": {
+    "defaultMessage": "Vuelve a ejecutar las comprobaciones de la receta cuando falla una comprobación de éxito configurada."
+  },
+  "settings.agentLoop.operations.recipeRetry.title": {
+    "defaultMessage": "Reintento de receta"
+  },
+  "settings.agentLoop.operations.retryTimeout.label": {
+    "defaultMessage": "Tiempo de espera de reintento"
+  },
+  "settings.agentLoop.operations.slashCommands.description": {
+    "defaultMessage": "Reconoce comandos como /compact, /skills y accesos directos de recetas."
+  },
+  "settings.agentLoop.operations.slashCommands.title": {
+    "defaultMessage": "Comandos de barra"
+  },
+  "settings.agentLoop.operations.stopHooks.description": {
+    "defaultMessage": "Permite que los hooks bloqueen la finalización y evita ciclos de detención infinitos."
+  },
+  "settings.agentLoop.operations.stopHooks.title": {
+    "defaultMessage": "Hooks de detención"
+  },
+  "settings.agentLoop.operations.threshold.label": {
+    "defaultMessage": "Umbral %"
+  },
+  "settings.agentLoop.operations.tokenLimit.label": {
+    "defaultMessage": "Límite de tokens"
+  },
+  "settings.agentLoop.operations.toolPairCompaction.description": {
+    "defaultMessage": "Resume solicitudes y respuestas de herramientas antiguas para ahorrar contexto. El límite es automático si se deja vacío."
+  },
+  "settings.agentLoop.operations.toolPairCompaction.title": {
+    "defaultMessage": "Compactación de pares de herramientas"
+  },
+  "settings.agentLoop.operations.turns.label": {
+    "defaultMessage": "Turnos"
+  },
+  "settings.agentLoop.title": {
+    "defaultMessage": "Bucle del agente"
   },
   "settings.appearance.description": {
     "defaultMessage": "Configura cómo se ve goose en tu sistema"
@@ -4460,6 +4604,21 @@
   "shortcutRecorder.save": {
     "defaultMessage": "Guardar"
   },
+  "showThinkingSetting.always": {
+    "defaultMessage": "Siempre"
+  },
+  "showThinkingSetting.collapsed": {
+    "defaultMessage": "Contraído"
+  },
+  "showThinkingSetting.description": {
+    "defaultMessage": "Muestra el pensamiento del modelo en el chat. Con \"Contraído\", se queda cerrado hasta que lo abras."
+  },
+  "showThinkingSetting.never": {
+    "defaultMessage": "Nunca"
+  },
+  "showThinkingSetting.title": {
+    "defaultMessage": "Mostrar pensamiento"
+  },
   "skillsView.addSkill": {
     "defaultMessage": "Agregar Skill"
   },
@@ -4618,6 +4777,12 @@
   },
   "subRecipeModal.subtitle": {
     "defaultMessage": "Configura una subreceta que se pueda invocar como herramienta durante la ejecución de la receta"
+  },
+  "subagentSessionNotice.loadLatestProgress": {
+    "defaultMessage": "Cargar el progreso más reciente"
+  },
+  "subagentSessionNotice.notice": {
+    "defaultMessage": "El progreso del subagente no se muestra en directo aquí."
   },
   "switchModelModal.backToModelList": {
     "defaultMessage": "Volver a la lista de modelos"

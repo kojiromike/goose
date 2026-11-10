@@ -20,15 +20,6 @@
   "acpReadinessPanel.connectionNotChecked": {
     "defaultMessage": "Hãy kiểm tra kết nối tài khoản trước khi tiếp tục."
   },
-  "alertBox.autoCompactAt": {
-    "defaultMessage": "Tự động nén tại"
-  },
-  "alertBox.compactNow": {
-    "defaultMessage": "Nén ngay"
-  },
-  "alertBox.failedToSaveThreshold": {
-    "defaultMessage": "Không thể lưu ngưỡng: {error}"
-  },
   "announcementModal.gotIt": {
     "defaultMessage": "Đã hiểu!"
   },
@@ -215,9 +206,6 @@
   "chat.notification.taskComplete.title": {
     "defaultMessage": "Goose đã hoàn thành tác vụ."
   },
-  "chatInput.contextWindow": {
-    "defaultMessage": "Cửa sổ ngữ cảnh"
-  },
   "chatInput.dictationError": {
     "defaultMessage": "Lỗi đọc chính tả"
   },
@@ -358,6 +346,63 @@
   },
   "confirmationModal.processing": {
     "defaultMessage": "Đang xử lý..."
+  },
+  "contextWindowIndicator.open": {
+    "defaultMessage": "Đã dùng {used} trong {limit} token. Xem nội dung cửa sổ ngữ cảnh"
+  },
+  "contextXray.autoCompactionPending": {
+    "defaultMessage": "Đã vượt ngưỡng nén tự động: hội thoại sẽ được nén trước khi gửi yêu cầu tiếp theo."
+  },
+  "contextXray.category.additionalInstructions": {
+    "defaultMessage": "Hướng dẫn & gợi ý"
+  },
+  "contextXray.category.compactionSummary": {
+    "defaultMessage": "Tóm tắt nén"
+  },
+  "contextXray.category.extensionInstructions": {
+    "defaultMessage": "Hướng dẫn của tiện ích mở rộng"
+  },
+  "contextXray.category.messages": {
+    "defaultMessage": "Cuộc trò chuyện"
+  },
+  "contextXray.category.systemPrompt": {
+    "defaultMessage": "Prompt hệ thống"
+  },
+  "contextXray.category.toolDefinitions": {
+    "defaultMessage": "Định nghĩa công cụ"
+  },
+  "contextXray.category.turnContext": {
+    "defaultMessage": "Ngữ cảnh lượt"
+  },
+  "contextXray.compactNow": {
+    "defaultMessage": "Nén ngay"
+  },
+  "contextXray.free": {
+    "defaultMessage": "Còn trống"
+  },
+  "contextXray.loadError": {
+    "defaultMessage": "Không thể tải báo cáo ngữ cảnh."
+  },
+  "contextXray.modelSummary": {
+    "defaultMessage": "{model} · cửa sổ ngữ cảnh {limit} token"
+  },
+  "contextXray.providerManagesContext": {
+    "defaultMessage": "{provider} giữ lịch sử hội thoại riêng và chỉ nhận lời nhắc mới nhất từ goose, nên không có yêu cầu nào để phân tích."
+  },
+  "contextXray.refresh": {
+    "defaultMessage": "Làm mới"
+  },
+  "contextXray.retry": {
+    "defaultMessage": "Thử lại"
+  },
+  "contextXray.title": {
+    "defaultMessage": "Cửa sổ ngữ cảnh"
+  },
+  "contextXray.tokenizerNote": {
+    "defaultMessage": "Số token được ước tính bằng tokenizer o200k."
+  },
+  "contextXray.usage": {
+    "defaultMessage": "trong {limit} token · {percent} cửa sổ ngữ cảnh"
   },
   "conversationLimitsDropdown.conversationLimits": {
     "defaultMessage": "Giới hạn cuộc trò chuyện"
@@ -1124,6 +1169,12 @@
   "extensionInstallModal.ok": {
     "defaultMessage": "OK"
   },
+  "extensionInstallModal.policyErrorMessage": {
+    "defaultMessage": "The extension allowlist policy could not be retrieved. Extension installation is blocked until the policy is available. Contact your administrator to check the GOOSE_ALLOWLIST configuration."
+  },
+  "extensionInstallModal.policyErrorTitle": {
+    "defaultMessage": "Extension Policy Unavailable"
+  },
   "extensionInstallModal.trustedMessage": {
     "defaultMessage": "Bạn có chắc chắn muốn cài đặt tiện ích mở rộng {name} không? Lệnh: {command}"
   },
@@ -1850,6 +1901,36 @@
   "launcher.placeholder": {
     "defaultMessage": "Hỏi goose bất cứ điều gì..."
   },
+  "liveVoice.connecting": {
+    "defaultMessage": "Connecting Live voice"
+  },
+  "liveVoice.emptyComposerRequired": {
+    "defaultMessage": "Clear the message and attachments to use Live voice"
+  },
+  "liveVoice.error": {
+    "defaultMessage": "Live voice failed. Try again"
+  },
+  "liveVoice.live": {
+    "defaultMessage": "Stop Live voice"
+  },
+  "liveVoice.mute": {
+    "defaultMessage": "Mute microphone"
+  },
+  "liveVoice.returnToActive": {
+    "defaultMessage": "Return to active Live voice"
+  },
+  "liveVoice.stopping": {
+    "defaultMessage": "Stopping Live voice"
+  },
+  "liveVoice.unmute": {
+    "defaultMessage": "Unmute microphone"
+  },
+  "liveVoiceSettings.description": {
+    "defaultMessage": "Trò chuyện bằng giọng nói theo thời gian thực với Goose"
+  },
+  "liveVoiceSettings.title": {
+    "defaultMessage": "Giọng nói trực tiếp"
+  },
   "loadingGoose.compacting": {
     "defaultMessage": "goose đang nén cuộc trò chuyện..."
   },
@@ -2052,13 +2133,16 @@
     "defaultMessage": "URL không hợp lệ"
   },
   "mcpAppRenderer.movePipWindow": {
-    "defaultMessage": "Di chuyển cửa sổ Hình-trong-hình (dùng phím mũi tên)"
+    "defaultMessage": "Di chuyển cửa sổ Hình-trong-hình"
   },
   "mcpAppRenderer.pictureInPicture": {
     "defaultMessage": "Hình-trong-hình"
   },
   "mcpAppRenderer.playingInPip": {
     "defaultMessage": "Đang phát ở chế độ Hình-trong-hình"
+  },
+  "mcpAppRenderer.resizePipWindow": {
+    "defaultMessage": "Thay đổi kích cỡ cửa sổ Hình-trong-hình"
   },
   "mentionPopover.itemsFound": {
     "defaultMessage": "{count,plural,one{# mục được tìm thấy} other{# mục được tìm thấy}}"
@@ -2080,6 +2164,18 @@
   },
   "messageCopyLink.copy": {
     "defaultMessage": "Sao chép"
+  },
+  "messageList.hiddenMessages": {
+    "defaultMessage": "{count, plural, other {# tin nhắn đã bị ẩn}}"
+  },
+  "messageList.modelChanged": {
+    "defaultMessage": "Mô hình đã thay đổi: {previousModel} → {currentModel}"
+  },
+  "messageList.requestedModel": {
+    "defaultMessage": "{model} (đã yêu cầu)"
+  },
+  "messageList.showAllMessages": {
+    "defaultMessage": "Hiển thị tất cả"
   },
   "messageQueue.cancel": {
     "defaultMessage": "Hủy"
@@ -2531,6 +2627,9 @@
   "navigationPanel.endSuccess": {
     "defaultMessage": "Đã kết thúc “{name}”"
   },
+  "navigationPanel.loadingChats": {
+    "defaultMessage": "Đang tải cuộc trò chuyện…"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "Đã tạo"
   },
@@ -2792,15 +2891,6 @@
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "Những gì chúng tôi thu thập:"
   },
-  "progressiveMessageList.loadingMessages": {
-    "defaultMessage": "Đang tải tin nhắn... ({renderedCount}/{totalCount})"
-  },
-  "progressiveMessageList.modelChanged": {
-    "defaultMessage": "Mô hình đã thay đổi: {previousModel} → {currentModel}"
-  },
-  "progressiveMessageList.searchHint": {
-    "defaultMessage": "Nhấn Cmd/Ctrl+F để tải ngay tất cả tin nhắn nhằm tìm kiếm"
-  },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "Tất cả lời nhắc đã được đặt lại về mặc định"
   },
@@ -2882,9 +2972,6 @@
   "providerCard.deprecatedReplacement": {
     "defaultMessage": "Không còn được dùng — hãy sử dụng {replacement}."
   },
-  "providerCard.noMetadata": {
-    "defaultMessage": "Lỗi ProviderCard: Không có metadata được cung cấp"
-  },
   "providerCard.unknownProvider": {
     "defaultMessage": "Nhà cung cấp không xác định"
   },
@@ -2893,9 +2980,6 @@
   },
   "providerCatalogPicker.apiFormat": {
     "defaultMessage": "Định dạng API"
-  },
-  "providerCatalogPicker.cancel": {
-    "defaultMessage": "Hủy"
   },
   "providerCatalogPicker.chooseProvider": {
     "defaultMessage": "Chọn nhà cung cấp"
@@ -3378,7 +3462,7 @@
     "defaultMessage": "Chưa có công thức nào được lưu"
   },
   "recipesView.noSavedRecipesDescription": {
-    "defaultMessage": "Các công thức được lưu từ cuộc trò chuyện sẽ hiển thị ở đây."
+    "defaultMessage": "Các công thức đã lưu sẽ hiển thị ở đây."
   },
   "recipesView.openInNewWindow": {
     "defaultMessage": "Mở trong cửa sổ mới"
@@ -3915,7 +3999,7 @@
     "defaultMessage": "Sử dụng các mô hình ML để phát hiện việc chèn lời nhắc tiềm ẩn trong cuộc trò chuyện của bạn"
   },
   "securityToggle.thresholdDescription": {
-    "defaultMessage": "Giá trị cao hơn thì nghiêm ngặt hơn (0.01 = rất khoan dung, 1.0 = nghiêm ngặt tối đa)"
+    "defaultMessage": "Giá trị thấp hơn thì nghiêm ngặt hơn (0.01 = nghiêm ngặt tối đa, 1.0 = rất khoan dung)"
   },
   "securityToggle.warpNotice": {
     "defaultMessage": "Phát hiện chèn lệnh hoạt động tốt nhất khi được kết nối với WARP (bắt buộc để truy cập dịch vụ phân loại)."
@@ -3933,7 +4017,7 @@
     "defaultMessage": "Đã sao chép JSON của phiên"
   },
   "sessionActionsHeader.copiedModelInteractions": {
-    "defaultMessage": "Recent model interactions copied"
+    "defaultMessage": "Đã sao chép tương tác mô hình gần đây"
   },
   "sessionActionsHeader.copiedText": {
     "defaultMessage": "Đã sao chép văn bản"
@@ -3966,10 +4050,10 @@
     "defaultMessage": "Đang tải JSON..."
   },
   "sessionActionsHeader.modelInteractionsFailed": {
-    "defaultMessage": "Failed to load model interactions: {error}"
+    "defaultMessage": "Không thể tải tương tác mô hình: {error}"
   },
   "sessionActionsHeader.modelInteractionsTitle": {
-    "defaultMessage": "Recent model interactions"
+    "defaultMessage": "Tương tác mô hình gần đây"
   },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "Không thể đổi tên phiên: {error}"
@@ -3996,7 +4080,7 @@
     "defaultMessage": "Xem JSON của phiên"
   },
   "sessionActionsHeader.viewModelInteractions": {
-    "defaultMessage": "View recent model interactions"
+    "defaultMessage": "Xem tương tác mô hình gần đây"
   },
   "sessionIndicators.exited": {
     "defaultMessage": "Bị kẹt: tiến trình tác tử đã thoát"
@@ -4088,9 +4172,6 @@
   "sessions.action.openNewWindow": {
     "defaultMessage": "Mở trong cửa sổ mới"
   },
-  "sessions.action.shareNostr": {
-    "defaultMessage": "Chia sẻ liên kết Nostr được mã hóa"
-  },
   "sessions.action.unarchive": {
     "defaultMessage": "Khôi phục từ kho lưu trữ"
   },
@@ -4133,21 +4214,6 @@
   "sessions.import": {
     "defaultMessage": "Nhập phiên"
   },
-  "sessions.importNostr": {
-    "defaultMessage": "Nhập liên kết"
-  },
-  "sessions.importNostr.description": {
-    "defaultMessage": "Dán một liên kết chia sẻ Nostr của Goose để tìm nạp, giải mã và nhập phiên."
-  },
-  "sessions.importNostr.placeholder": {
-    "defaultMessage": "goose://sessions/nostr?nevent=...&key=..."
-  },
-  "sessions.importNostr.title": {
-    "defaultMessage": "Nhập phiên Nostr"
-  },
-  "sessions.importing": {
-    "defaultMessage": "Đang nhập..."
-  },
   "sessions.includeAcp": {
     "defaultMessage": "Bao gồm phiên ACP"
   },
@@ -4186,12 +4252,6 @@
   },
   "sessions.searching": {
     "defaultMessage": "Đang tìm kiếm phiên..."
-  },
-  "sessions.shareNostr.description": {
-    "defaultMessage": "Bất kỳ ai có liên kết này đều có thể tải về và giải mã phiên làm việc. Hãy coi nó như một bí mật."
-  },
-  "sessions.shareNostr.title": {
-    "defaultMessage": "Liên kết chia sẻ Nostr được mã hóa"
   },
   "sessions.tab.active": {
     "defaultMessage": "Đang hoạt động"
@@ -4232,12 +4292,6 @@
   "sessions.toast.imported": {
     "defaultMessage": "Đã nhập phiên làm việc thành công"
   },
-  "sessions.toast.shareNostr": {
-    "defaultMessage": "Đã tạo liên kết chia sẻ Nostr được mã hóa"
-  },
-  "sessions.toast.shareNostrFailed": {
-    "defaultMessage": "Không thể tạo liên kết chia sẻ Nostr: {error}"
-  },
   "sessions.toast.unarchiveFailed": {
     "defaultMessage": "Không thể khôi phục phiên: {error}"
   },
@@ -4249,6 +4303,96 @@
   },
   "sessions.toast.updated": {
     "defaultMessage": "Đã cập nhật mô tả phiên làm việc thành công"
+  },
+  "settings.agentLoop.operations.auto.placeholder": {
+    "defaultMessage": "Tự động"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.configured": {
+    "defaultMessage": "Đã cấu hình"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.label": {
+    "defaultMessage": "Khóa API TypeSafe"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.placeholder": {
+    "defaultMessage": "Nhập khóa API"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.remove": {
+    "defaultMessage": "Xóa khóa"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.save": {
+    "defaultMessage": "Lưu khóa"
+  },
+  "settings.agentLoop.operations.autoEffort.description": {
+    "defaultMessage": "Sử dụng Jev để chọn mức suy luận cho từng yêu cầu. Nội dung được gửi đến TypeSafe AI; lệnh gạch chéo kỹ năng và công thức bao gồm hướng dẫn cục bộ đã mở rộng."
+  },
+  "settings.agentLoop.operations.autoEffort.title": {
+    "defaultMessage": "Mức suy luận tự động"
+  },
+  "settings.agentLoop.operations.blockLimit.label": {
+    "defaultMessage": "Giới hạn chặn"
+  },
+  "settings.agentLoop.operations.contextCompaction.description": {
+    "defaultMessage": "Tóm tắt lịch sử cuộc trò chuyện trước khi cửa sổ ngữ cảnh đầy."
+  },
+  "settings.agentLoop.operations.contextCompaction.title": {
+    "defaultMessage": "Nén ngữ cảnh"
+  },
+  "settings.agentLoop.operations.cutoff.label": {
+    "defaultMessage": "Ngưỡng cắt"
+  },
+  "settings.agentLoop.operations.enable": {
+    "defaultMessage": "Bật {operation}"
+  },
+  "settings.agentLoop.operations.failureTimeout.label": {
+    "defaultMessage": "Thời gian chờ khi lỗi"
+  },
+  "settings.agentLoop.operations.heading": {
+    "defaultMessage": "Thao tác có thể cấu hình"
+  },
+  "settings.agentLoop.operations.maxTurns.description": {
+    "defaultMessage": "Dừng công việc tự động và hỏi người dùng trước khi tiếp tục."
+  },
+  "settings.agentLoop.operations.maxTurns.title": {
+    "defaultMessage": "Số lượt tối đa"
+  },
+  "settings.agentLoop.operations.recipeRetry.description": {
+    "defaultMessage": "Chạy lại kiểm tra công thức khi kiểm tra thành công đã cấu hình thất bại."
+  },
+  "settings.agentLoop.operations.recipeRetry.title": {
+    "defaultMessage": "Thử lại công thức"
+  },
+  "settings.agentLoop.operations.retryTimeout.label": {
+    "defaultMessage": "Thời gian chờ thử lại"
+  },
+  "settings.agentLoop.operations.slashCommands.description": {
+    "defaultMessage": "Nhận diện các lệnh như /compact, /skills và phím tắt công thức."
+  },
+  "settings.agentLoop.operations.slashCommands.title": {
+    "defaultMessage": "Lệnh gạch chéo"
+  },
+  "settings.agentLoop.operations.stopHooks.description": {
+    "defaultMessage": "Cho phép hook chặn hoàn tất đồng thời ngăn chu kỳ dừng vô hạn."
+  },
+  "settings.agentLoop.operations.stopHooks.title": {
+    "defaultMessage": "Hook dừng"
+  },
+  "settings.agentLoop.operations.threshold.label": {
+    "defaultMessage": "Ngưỡng %"
+  },
+  "settings.agentLoop.operations.tokenLimit.label": {
+    "defaultMessage": "Giới hạn token"
+  },
+  "settings.agentLoop.operations.toolPairCompaction.description": {
+    "defaultMessage": "Tóm tắt các yêu cầu và phản hồi công cụ cũ để tiết kiệm ngữ cảnh. Ngưỡng cắt được đặt tự động khi để trống."
+  },
+  "settings.agentLoop.operations.toolPairCompaction.title": {
+    "defaultMessage": "Nén cặp công cụ"
+  },
+  "settings.agentLoop.operations.turns.label": {
+    "defaultMessage": "Lượt"
+  },
+  "settings.agentLoop.title": {
+    "defaultMessage": "Vòng lặp tác nhân"
   },
   "settings.appearance.description": {
     "defaultMessage": "Định cấu hình cách goose hiển thị trên hệ thống của bạn"
@@ -4460,6 +4604,21 @@
   "shortcutRecorder.save": {
     "defaultMessage": "Lưu"
   },
+  "showThinkingSetting.always": {
+    "defaultMessage": "Luôn luôn"
+  },
+  "showThinkingSetting.collapsed": {
+    "defaultMessage": "Thu gọn"
+  },
+  "showThinkingSetting.description": {
+    "defaultMessage": "Hiển thị suy nghĩ của mô hình trong cuộc trò chuyện. Với \"Thu gọn\", phần này sẽ đóng cho đến khi bạn mở ra."
+  },
+  "showThinkingSetting.never": {
+    "defaultMessage": "Không bao giờ"
+  },
+  "showThinkingSetting.title": {
+    "defaultMessage": "Hiển thị suy nghĩ"
+  },
   "skillsView.addSkill": {
     "defaultMessage": "Thêm kỹ năng"
   },
@@ -4618,6 +4777,12 @@
   },
   "subRecipeModal.subtitle": {
     "defaultMessage": "Định cấu hình một công thức con có thể được gọi như công cụ trong quá trình thực thi công thức"
+  },
+  "subagentSessionNotice.loadLatestProgress": {
+    "defaultMessage": "Tải tiến trình mới nhất"
+  },
+  "subagentSessionNotice.notice": {
+    "defaultMessage": "Tiến trình của tác tử con không được hiển thị trực tiếp tại đây."
   },
   "switchModelModal.backToModelList": {
     "defaultMessage": "Quay lại danh sách mô hình"

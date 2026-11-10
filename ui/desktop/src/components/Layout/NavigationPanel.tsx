@@ -3,6 +3,7 @@ import { useLocation } from 'react-router';
 import {
   AppWindow,
   Archive,
+  AudioLines,
   ChevronDown,
   ChevronRight,
   MessageSquarePlus,
@@ -113,6 +114,10 @@ const i18n = defineMessages({
   noChats: {
     id: 'navigationPanel.noChats',
     defaultMessage: 'No recent chats',
+  },
+  loadingChats: {
+    id: 'navigationPanel.loadingChats',
+    defaultMessage: 'Loading chats…',
   },
   untitledSession: {
     id: 'navigationPanel.untitledSession',
@@ -226,6 +231,10 @@ const i18n = defineMessages({
     id: 'navigationPanel.projectNewChatWindow',
     defaultMessage: 'New chat in this project (new window)',
   },
+  returnToActiveLiveVoice: {
+    id: 'liveVoice.returnToActive',
+    defaultMessage: 'Return to active Live voice',
+  },
 });
 
 async function archiveSession(intl: IntlShape, session: SessionListItem): Promise<boolean> {
@@ -267,9 +276,6 @@ const NavRow: React.FC<NavRowProps> = ({ item, active, onClick }) => {
     <button onClick={onClick} className={navItemClass(active)}>
       <Icon className="w-5 h-5 flex-shrink-0 text-text-secondary" />
       <span className="text-left flex-1 truncate">{getNavItemLabel(item, intl)}</span>
-      {item.getTag && (
-        <span className="text-xs font-mono text-text-secondary">{item.getTag()}</span>
-      )}
     </button>
   );
 };
@@ -277,8 +283,8 @@ const NavRow: React.FC<NavRowProps> = ({ item, active, onClick }) => {
 interface SessionRowProps {
   session: SessionListItem;
   active: boolean;
+  isLiveVoiceActive: boolean;
   status: SessionStatus | undefined;
-  /** Present when the server is holding an agent open for this session. */
   /** Present when the server is holding an agent open for this session. */
   live: LiveSession | undefined;
   /** Present while the user's snooze holds. */
@@ -351,6 +357,7 @@ const SessionTooltipContent: React.FC<SessionTooltipContentProps> = ({ session, 
 const SessionRow: React.FC<SessionRowProps> = ({
   session,
   active,
+  isLiveVoiceActive,
   status,
   live,
   snooze,
@@ -450,6 +457,12 @@ const SessionRow: React.FC<SessionRowProps> = ({
             onEditStart={() => setIsEditing(true)}
             onEditEnd={() => setIsEditing(false)}
           />
+          {isLiveVoiceActive && (
+            <AudioLines
+              className="w-3.5 h-3.5 flex-shrink-0 text-blue-500"
+              aria-label={intl.formatMessage(i18n.returnToActiveLiveVoice)}
+            />
+          )}
           <SessionIndicators activity={activity} now={now} snooze={snooze} />
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
@@ -608,13 +621,15 @@ const ProjectHeader: React.FC<ProjectHeaderProps> = ({
   );
 };
 
-export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
+export const Navigation: React.FC<{
+  activeLiveVoiceSessionId: string | null;
+}> = ({ activeLiveVoiceSessionId }) => {
   const intl = useIntl();
   const { isNavExpanded } = useNavigationContext();
   const location = useLocation();
   const { extensionsList } = useConfig();
 
-  const appsExtensionEnabled = !!extensionsList?.find((ext) => ext.name === 'apps')?.enabled;
+  const appsExtensionEnabled = !!extensionsList.find((ext) => ext.name === 'apps')?.enabled;
 
   const visibleItems = useMemo<NavItem[]>(() => {
     return NAV_ITEMS.filter((item) => {
@@ -630,6 +645,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
     visibleSessions: liveVisibleSessions,
     visibleSessionsByProject: liveVisibleSessionsByProject,
     liveSessions,
+    isLoadingSessions,
     activeSessionId,
     fetchSessions,
     refreshLiveSessions,
@@ -1044,7 +1060,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
-      className={cn('bg-background-primary outline-none flex flex-col h-full', className)}
+      className="bg-background-primary outline-none flex flex-col h-full"
     >
       <div className="h-[48px] no-drag" />
 
@@ -1075,7 +1091,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
           <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 mt-1">
             {visibleSessions.length === 0 ? (
               <div className="px-3 py-2 text-xs text-text-secondary">
-                {intl.formatMessage(i18n.noChats)}
+                {intl.formatMessage(isLoadingSessions ? i18n.loadingChats : i18n.noChats)}
               </div>
             ) : visibleSessionsByProject.length > 1 ? (
               visibleSessionsByProject.map((group: ProjectGroup) => {
@@ -1096,6 +1112,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                           key={session.id}
                           session={session}
                           active={session.id === activeSessionId}
+                          isLiveVoiceActive={session.id === activeLiveVoiceSessionId}
                           status={getSessionStatus(session)}
                           live={liveSessions.get(session.id)}
                           snooze={activeSnooze(session)}
@@ -1118,6 +1135,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                   key={session.id}
                   session={session}
                   active={session.id === activeSessionId}
+                  isLiveVoiceActive={session.id === activeLiveVoiceSessionId}
                   status={getSessionStatus(session)}
                   live={liveSessions.get(session.id)}
                   snooze={activeSnooze(session)}

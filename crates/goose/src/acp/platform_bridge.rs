@@ -22,7 +22,7 @@ use axum::Router;
 use rand::{distr::Alphanumeric, RngExt};
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, DiscoverResult, Implementation,
-    InitializeResult, ListToolsResult, PaginatedRequestParams, ServerCapabilities, ServerInfo,
+    InitializeResult, ListToolsResult, PaginatedRequestParams, ServerCapabilities, ServerConfig,
     Tool,
 };
 use rmcp::service::RequestContext;
@@ -34,9 +34,9 @@ use subtle::ConstantTimeEq;
 use tokio::task::JoinHandle;
 
 use crate::agents::extension::ExtensionConfig;
-use crate::agents::extension_manager::ExtensionManager;
+use crate::agents::extension_manager::{CallRequest, ExtensionLease, ExtensionManager};
 use crate::agents::platform_extensions::PLATFORM_EXTENSIONS;
-use crate::agents::tool_execution::ToolCallContext;
+use crate::config::extensions::name_to_key;
 
 const SECRET_HEADER: &str = "X-Secret-Key";
 const TOKEN_LENGTH: usize = 48;
@@ -260,13 +260,21 @@ impl BridgeTarget {
             .ok_or_else(|| McpError::internal_error("request has no bridge target", None))
     }
 
-    async fn wait_until_loaded(&self) -> Result<(), McpError> {
+    async fn lease(&self) -> Result<ExtensionLease, McpError> {
+        self.extension_manager
+            .current_lease(&self.session_id)
+            .await
+            .map_err(|error| McpError::internal_error(error.to_string(), None))
+    }
+
+    async fn wait_until_loaded(&self) -> Result<ExtensionLease, McpError> {
         let loaded = async {
-            while !self
-                .extension_manager
-                .is_extension_enabled(&self.extension)
-                .await
-            {
+            loop {
+                if let Ok(lease) = self.lease().await {
+                    if lease.is_enabled(&self.extension) {
+                        return lease;
+                    }
+                }
                 tokio::time::sleep(EXTENSION_LOAD_POLL).await;
             }
         };
@@ -284,22 +292,26 @@ impl BridgeTarget {
     }
 
     async fn instructions(&self) -> Option<String> {
-        self.wait_until_loaded().await.ok()?;
-        self.extension_manager
-            .extension_instructions(&self.extension)
+        let key = name_to_key(&self.extension);
+        self.wait_until_loaded()
             .await
+            .ok()?
+            .instructions()
+            .await
+            .into_iter()
+            .find(|info| info.name == key)
+            .map(|info| info.instructions)
     }
 
     /// The session's tools for this extension, keyed by the name the ACP agent sees
     /// (goose's `extension__` prefix removed: the agent already namespaces by server).
     async fn tools(&self) -> Result<Vec<(Tool, String)>, McpError> {
-        self.wait_until_loaded().await?;
         let prefix = format!("{}__", self.extension);
         let tools = self
-            .extension_manager
-            .get_prefixed_tools(&self.session_id, Some(self.extension.clone()))
-            .await
-            .map_err(|error| McpError::internal_error(error.to_string(), None))?;
+            .wait_until_loaded()
+            .await?
+            .tools_for(&self.extension)
+            .await;
         Ok(tools
             .into_iter()
             .map(|mut tool| {
@@ -316,7 +328,7 @@ impl BridgeTarget {
 struct BridgeHandler;
 
 impl ServerHandler for BridgeHandler {
-    fn get_info(&self) -> ServerInfo {
+    fn get_info(&self) -> ServerConfig {
         InitializeResult::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("goose", env!("CARGO_PKG_VERSION")))
     }
@@ -364,10 +376,10 @@ impl ServerHandler for BridgeHandler {
             })?;
         request.name = goose_name.into();
 
-        let tool_context = ToolCallContext::new(target.session_id.clone(), None, None);
         let call = target
-            .extension_manager
-            .dispatch_tool_call(&tool_context, request, context.ct.clone())
+            .lease()
+            .await?
+            .call(request, CallRequest::default(), context.ct.clone())
             .await?;
         Ok(call.result.await?.into())
     }
@@ -392,7 +404,7 @@ mod tests {
     }
 
     async fn session_with_orchestrator(dir: &std::path::Path) -> (Arc<ExtensionManager>, String) {
-        let manager = Arc::new(ExtensionManager::new_without_provider(dir.to_path_buf()));
+        let manager = Arc::new(ExtensionManager::with_data_dir(dir.to_path_buf()));
         let session = manager
             .get_context()
             .session_manager
@@ -405,7 +417,7 @@ mod tests {
             .await
             .unwrap();
         manager
-            .add_extension(platform("orchestrator"), None, None, Some(&session.id))
+            .enable(&session.id, platform("orchestrator"))
             .await
             .unwrap();
         (manager, session.id)
@@ -441,22 +453,31 @@ mod tests {
             ExtensionConfig::Platform { .. }
         ));
 
-        let acp_child = Arc::new(ExtensionManager::new_without_provider(
-            temp_dir.path().to_path_buf(),
+        // The ACP agent is another process with its own state; sharing goose's
+        // session store would let the bridged entry replace the session's own.
+        let child_dir = tempfile::tempdir().unwrap();
+        let acp_child = Arc::new(ExtensionManager::with_data_dir(
+            child_dir.path().to_path_buf(),
         ));
-        acp_child
-            .add_extension(
-                bridged_config(&configs, "orchestrator"),
-                None,
-                None,
-                Some(&session_id),
+        let child_session = acp_child
+            .get_context()
+            .session_manager
+            .create_session(
+                child_dir.path().to_path_buf(),
+                "acp child".to_string(),
+                SessionType::Hidden,
+                GooseMode::default(),
             )
             .await
             .unwrap();
-        let tools: Vec<String> = acp_child
-            .get_prefixed_tools(&session_id, Some("orchestrator".to_string()))
+        acp_child
+            .enable(&child_session.id, bridged_config(&configs, "orchestrator"))
             .await
-            .unwrap()
+            .unwrap();
+        let lease = acp_child.current_lease(&child_session.id).await.unwrap();
+        let tools: Vec<String> = lease
+            .tools_for("orchestrator")
+            .await
             .into_iter()
             .map(|tool| tool.name.to_string())
             .collect();
@@ -469,11 +490,11 @@ mod tests {
         // The orchestrator refuses to message its own session, which it can only tell
         // if the bridge dispatched the call as the bridged session.
         let arguments = serde_json::json!({ "session_id": session_id, "message": "hi" });
-        let call = acp_child
-            .dispatch_tool_call(
-                &ToolCallContext::new(session_id.clone(), None, None),
+        let call = lease
+            .call(
                 CallToolRequestParams::new("orchestrator__send_message")
                     .with_arguments(arguments.as_object().unwrap().clone()),
+                CallRequest::default(),
                 CancellationToken::default(),
             )
             .await

@@ -7,11 +7,15 @@ use crate::{
         base::ProviderDef, command_auth::CommandAuthProvider,
         custom_provider_config::ConfigKeyResolver,
     },
+    session_context::{
+        session_id_request_builder, session_id_request_builder_with_header_override,
+    },
 };
 use goose_providers::{
     anthropic::{self, AnthropicProvider, AnthropicProviderBuilder, ANTHROPIC_API_VERSION},
     api_client::{ApiClient, AuthMethod, TlsConfig},
     base::ProviderDescriptor,
+    formats::anthropic::{AnthropicFormatOptions, PrefixMismatchBehavior},
 };
 use url::Url;
 
@@ -57,6 +61,16 @@ async fn from_env(
     // ANTHROPIC_HOST may front an Anthropic-compatible proxy that also serves non-chat models,
     // so keep the canonical filter there to avoid surfacing models unusable in agent sessions.
     let is_first_party_host = is_first_party_anthropic_host(&host);
+    let mut format_options = AnthropicFormatOptions::native();
+    if let Ok(value) = config.get_param::<String>("ANTHROPIC_PREFIX_MISMATCH_BEHAVIOR") {
+        format_options.prefix_mismatch_behavior =
+            match value.as_str() {
+                "off" => None,
+                value => Some(value.parse::<PrefixMismatchBehavior>().map_err(|e| {
+                    anyhow::anyhow!("invalid ANTHROPIC_PREFIX_MISMATCH_BEHAVIOR: {e}")
+                })?),
+            };
+    }
 
     let auth = AuthMethod::ApiKey {
         header_name: "x-api-key".to_string(),
@@ -69,13 +83,14 @@ async fn from_env(
         std::time::Duration::from_secs(timeout_secs),
         tls_config,
     )?
-    .with_request_builder(crate::session_context::session_id_request_builder())
+    .with_request_builder(session_id_request_builder())
     .with_header("anthropic-version", ANTHROPIC_API_VERSION)?;
 
     // Anthropic's /v1/models is the authoritative list for a first-party key, so trust it
     // rather than filtering through the bundled canonical registry, which lags new releases
     // (e.g. Opus 5) and would silently drop models the key can actually use.
     Ok(AnthropicProviderBuilder::new(api_client)
+        .format_options(format_options)
         .skip_canonical_filtering(is_first_party_host)
         .build())
 }
@@ -98,12 +113,14 @@ pub fn from_custom_config(
     tls_config: Option<TlsConfig>,
 ) -> Result<AnthropicProvider> {
     let auth_override = config.auth.clone();
+    let request_builder = session_id_request_builder_with_header_override(
+        config.session_id_header_override.as_deref(),
+    )?;
     anthropic::from_declarative_config(config, tls_config, ConfigKeyResolver::new(Config::global()))
         .map(|builder| {
             builder
                 .map_api_client(|api_client| {
-                    let api_client = api_client
-                        .with_request_builder(crate::session_context::session_id_request_builder());
+                    let api_client = api_client.with_request_builder(request_builder);
                     match auth_override {
                         Some(auth_config) => api_client.with_auth(AuthMethod::Custom(Box::new(
                             CommandAuthProvider::new(&auth_config, "x-api-key", ""),
@@ -158,6 +175,7 @@ mod tests {
             base_url: "http://localhost:1".to_string(),
             models,
             headers: None,
+            session_id_header_override: None,
             timeout_seconds: None,
             supports_streaming: Some(true),
             requires_auth: false,

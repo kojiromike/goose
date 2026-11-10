@@ -126,7 +126,7 @@ impl ClaudeAcpProvider {
         working_dir: PathBuf,
         cwd: Option<PathBuf>,
     ) -> Result<Vec<agent_client_protocol::schema::v1::SessionInfo>> {
-        let goose_mode = Config::global().get_goose_mode().unwrap_or(GooseMode::Auto);
+        let goose_mode = Config::global().resolve_goose_mode()?;
         let config = provider_config(&[], working_dir, goose_mode)?;
         AcpProvider::query_sessions(config, cwd).await
     }
@@ -134,6 +134,8 @@ impl ClaudeAcpProvider {
 
 impl ProviderDef for ClaudeAcpProvider {
     type Provider = AcpProvider;
+    const SESSION_BOUND: bool = true;
+    const RUNS_OWN_TOOL_LOOP: bool = true;
 
     fn from_env(
         extensions: Vec<crate::config::ExtensionConfig>,
@@ -148,7 +150,7 @@ impl ProviderDef for ClaudeAcpProvider {
         _tls_config: Option<crate::providers::api_client::TlsConfig>,
     ) -> BoxFuture<'static, Result<AcpProvider>> {
         Box::pin(async move {
-            let goose_mode = Config::global().get_goose_mode().unwrap_or(GooseMode::Auto);
+            let goose_mode = Config::global().resolve_goose_mode()?;
             let provider_config = provider_config(&extensions, working_dir, goose_mode)?;
             let metadata = Self::metadata();
 

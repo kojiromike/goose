@@ -27,8 +27,29 @@ vi.mock('../acp/recipeParamRequests', () => ({
   beginConfiguredRecipeParameterScope: vi.fn(),
 }));
 
+vi.mock('../acp/recipe', () => ({
+  decodeRecipe: vi.fn(async () => testRecipe),
+}));
+
+vi.mock('../recipe', () => ({
+  scanRecipe: vi.fn(async () => ({ has_security_warnings: false })),
+}));
+
+vi.mock('../recipe/recipe_management', () => ({
+  listSavedRecipes: vi.fn(async () => [{ id: 'recipe-1', recipe: testRecipe }]),
+}));
+
+vi.mock('../recipe/consent', () => ({
+  requestRecipeConsent: vi.fn(async () => true),
+}));
+
 vi.mock('../acp/capabilities', () => ({
   getAcpFeatureCapabilities: vi.fn(),
+}));
+
+const testRecipe = vi.hoisted(() => ({
+  title: 'Test recipe',
+  description: 'Recipe used in tests',
 }));
 
 const testSession: Session = {
@@ -71,6 +92,10 @@ const finishConfiguredRecipeParameterScope = vi.fn();
 
 describe('createSession ACP session extensions', () => {
   beforeEach(() => {
+    Object.assign(window.electron, {
+      hasAcceptedRecipeBefore: vi.fn(async () => true),
+      recordRecipeHash: vi.fn(async () => true),
+    });
     mockedGetConfiguredGooseExtensions.mockReset();
     mockedGetConfiguredGooseExtensions.mockResolvedValue([
       gooseExtensionEntry('developer'),
@@ -109,16 +134,16 @@ describe('createSession ACP session extensions', () => {
     );
   });
 
-  it('falls back to enabled configured extensions when extension configs are empty', async () => {
+  it('sends an explicitly empty selection as an empty list, not as "unspecified"', async () => {
     await createSession('/tmp', {
       extensionConfigs: [],
       allExtensions: [configuredExtension('developer', true), configuredExtension('memory', false)],
     });
 
-    expect(mockedGetConfiguredGooseExtensions).toHaveBeenCalledOnce();
+    expect(mockedGetConfiguredGooseExtensions).not.toHaveBeenCalled();
     expect(mockedCreateAcpSession).toHaveBeenCalledWith(
       '/tmp',
-      [gooseExtension('developer')],
+      [],
       {
         recipeDeeplink: undefined,
         recipeId: undefined,
@@ -136,7 +161,7 @@ describe('createSession ACP session extensions', () => {
 
     expect(mockedCreateAcpSession).toHaveBeenCalledWith(
       '/tmp',
-      [],
+      undefined,
       {
         recipeDeeplink: undefined,
         recipeId: undefined,
@@ -146,7 +171,7 @@ describe('createSession ACP session extensions', () => {
     );
   });
 
-  it('omits ACP session extensions when no configured extensions are enabled', async () => {
+  it('leaves the set unspecified when no configured extensions are enabled', async () => {
     await createSession('/tmp', {
       allExtensions: [configuredExtension('developer', false)],
     });
@@ -154,7 +179,22 @@ describe('createSession ACP session extensions', () => {
     expect(mockedGetConfiguredGooseExtensions).not.toHaveBeenCalled();
     expect(mockedCreateAcpSession).toHaveBeenCalledWith(
       '/tmp',
-      [],
+      undefined,
+      {
+        recipeDeeplink: undefined,
+        recipeId: undefined,
+        recipeParameterScopeId: undefined,
+      },
+      undefined
+    );
+  });
+
+  it('leaves the set unspecified while the configured extensions are still loading', async () => {
+    await createSession('/tmp', { allExtensions: [] });
+
+    expect(mockedCreateAcpSession).toHaveBeenCalledWith(
+      '/tmp',
+      undefined,
       {
         recipeDeeplink: undefined,
         recipeId: undefined,
@@ -168,11 +208,16 @@ describe('createSession ACP session extensions', () => {
     await createSession('/tmp', { recipeDeeplink: 'goose://recipe?url=example' });
 
     expect(mockedBeginConfiguredRecipeParameterScope).toHaveBeenCalledOnce();
-    expect(mockedCreateAcpSession).toHaveBeenCalledWith('/tmp', [], {
-      recipeDeeplink: 'goose://recipe?url=example',
-      recipeId: undefined,
-      recipeParameterScopeId: 'scope-1',
-    });
+    expect(mockedCreateAcpSession).toHaveBeenCalledWith(
+      '/tmp',
+      undefined,
+      {
+        recipeDeeplink: 'goose://recipe?url=example',
+        recipeId: undefined,
+        recipeParameterScopeId: 'scope-1',
+      },
+      undefined
+    );
     expect(finishConfiguredRecipeParameterScope).toHaveBeenCalledOnce();
   });
 

@@ -39,6 +39,8 @@ export type LanguageSetting =
   | 'system' | 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'id' | 'ms' | 'vi'
   | 'hi' | 'ja' | 'ko' | 'ru' | 'tr' | 'zh-CN' | 'zh-TW';
 
+export type ShowThinking = 'always' | 'collapsed' | 'never';
+
 export interface Settings {
   // Desktop app settings
   showMenuBarIcon: boolean;
@@ -63,6 +65,7 @@ export interface Settings {
   enterInsertsNewline: boolean;
   seenAnnouncementIds: string[];
   recentModels: RecentModel[];
+  showThinking: ShowThinking;
 }
 
 export type SettingKey = keyof Settings;
@@ -110,6 +113,7 @@ export const defaultSettings: Settings = {
   enterInsertsNewline: false,
   seenAnnouncementIds: [],
   recentModels: [],
+  showThinking: 'collapsed',
 };
 
 export function getKeyboardShortcuts(settings: Settings): KeyboardShortcuts {

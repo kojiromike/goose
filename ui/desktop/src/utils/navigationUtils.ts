@@ -29,6 +29,7 @@ export type ViewOptions = {
   disableAnimation?: boolean;
   initialMessage?: UserInput;
   resumeSessionId?: string;
+  startLiveVoice?: boolean;
   pendingScheduleDeepLink?: string;
   /** Start the next chat in this directory instead of the window's own. */
   workingDir?: string;

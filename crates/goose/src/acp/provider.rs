@@ -1525,6 +1525,13 @@ impl Provider for AcpProvider {
         Some(self.acp_session_id().to_string())
     }
 
+    fn skip_canonical_filtering(&self) -> bool {
+        // ACP agents advertise their own model ids, which are CLI/account-specific
+        // and often absent from the canonical registry, and the agent's order is
+        // its priority order. Keep the live list intact for inventory/config.
+        true
+    }
+
     async fn resume(&self, session_id: &str) -> Result<(), ProviderError> {
         if self.acp_session_id().0.as_ref() == session_id {
             return Ok(());
@@ -3455,7 +3462,21 @@ pub fn extension_configs_to_mcp_servers(configs: &[ExtensionConfig]) -> Vec<McpS
     for config in configs {
         match config {
             ExtensionConfig::StreamableHttp {
-                name, uri, headers, ..
+                name,
+                socket: Some(_),
+                ..
+            } => {
+                tracing::debug!(
+                    name,
+                    "skipping socket-backed HTTP extension, unsupported by ACP"
+                );
+            }
+            ExtensionConfig::StreamableHttp {
+                name,
+                uri,
+                headers,
+                socket: None,
+                ..
             } => {
                 let http_headers = headers
                     .iter()
@@ -3912,7 +3933,7 @@ fn replace_effort_state(
 /// and the agent share pass through; goose's own enum values map onto their
 /// closest agent equivalent. Anything else yields `None` so we never send a
 /// value the agent would reject.
-pub(super) fn map_effort_value(
+pub(crate) fn map_effort_value(
     capability: &ThinkingEffortCapability,
     value: &str,
 ) -> Option<String> {
@@ -4989,8 +5010,8 @@ mod tests {
         // The handoff memo budget reads GOOSE_CONTEXT_LIMIT, so hold it unset
         // against tests that set it under the same lock.
         let _guard = env_lock::lock_env([("GOOSE_CONTEXT_LIMIT", None::<&str>)]);
-        let (tx, mut rx) = mpsc::channel(2);
-        let (provider, _) = test_provider_with_tx(Some(tx));
+        let (tx, mut rx) = mpsc::channel(3);
+        let provider = test_provider_with_model_option(tx, Some("configured-model".to_string()));
 
         let handle = tokio::spawn(async move {
             provider.resume("saved-session").await.unwrap();
@@ -5006,7 +5027,15 @@ mod tests {
         };
         assert_eq!(session_id.to_string(), "saved-session");
         response_tx
-            .send(Ok(NewSessionResponse::new("saved-session")))
+            .send(Ok(NewSessionResponse::new("saved-session").config_options(
+                vec![SessionConfigOption::select(
+                    "model",
+                    "Model",
+                    "session-model",
+                    effort_select_options(&["session-model", "configured-model"]),
+                )
+                .category(SessionConfigOptionCategory::Model)],
+            )))
             .unwrap();
 
         let ClientRequest::CloseSession { session_id } =
@@ -5029,6 +5058,18 @@ mod tests {
         let claim = provider.claim_handoff_context(&messages);
         assert!(!claim.first_prompt);
         assert!(!claim.include_context);
+
+        let handle = tokio::spawn(async move {
+            provider
+                .apply_model_if_changed("configured-model")
+                .await
+                .unwrap();
+        });
+        assert_eq!(
+            expect_set_config_option(&mut rx).await,
+            ("model".to_string(), "configured-model".to_string())
+        );
+        handle.await.unwrap();
     }
 
     #[tokio::test]
@@ -7777,6 +7818,51 @@ mod tests {
                 _ => panic!("server type mismatch"),
             }
         }
+    }
+
+    #[test]
+    fn socket_backed_http_is_omitted_without_dropping_ordinary_http() {
+        let socket_backed = ExtensionConfig::StreamableHttp {
+            name: "socket-backed".into(),
+            description: String::new(),
+            uri: "http://127.0.0.1:4711/mcp".into(),
+            envs: Envs::default(),
+            env_keys: vec![],
+            headers: HashMap::from([("Authorization".into(), "Bearer socket-secret".into())]),
+            timeout: None,
+            socket: Some("/run/private-mcp.sock".into()),
+            client_id: None,
+            client_secret_key: None,
+            scopes: vec![],
+            bundled: Some(false),
+            available_tools: vec![],
+        };
+        let ordinary_http = ExtensionConfig::StreamableHttp {
+            name: "ordinary-http".into(),
+            description: String::new(),
+            uri: "https://mcp.example.com/".into(),
+            envs: Envs::default(),
+            env_keys: vec![],
+            headers: HashMap::from([("Authorization".into(), "Bearer network-secret".into())]),
+            timeout: None,
+            socket: None,
+            client_id: None,
+            client_secret_key: None,
+            scopes: vec![],
+            bundled: Some(false),
+            available_tools: vec![],
+        };
+
+        let result = extension_configs_to_mcp_servers(&[socket_backed, ordinary_http]);
+
+        assert_eq!(
+            result,
+            vec![McpServer::Http(
+                McpServerHttp::new("ordinary-http", "https://mcp.example.com/").headers(vec![
+                    HttpHeader::new("Authorization", "Bearer network-secret")
+                ])
+            )]
+        );
     }
 
     #[test]
