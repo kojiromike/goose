@@ -36,6 +36,7 @@ use crate::acp::handoff::{build_handoff_context_memo, memo_token_budget, prompt_
 use crate::acp::{map_permission_response, PermissionDecision};
 use crate::config::{Config, ExtensionConfig, GooseMode};
 use crate::conversation::message::{Message, MessageContent, TOOL_META_EXTERNAL_DISPATCH_KEY};
+use crate::conversation::TURN_CONTEXT_TAG;
 use crate::permission::permission_confirmation::PrincipalType;
 use crate::permission::{Permission, PermissionConfirmation};
 use crate::providers::base::{MessageStream, PermissionRouting, Provider};
@@ -1950,9 +1951,17 @@ fn messages_to_prompt(messages: &[Message], handoff_memo: Option<String>) -> Vec
     };
 
     let message = messages[last_user_index].agent_visible_content();
+    // The agent only runs a slash command sent on its own, and the request
+    // merge folds the turn-context event into the prompt message, so drop it.
+    let is_slash_command = message
+        .content
+        .iter()
+        .find_map(|content| content.as_text())
+        .is_some_and(|text| text.starts_with('/'));
     let mut current_prompt_blocks = Vec::new();
     for content in &message.content {
         match content {
+            MessageContent::Text(text) if is_slash_command && is_turn_context_text(&text.text) => {}
             MessageContent::Text(text) => {
                 current_prompt_blocks.push(ContentBlock::Text(TextContent::new(text.text.clone())));
             }
@@ -1976,6 +1985,10 @@ fn messages_to_prompt(messages: &[Message], handoff_memo: Option<String>) -> Vec
     let mut content_blocks = vec![ContentBlock::Text(TextContent::new(memo))];
     content_blocks.extend(current_prompt_blocks);
     content_blocks
+}
+
+fn is_turn_context_text(text: &str) -> bool {
+    text.starts_with(&format!("<{TURN_CONTEXT_TAG}>"))
 }
 
 fn last_user_message_index(messages: &[Message]) -> Option<usize> {
@@ -2630,6 +2643,24 @@ mod tests {
             "continue from there",
             "the current prompt must be the user's request, not a trailing turn-context event"
         );
+    }
+
+    #[test]
+    fn messages_to_prompt_sends_slash_commands_without_merged_turn_context() {
+        let turn_context =
+            "<turn-context>\n<working-directory>/repo</working-directory>\n</turn-context>";
+        let merged = |prompt: &str| vec![Message::user().with_text(prompt).with_text(turn_context)];
+
+        let command = messages_to_prompt(&merged("/compact"), None);
+        assert_eq!(
+            command.len(),
+            1,
+            "a slash command must reach the agent alone"
+        );
+        assert_eq!(prompt_text(&command[0]), "/compact");
+
+        let prose = messages_to_prompt(&merged("compact this, please"), None);
+        assert_eq!(prose.len(), 2, "ordinary prompts keep their turn context");
     }
 
     #[tokio::test]
