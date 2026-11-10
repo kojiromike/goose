@@ -101,7 +101,11 @@ function applyAcpSessionNotification(
       }
 
       if (queuedSteerMessageId) {
-        changes.push({ type: 'localSteerConfirmed', messageId: queuedSteerMessageId });
+        changes.push({
+          type: 'localSteerConfirmed',
+          messageId: queuedSteerMessageId,
+          streamed: false,
+        });
       }
 
       return changes;

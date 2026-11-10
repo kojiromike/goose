@@ -40,6 +40,10 @@ interface StoreEntry extends AcpChatSessionSnapshot {
   pendingUserInputRequestIds: Set<string>;
   pendingLocalSteerMessageIds: Set<string>;
   preConfirmedSteerMessageIds: Set<string>;
+  // Local steer messages whose text the backend has not streamed back yet.
+  // Their text must not seed the adapter's chunk accumulation, or the
+  // streamed copy is appended to it and the bubble shows the text twice.
+  unstreamedLocalSteerMessageIds: Set<string>;
   // Cached result of the last notify(); reused while a session-load replay is
   // in flight so per-notification reads don't deep-clone the growing message
   // array (see applyAcpSessionNotification / getSnapshot).
@@ -186,6 +190,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       pendingUserInputRequestIds: new Set(),
       pendingLocalSteerMessageIds: new Set(),
       preConfirmedSteerMessageIds: new Set(),
+      unstreamedLocalSteerMessageIds: new Set(),
       adapter: createAcpSessionNotificationAdapter(),
     };
     sessionsById.set(sessionId, entry);
@@ -262,6 +267,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     }
 
     entry.messages = [...entry.messages, cloneMessage(message)];
+    entry.unstreamedLocalSteerMessageIds.add(message.id);
     if (!entry.preConfirmedSteerMessageIds.delete(message.id)) {
       entry.pendingLocalSteerMessageIds.add(message.id);
     }
@@ -678,6 +684,9 @@ function applyChatStateChanges(entry: StoreEntry, changes: AcpChatStateChange[])
         }
         break;
       case 'localSteerConfirmed':
+        if (change.streamed) {
+          entry.unstreamedLocalSteerMessageIds.delete(change.messageId);
+        }
         if (!entry.pendingLocalSteerMessageIds.delete(change.messageId)) {
           entry.preConfirmedSteerMessageIds.add(change.messageId);
         }
@@ -738,6 +747,7 @@ function resetReplayState(entry: StoreEntry): void {
   entry.pendingUserInputRequestIds.clear();
   entry.pendingLocalSteerMessageIds.clear();
   entry.preConfirmedSteerMessageIds.clear();
+  entry.unstreamedLocalSteerMessageIds.clear();
   entry.adapter = createAcpSessionNotificationAdapter();
 }
 
@@ -750,14 +760,17 @@ export function acpElicitationUserInputRequestId(elicitationId: string): string 
 }
 
 function retainPendingLocalSteerMessageIds(entry: StoreEntry): void {
-  if (entry.pendingLocalSteerMessageIds.size === 0) {
+  if (
+    entry.pendingLocalSteerMessageIds.size === 0 &&
+    entry.unstreamedLocalSteerMessageIds.size === 0
+  ) {
     return;
   }
 
   const messageIds = new Set(entry.messages.map((message) => message.id).filter(Boolean));
-  entry.pendingLocalSteerMessageIds = new Set(
-    [...entry.pendingLocalSteerMessageIds].filter((messageId) => messageIds.has(messageId))
-  );
+  const keep = (ids: Set<string>) => new Set([...ids].filter((id) => messageIds.has(id)));
+  entry.pendingLocalSteerMessageIds = keep(entry.pendingLocalSteerMessageIds);
+  entry.unstreamedLocalSteerMessageIds = keep(entry.unstreamedLocalSteerMessageIds);
 }
 
 function discardPendingLocalSteerMessages(entry: StoreEntry): void {
@@ -786,7 +799,7 @@ function confirmedLocalSteerTextByMessageId(entry: StoreEntry): Map<string, stri
     if (
       !message.id ||
       !message.metadata.steer ||
-      entry.pendingLocalSteerMessageIds.has(message.id)
+      entry.unstreamedLocalSteerMessageIds.has(message.id)
     ) {
       continue;
     }

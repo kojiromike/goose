@@ -191,7 +191,7 @@ function messagesChangeWithLocalSteerConfirmation(
 ): AcpChatStateChange[] {
   const changes = messagesChange(state);
   if (isSteerChunk && message.metadata.steer && message.role === 'user' && message.id) {
-    changes.push({ type: 'localSteerConfirmed', messageId: message.id });
+    changes.push({ type: 'localSteerConfirmed', messageId: message.id, streamed: true });
   }
   return changes;
 }
