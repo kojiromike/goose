@@ -449,6 +449,50 @@ describe('acpChatSessionStore', () => {
     expect(cancellationSnapshot?.messages[0].id).toBe('steer-1');
   });
 
+  it('does not double steer text when queuedSteer arrives before the local message', () => {
+    const currentSessionId = sessionId('session-1');
+    const localSteerMessage = {
+      ...message('steer-1', 'hello'),
+      metadata: { userVisible: true, agentVisible: true, steer: true },
+    };
+
+    acpChatSessionActions.startPromptAttempt(currentSessionId, 'attempt-1');
+    acpChatSessionActions.applyAcpSessionNotification(
+      queuedSteerNotification(currentSessionId, 'steer-1')
+    );
+    acpChatSessionActions.addPendingLocalSteerMessage(currentSessionId, localSteerMessage);
+    const snapshot = acpChatSessionActions.applyAcpSessionNotification(
+      userSteerChunkNotification(currentSessionId, 'steer-1', 'hello')
+    );
+
+    expect(snapshot.messages).toHaveLength(1);
+    expect(snapshot.messages[0].content).toEqual([{ type: 'text', text: 'hello' }]);
+  });
+
+  it('does not double steer text when queuedSteer confirms an already-added local message', () => {
+    const currentSessionId = sessionId('session-1');
+    const localSteerMessage = {
+      ...message('steer-1', 'hello'),
+      metadata: { userVisible: true, agentVisible: true, steer: true },
+    };
+
+    acpChatSessionActions.startPromptAttempt(currentSessionId, 'attempt-1');
+    acpChatSessionActions.addPendingLocalSteerMessage(currentSessionId, localSteerMessage);
+    acpChatSessionActions.applyAcpSessionNotification(
+      queuedSteerNotification(currentSessionId, 'steer-1')
+    );
+    acpChatSessionActions.addPendingLocalSteerMessage(currentSessionId, {
+      ...message('steer-2', 'second'),
+      metadata: { userVisible: true, agentVisible: true, steer: true },
+    });
+    const snapshot = acpChatSessionActions.applyAcpSessionNotification(
+      userSteerChunkNotification(currentSessionId, 'steer-1', 'hello')
+    );
+
+    const firstMessage = snapshot.messages.find((item) => item.id === 'steer-1');
+    expect(firstMessage?.content).toEqual([{ type: 'text', text: 'hello' }]);
+  });
+
   it('stores active run ids from session info notifications', () => {
     const currentSessionId = sessionId('session-1');
 
