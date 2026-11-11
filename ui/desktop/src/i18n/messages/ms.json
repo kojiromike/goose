@@ -2159,6 +2159,15 @@
   "mentionPopover.scanningFiles": {
     "defaultMessage": "Mengimbas fail..."
   },
+  "mermaidDiagram.renderFailed": {
+    "defaultMessage": "Tidak dapat memaparkan rajah: {error}"
+  },
+  "mermaidDiagram.showCode": {
+    "defaultMessage": "Tunjukkan kod"
+  },
+  "mermaidDiagram.showDiagram": {
+    "defaultMessage": "Tunjukkan rajah"
+  },
   "messageCopyLink.copied": {
     "defaultMessage": "Disalin!"
   },

@@ -30,6 +30,7 @@ import { Check, Copy } from './icons';
 import { wrapHTMLInCodeBlock } from '../utils/htmlSecurity';
 import { BLOCKED_PROTOCOLS } from '../utils/urlSecurity';
 import { getTextDirection } from '../utils/textDirection';
+import { MermaidDiagram } from './MermaidDiagram';
 import { defineMessages, useIntl } from '../i18n';
 import { filePathFromHref } from '../utils/filePathCandidate';
 import {
@@ -253,6 +254,14 @@ const MarkdownCode = memo(
     const previewablePath = usePreviewableFile(isBlockLevelCode ? null : codeContent);
 
     if (isBlockLevelCode) {
+      if (match?.[1] === 'mermaid') {
+        const source = codeContent.replace(/\n$/, '');
+        return (
+          <MermaidDiagram code={source}>
+            <CodeBlock language="mermaid">{source}</CodeBlock>
+          </MermaidDiagram>
+        );
+      }
       return (
         <CodeBlock language={match ? match[1] : 'text'}>{codeContent.replace(/\n$/, '')}</CodeBlock>
       );

@@ -2159,6 +2159,15 @@
   "mentionPopover.scanningFiles": {
     "defaultMessage": "ファイルをスキャン中..."
   },
+  "mermaidDiagram.renderFailed": {
+    "defaultMessage": "図を描画できませんでした: {error}"
+  },
+  "mermaidDiagram.showCode": {
+    "defaultMessage": "コードを表示"
+  },
+  "mermaidDiagram.showDiagram": {
+    "defaultMessage": "図を表示"
+  },
   "messageCopyLink.copied": {
     "defaultMessage": "コピーしました！"
   },

@@ -2159,6 +2159,15 @@
   "mentionPopover.scanningFiles": {
     "defaultMessage": "Dosyalar taranıyor..."
   },
+  "mermaidDiagram.renderFailed": {
+    "defaultMessage": "Diyagram oluşturulamadı: {error}"
+  },
+  "mermaidDiagram.showCode": {
+    "defaultMessage": "Kodu göster"
+  },
+  "mermaidDiagram.showDiagram": {
+    "defaultMessage": "Diyagramı göster"
+  },
   "messageCopyLink.copied": {
     "defaultMessage": "Kopyalandı!"
   },

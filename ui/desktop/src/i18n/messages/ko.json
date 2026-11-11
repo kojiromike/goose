@@ -2159,6 +2159,15 @@
   "mentionPopover.scanningFiles": {
     "defaultMessage": "파일을 스캔하는 중..."
   },
+  "mermaidDiagram.renderFailed": {
+    "defaultMessage": "다이어그램을 렌더링할 수 없습니다: {error}"
+  },
+  "mermaidDiagram.showCode": {
+    "defaultMessage": "코드 보기"
+  },
+  "mermaidDiagram.showDiagram": {
+    "defaultMessage": "다이어그램 보기"
+  },
   "messageCopyLink.copied": {
     "defaultMessage": "복사되었습니다!"
   },

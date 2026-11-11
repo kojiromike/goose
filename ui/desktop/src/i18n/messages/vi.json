@@ -2159,6 +2159,15 @@
   "mentionPopover.scanningFiles": {
     "defaultMessage": "Đang quét tệp..."
   },
+  "mermaidDiagram.renderFailed": {
+    "defaultMessage": "Không thể hiển thị sơ đồ: {error}"
+  },
+  "mermaidDiagram.showCode": {
+    "defaultMessage": "Hiện mã"
+  },
+  "mermaidDiagram.showDiagram": {
+    "defaultMessage": "Hiện sơ đồ"
+  },
   "messageCopyLink.copied": {
     "defaultMessage": "Đã sao chép!"
   },
