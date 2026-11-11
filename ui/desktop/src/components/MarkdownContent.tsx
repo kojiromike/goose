@@ -30,6 +30,7 @@ import { Check, Copy } from './icons';
 import { wrapHTMLInCodeBlock } from '../utils/htmlSecurity';
 import { BLOCKED_PROTOCOLS } from '../utils/urlSecurity';
 import { getTextDirection } from '../utils/textDirection';
+import { MermaidDiagram } from './MermaidDiagram';
 import { defineMessages, useIntl } from '../i18n';
 
 const i18n = defineMessages({
@@ -236,6 +237,15 @@ const MarkdownCode = memo(
     // so they look like inline code here. Block-level content always ends with
     // a trailing newline, which inline code spans can never contain.
     const isBlockLevelCode = !inline && codeContent.endsWith('\n');
+
+    if (isBlockLevelCode && match?.[1] === 'mermaid') {
+      const source = codeContent.replace(/\n$/, '');
+      return (
+        <MermaidDiagram code={source}>
+          <CodeBlock language="mermaid">{source}</CodeBlock>
+        </MermaidDiagram>
+      );
+    }
 
     return isBlockLevelCode ? (
       <CodeBlock language={match ? match[1] : 'text'}>{codeContent.replace(/\n$/, '')}</CodeBlock>

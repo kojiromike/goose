@@ -1994,6 +1994,15 @@
   "mentionPopover.scanningFiles": {
     "defaultMessage": "Analyse des fichiers..."
   },
+  "mermaidDiagram.renderFailed": {
+    "defaultMessage": "Impossible d'afficher le diagramme : {error}"
+  },
+  "mermaidDiagram.showCode": {
+    "defaultMessage": "Afficher le code"
+  },
+  "mermaidDiagram.showDiagram": {
+    "defaultMessage": "Afficher le diagramme"
+  },
   "messageCopyLink.copied": {
     "defaultMessage": "Copié !"
   },

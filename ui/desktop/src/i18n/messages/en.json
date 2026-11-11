@@ -2072,6 +2072,15 @@
   "mentionPopover.scanningFiles": {
     "defaultMessage": "Scanning files..."
   },
+  "mermaidDiagram.renderFailed": {
+    "defaultMessage": "Could not render diagram: {error}"
+  },
+  "mermaidDiagram.showCode": {
+    "defaultMessage": "Show code"
+  },
+  "mermaidDiagram.showDiagram": {
+    "defaultMessage": "Show diagram"
+  },
   "messageCopyLink.copied": {
     "defaultMessage": "Copied!"
   },

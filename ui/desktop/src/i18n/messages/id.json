@@ -1994,6 +1994,15 @@
   "mentionPopover.scanningFiles": {
     "defaultMessage": "Memindai file..."
   },
+  "mermaidDiagram.renderFailed": {
+    "defaultMessage": "Tidak dapat merender diagram: {error}"
+  },
+  "mermaidDiagram.showCode": {
+    "defaultMessage": "Tampilkan kode"
+  },
+  "mermaidDiagram.showDiagram": {
+    "defaultMessage": "Tampilkan diagram"
+  },
   "messageCopyLink.copied": {
     "defaultMessage": "Disalin!"
   },

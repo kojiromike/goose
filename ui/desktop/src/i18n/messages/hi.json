@@ -1994,6 +1994,15 @@
   "mentionPopover.scanningFiles": {
     "defaultMessage": "फ़ाइलें स्कैन की जा रही हैं..."
   },
+  "mermaidDiagram.renderFailed": {
+    "defaultMessage": "आरेख रेंडर नहीं हो सका: {error}"
+  },
+  "mermaidDiagram.showCode": {
+    "defaultMessage": "कोड दिखाएँ"
+  },
+  "mermaidDiagram.showDiagram": {
+    "defaultMessage": "आरेख दिखाएँ"
+  },
   "messageCopyLink.copied": {
     "defaultMessage": "नकल की गई!"
   },

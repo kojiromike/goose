@@ -1994,6 +1994,15 @@
   "mentionPopover.scanningFiles": {
     "defaultMessage": "正在掃描檔案…"
   },
+  "mermaidDiagram.renderFailed": {
+    "defaultMessage": "無法轉譯圖表：{error}"
+  },
+  "mermaidDiagram.showCode": {
+    "defaultMessage": "顯示程式碼"
+  },
+  "mermaidDiagram.showDiagram": {
+    "defaultMessage": "顯示圖表"
+  },
   "messageCopyLink.copied": {
     "defaultMessage": "已複製！"
   },
