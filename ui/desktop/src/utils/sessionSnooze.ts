@@ -14,7 +14,8 @@ import { parseTimestamp } from './sessionUnread';
 
 const STORAGE_KEY = 'session_snoozed';
 
-const HOUR_MS = 60 * 60_000;
+const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
 const WAKE_HOUR = 8;
 const MONDAY = 1;
 
@@ -27,7 +28,13 @@ export interface SessionSnooze {
 
 export type SnoozedMap = Record<string, SessionSnooze>;
 
-export type SnoozePresetKey = 'oneHour' | 'threeHours' | 'tomorrow' | 'monday';
+export type SnoozePresetKey =
+  | 'tenMinutes'
+  | 'thirtyMinutes'
+  | 'oneHour'
+  | 'threeHours'
+  | 'tomorrow'
+  | 'monday';
 
 export interface SnoozePreset {
   key: SnoozePresetKey;
@@ -46,6 +53,8 @@ export function snoozePresets(now = Date.now()): SnoozePreset[] {
   const today = new Date(now);
   const daysToMonday = (MONDAY - today.getDay() + 7) % 7 || 7;
   return [
+    { key: 'tenMinutes', until: now + 10 * MINUTE_MS },
+    { key: 'thirtyMinutes', until: now + 30 * MINUTE_MS },
     { key: 'oneHour', until: now + HOUR_MS },
     { key: 'threeHours', until: now + 3 * HOUR_MS },
     { key: 'tomorrow', until: atWakeHour(today, 1) },

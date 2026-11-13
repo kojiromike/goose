@@ -4667,6 +4667,12 @@
   "snoozeChoices.oneHour": {
     "defaultMessage": "Selama 1 jam ({time})"
   },
+  "snoozeChoices.tenMinutes": {
+    "defaultMessage": "Selama 10 minit ({time})"
+  },
+  "snoozeChoices.thirtyMinutes": {
+    "defaultMessage": "Selama 30 minit ({time})"
+  },
   "snoozeChoices.threeHours": {
     "defaultMessage": "Selama 3 jam ({time})"
   },

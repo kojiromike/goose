@@ -4667,6 +4667,12 @@
   "snoozeChoices.oneHour": {
     "defaultMessage": "Por 1 hora ({time})"
   },
+  "snoozeChoices.tenMinutes": {
+    "defaultMessage": "Por 10 minutos ({time})"
+  },
+  "snoozeChoices.thirtyMinutes": {
+    "defaultMessage": "Por 30 minutos ({time})"
+  },
   "snoozeChoices.threeHours": {
     "defaultMessage": "Por 3 horas ({time})"
   },

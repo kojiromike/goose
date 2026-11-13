@@ -8,6 +8,14 @@ const i18n = defineMessages({
     id: 'snoozeChoices.untilActivity',
     defaultMessage: 'Until new activity',
   },
+  tenMinutes: {
+    id: 'snoozeChoices.tenMinutes',
+    defaultMessage: 'For 10 minutes ({time})',
+  },
+  thirtyMinutes: {
+    id: 'snoozeChoices.thirtyMinutes',
+    defaultMessage: 'For 30 minutes ({time})',
+  },
   oneHour: {
     id: 'snoozeChoices.oneHour',
     defaultMessage: 'For 1 hour ({time})',
@@ -27,6 +35,8 @@ const i18n = defineMessages({
 });
 
 const PRESET_MESSAGES: Record<SnoozePresetKey, (typeof i18n)[keyof typeof i18n]> = {
+  tenMinutes: i18n.tenMinutes,
+  thirtyMinutes: i18n.thirtyMinutes,
   oneHour: i18n.oneHour,
   threeHours: i18n.threeHours,
   tomorrow: i18n.tomorrow,

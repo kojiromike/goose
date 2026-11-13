@@ -40,10 +40,12 @@ describe('snoozePresets', () => {
       snoozePresets(now.getTime()).map(({ key, until }) => [key, new Date(until)])
     );
 
-  it('offers an hour, three hours, tomorrow morning and Monday morning', () => {
+  it('offers ten minutes, thirty minutes, an hour, three hours, tomorrow morning and Monday morning', () => {
     // Thursday afternoon, local time.
     const now = new Date(2026, 10, 5, 14, 6);
     const presets = until(now);
+    expect(presets.tenMinutes).toEqual(new Date(2026, 10, 5, 14, 16));
+    expect(presets.thirtyMinutes).toEqual(new Date(2026, 10, 5, 14, 36));
     expect(presets.oneHour).toEqual(new Date(2026, 10, 5, 15, 6));
     expect(presets.threeHours).toEqual(new Date(2026, 10, 5, 17, 6));
     expect(presets.tomorrow).toEqual(new Date(2026, 10, 6, 8, 0));

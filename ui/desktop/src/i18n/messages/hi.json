@@ -4667,6 +4667,12 @@
   "snoozeChoices.oneHour": {
     "defaultMessage": "1 घंटे के लिए ({time})"
   },
+  "snoozeChoices.tenMinutes": {
+    "defaultMessage": "10 मिनट के लिए ({time})"
+  },
+  "snoozeChoices.thirtyMinutes": {
+    "defaultMessage": "30 मिनट के लिए ({time})"
+  },
   "snoozeChoices.threeHours": {
     "defaultMessage": "3 घंटे के लिए ({time})"
   },

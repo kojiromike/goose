@@ -4667,6 +4667,12 @@
   "snoozeChoices.oneHour": {
     "defaultMessage": "1시간 동안 ({time})"
   },
+  "snoozeChoices.tenMinutes": {
+    "defaultMessage": "10분 동안 ({time})"
+  },
+  "snoozeChoices.thirtyMinutes": {
+    "defaultMessage": "30분 동안 ({time})"
+  },
   "snoozeChoices.threeHours": {
     "defaultMessage": "3시간 동안 ({time})"
   },

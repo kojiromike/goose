@@ -4667,6 +4667,12 @@
   "snoozeChoices.oneHour": {
     "defaultMessage": "На 1 час ({time})"
   },
+  "snoozeChoices.tenMinutes": {
+    "defaultMessage": "На 10 минут ({time})"
+  },
+  "snoozeChoices.thirtyMinutes": {
+    "defaultMessage": "На 30 минут ({time})"
+  },
   "snoozeChoices.threeHours": {
     "defaultMessage": "На 3 часа ({time})"
   },

@@ -4667,6 +4667,12 @@
   "snoozeChoices.oneHour": {
     "defaultMessage": "Pendant 1 heure ({time})"
   },
+  "snoozeChoices.tenMinutes": {
+    "defaultMessage": "Pendant 10 minutes ({time})"
+  },
+  "snoozeChoices.thirtyMinutes": {
+    "defaultMessage": "Pendant 30 minutes ({time})"
+  },
   "snoozeChoices.threeHours": {
     "defaultMessage": "Pendant 3 heures ({time})"
   },
