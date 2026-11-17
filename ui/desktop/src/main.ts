@@ -66,6 +66,7 @@ import {
   readSelectedRecipe,
 } from './desktopFileAccess';
 import { getWindowIconFilename } from './utils/windowIcon';
+import { recoverFromRendererCrashes } from './utils/rendererRecovery';
 
 const windowIconPath = path.join(__dirname, '../images', getWindowIconFilename(process.platform));
 
@@ -1312,6 +1313,7 @@ const createChat = async (
 
   // Let windowStateKeeper manage the window
   mainWindowState.manage(mainWindow);
+  recoverFromRendererCrashes(mainWindow);
 
   mainWindow.webContents.session.setSpellCheckerLanguages(['en-US', 'en-GB']);
   mainWindow.webContents.on('context-menu', (_event, params) => {
