@@ -1,3 +1,6 @@
+mod registry;
+pub(crate) use registry::is_platform;
+pub use registry::PlatformExtensions;
 #[cfg(feature = "tree-sitter")]
 pub mod analyze;
 #[cfg(feature = "platform-apps")]
@@ -20,7 +23,8 @@ pub mod tom;
 
 use std::collections::HashMap;
 
-use crate::agents::mcp_client::McpClientTrait;
+mod client;
+pub use client::PlatformExtension;
 use once_cell::sync::Lazy;
 use tokio_util::sync::CancellationToken;
 
@@ -225,20 +229,6 @@ pub static PLATFORM_EXTENSIONS: Lazy<HashMap<&'static str, PlatformExtensionDef>
             },
         );
 
-        map.insert(
-            crate::skills::EXTENSION_NAME,
-            PlatformExtensionDef {
-                name: crate::skills::EXTENSION_NAME,
-                display_name: "Skills",
-                description: "Discover and provide skill instructions from filesystem and builtins",
-                default_enabled: true,
-                unprefixed_tools: true,
-                hidden: false,
-                acp_bridged: false,
-                client_factory: |_| Some(Box::new(crate::skills::SkillsClient::default())),
-            },
-        );
-
         map
     },
 );
@@ -271,9 +261,8 @@ pub trait SessionDriver: Send + Sync {
 
 #[derive(Clone)]
 pub struct PlatformExtensionContext {
-    /// Sibling access for the two extensions that operate on the running set
-    /// (extension management, code mode). Everything else uses the fields
-    /// below.
+    /// Lets the orchestrator find the client that owns a session, so the sessions it
+    /// starts run through that client and the user sees them.
     pub extension_manager:
         Option<std::sync::Weak<crate::agents::extension_manager::ExtensionManager>>,
     pub providers: std::sync::Arc<crate::agents::provider_manager::ProviderManager>,
@@ -366,5 +355,19 @@ pub struct PlatformExtensionDef {
     /// get this extension as an MCP server served by goose. Leave false for extensions
     /// that duplicate what an ACP agent already has, such as shell or file editing.
     pub acp_bridged: bool,
-    pub client_factory: fn(PlatformExtensionContext) -> Option<Box<dyn McpClientTrait>>,
+    pub client_factory: fn(PlatformExtensionContext) -> Option<Box<dyn PlatformExtension>>,
+}
+
+/// Returns true if the named extension is a first-class platform extension
+/// whose tools are exposed unprefixed and remain visible during code execution mode.
+pub fn is_unprefixed_extension(name: &str) -> bool {
+    PLATFORM_EXTENSIONS
+        .get(crate::config::extensions::name_to_key(name).as_str())
+        .is_some_and(|def| def.unprefixed_tools)
+}
+
+pub fn is_hidden_extension(name: &str) -> bool {
+    PLATFORM_EXTENSIONS
+        .get(crate::config::extensions::name_to_key(name).as_str())
+        .is_some_and(|def| def.hidden)
 }

@@ -134,15 +134,15 @@ struct JsonOutput {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct JsonMetadata {
-    total_tokens: Option<i32>,
+    total_tokens: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    input_tokens: Option<i32>,
+    input_tokens: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    output_tokens: Option<i32>,
+    output_tokens: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    cache_read_input_tokens: Option<i32>,
+    cache_read_input_tokens: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    cache_write_input_tokens: Option<i32>,
+    cache_write_input_tokens: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     cost_usd: Option<f64>,
     status: String,
@@ -163,15 +163,15 @@ enum StreamEvent {
         error: String,
     },
     Complete {
-        total_tokens: Option<i32>,
+        total_tokens: Option<i64>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        input_tokens: Option<i32>,
+        input_tokens: Option<i64>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        output_tokens: Option<i32>,
+        output_tokens: Option<i64>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        cache_read_input_tokens: Option<i32>,
+        cache_read_input_tokens: Option<i64>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        cache_write_input_tokens: Option<i32>,
+        cache_write_input_tokens: Option<i64>,
         #[serde(skip_serializing_if = "Option::is_none")]
         cost_usd: Option<f64>,
     },
@@ -377,18 +377,20 @@ impl CliSession {
                 .to_string()
         });
 
-        Ok(ExtensionConfig::Stdio {
-            name,
-            cmd,
-            args: parts,
-            envs: Envs::new(envs),
-            env_keys: Vec::new(),
-            description: goose::config::DEFAULT_EXTENSION_DESCRIPTION.to_string(),
-            timeout: Some(goose::config::DEFAULT_EXTENSION_TIMEOUT),
-            cwd: None,
-            bundled: None,
-            available_tools: Vec::new(),
-        })
+        Ok(ExtensionConfig::External(
+            goose_agent::extension::ExtensionConfig::Stdio {
+                name,
+                cmd,
+                args: parts,
+                envs: Envs::new(envs),
+                env_keys: Vec::new(),
+                description: goose::config::DEFAULT_EXTENSION_DESCRIPTION.to_string(),
+                timeout: Some(goose::config::DEFAULT_EXTENSION_TIMEOUT),
+                cwd: None,
+                bundled: None,
+                available_tools: Vec::new(),
+            },
+        ))
     }
 
     pub fn parse_streamable_http_extension(extension_url: &str, timeout: u64) -> ExtensionConfig {
@@ -413,7 +415,7 @@ impl CliSession {
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "unnamed".to_string());
 
-        ExtensionConfig::StreamableHttp {
+        ExtensionConfig::External(goose_agent::extension::ExtensionConfig::StreamableHttp {
             name,
             uri: extension_url.to_string(),
             envs: Envs::new(HashMap::new()),
@@ -427,7 +429,7 @@ impl CliSession {
             scopes: vec![],
             bundled: None,
             available_tools: Vec::new(),
-        }
+        })
     }
 
     /// Parse builtin extension names (comma-separated) into ExtensionConfigs
@@ -463,8 +465,7 @@ impl CliSession {
         self.ensure_extensions_loaded(true).await?;
         for config in configs {
             self.services
-                .extension_manager
-                .enable(&self.session_id, config)
+                .enable_extension(&self.session_id, config)
                 .await
                 .map_err(|e| anyhow::anyhow!("Failed to start extension: {}", e))?;
         }
@@ -499,9 +500,9 @@ impl CliSession {
         self.ensure_extensions_loaded(true).await?;
         let prompts = self
             .services
-            .extension_manager
-            .current_lease(&self.session_id)
+            .current_tools(&self.session_id)
             .await?
+            .mcp
             .list_prompts(CancellationToken::default())
             .await;
 
@@ -527,9 +528,9 @@ impl CliSession {
         self.ensure_extensions_loaded(true).await?;
         let prompts = self
             .services
-            .extension_manager
-            .current_lease(&self.session_id)
+            .current_tools(&self.session_id)
             .await?
+            .mcp
             .list_prompts(CancellationToken::default())
             .await;
 
@@ -550,12 +551,9 @@ impl CliSession {
 
     pub async fn get_prompt(&mut self, name: &str, arguments: Value) -> Result<Vec<PromptMessage>> {
         self.ensure_extensions_loaded(true).await?;
-        let lease = self
-            .services
-            .extension_manager
-            .current_lease(&self.session_id)
-            .await?;
+        let lease = self.services.current_tools(&self.session_id).await?;
         let extension = lease
+            .mcp
             .list_prompts(CancellationToken::default())
             .await
             .into_iter()
@@ -563,6 +561,7 @@ impl CliSession {
             .map(|(extension, _)| extension)
             .ok_or_else(|| anyhow::anyhow!("Prompt '{}' not found", name))?;
         Ok(lease
+            .mcp
             .get_prompt(&extension, name, arguments, CancellationToken::default())
             .await?
             .messages)
@@ -1197,8 +1196,7 @@ impl CliSession {
         let mut unavailable = Vec::new();
         for result in self
             .services
-            .extension_manager
-            .current_lease(&self.session_id)
+            .current_tools(&self.session_id)
             .await?
             .start()
             .await
@@ -1839,9 +1837,9 @@ impl CliSession {
         completion_cache: &Arc<std::sync::RwLock<CompletionCache>>,
     ) -> Result<()> {
         let prompts = services
-            .extension_manager
-            .current_lease(session_id)
+            .current_tools(session_id)
             .await?
+            .mcp
             .list_prompts(CancellationToken::default())
             .await;
         let all_providers = goose::providers::providers().await;
@@ -1967,7 +1965,7 @@ impl CliSession {
             .await
     }
 
-    pub async fn get_total_token_usage(&self) -> Result<Option<i32>> {
+    pub async fn get_total_token_usage(&self) -> Result<Option<i64>> {
         let metadata = self.get_session().await?;
         Ok(metadata.accumulated_usage.total_tokens)
     }
@@ -2934,7 +2932,7 @@ mod tests {
 
     #[test_case(
         "/usr/bin/my-server",
-        ExtensionConfig::Stdio {
+        ExtensionConfig::External(goose_agent::extension::ExtensionConfig::Stdio {
             name: "my-server".into(),
             cmd: "/usr/bin/my-server".into(),
             args: vec![],
@@ -2945,12 +2943,12 @@ mod tests {
             cwd: None,
             bundled: None,
             available_tools: vec![],
-        }
+        })
         ; "name_from_cmd_basename"
     )]
     #[test_case(
         "MY_SECRET=s3cret npx -y @modelcontextprotocol/server-everything",
-        ExtensionConfig::Stdio {
+        ExtensionConfig::External(goose_agent::extension::ExtensionConfig::Stdio {
             name: "npx".into(),
             cmd: "npx".into(),
             args: vec!["-y".into(), "@modelcontextprotocol/server-everything".into()],
@@ -2961,12 +2959,12 @@ mod tests {
             cwd: None,
             bundled: None,
             available_tools: vec![],
-        }
+        })
         ; "env_prefix_name_from_cmd"
     )]
     #[test_case(
         r#""/Applications/IntelliJ IDEA.app/Contents/jbr/Contents/Home/bin/java" -classpath "/path/with spaces/lib.jar" Main"#,
-        ExtensionConfig::Stdio {
+        ExtensionConfig::External(goose_agent::extension::ExtensionConfig::Stdio {
             name: "java".into(),
             cmd: "/Applications/IntelliJ IDEA.app/Contents/jbr/Contents/Home/bin/java".into(),
             args: vec!["-classpath".into(), "/path/with spaces/lib.jar".into(), "Main".into()],
@@ -2977,7 +2975,7 @@ mod tests {
             cwd: None,
             bundled: None,
             available_tools: vec![],
-        }
+        })
         ; "quoted_path_with_spaces"
     )]
     fn test_parse_stdio_extension(input: &str, expected: ExtensionConfig) {
@@ -3001,16 +2999,16 @@ mod tests {
         assert_eq!(absolute.name(), "memory");
         assert!(matches!(
             absolute,
-            ExtensionConfig::Stdio { cmd, .. } if cmd == "/usr/local/bin/mcp"
+            ExtensionConfig::External(goose_agent::extension::ExtensionConfig::Stdio { cmd, .. }) if cmd == "/usr/local/bin/mcp"
         ));
         let config = CliSession::parse_stdio_extension("memory:API_KEY=k npx -y srv").unwrap();
-        let ExtensionConfig::Stdio {
+        let ExtensionConfig::External(goose_agent::extension::ExtensionConfig::Stdio {
             name,
             cmd,
             args,
             envs,
             ..
-        } = config
+        }) = config
         else {
             panic!("expected a stdio extension");
         };
@@ -3140,7 +3138,7 @@ mod tests {
 
     #[test_case(
         "https://mcp.kiwi.com", 300,
-        ExtensionConfig::StreamableHttp {
+        ExtensionConfig::External(goose_agent::extension::ExtensionConfig::StreamableHttp {
             name: "mcp_kiwi_com".into(),
             uri: "https://mcp.kiwi.com".into(),
             envs: Envs::default(),
@@ -3154,12 +3152,12 @@ mod tests {
             scopes: vec![],
             bundled: None,
             available_tools: vec![],
-        }
+        })
         ; "name_from_host"
     )]
     #[test_case(
         "http://localhost:8080/api", 300,
-        ExtensionConfig::StreamableHttp {
+        ExtensionConfig::External(goose_agent::extension::ExtensionConfig::StreamableHttp {
             name: "localhost_8080_api".into(),
             uri: "http://localhost:8080/api".into(),
             envs: Envs::default(),
@@ -3173,12 +3171,12 @@ mod tests {
             scopes: vec![],
             bundled: None,
             available_tools: vec![],
-        }
+        })
         ; "port_and_path"
     )]
     #[test_case(
         "http://localhost:9090/other", 300,
-        ExtensionConfig::StreamableHttp {
+        ExtensionConfig::External(goose_agent::extension::ExtensionConfig::StreamableHttp {
             name: "localhost_9090_other".into(),
             uri: "http://localhost:9090/other".into(),
             envs: Envs::default(),
@@ -3192,7 +3190,7 @@ mod tests {
             scopes: vec![],
             bundled: None,
             available_tools: vec![],
-        }
+        })
         ; "different_port_and_path"
     )]
     fn test_parse_streamable_http_extension(url: &str, timeout: u64, expected: ExtensionConfig) {
@@ -3243,7 +3241,7 @@ mod tests {
 
         let old = sm.get_session(&old.id, false).await.unwrap();
 
-        let new_id = create_successor_session(&sm, &old, GooseMode::Chat)
+        let new_id = create_successor_session(&sm, &old, GooseMode::SmartApprove)
             .await
             .unwrap();
 
@@ -3255,7 +3253,7 @@ mod tests {
             new_session.model_config.as_ref().map(|m| &m.model_name),
             old.model_config.as_ref().map(|m| &m.model_name)
         );
-        assert_eq!(new_session.goose_mode, GooseMode::Chat);
+        assert_eq!(new_session.goose_mode, GooseMode::SmartApprove);
         assert_eq!(new_session.working_dir, old.working_dir);
         assert_eq!(new_session.session_type, old.session_type);
         assert!(new_session.conversation.unwrap().messages().is_empty());

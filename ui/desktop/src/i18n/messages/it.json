@@ -1382,6 +1382,18 @@
   "filePreview.tooLarge": {
     "defaultMessage": "Questo file è troppo grande per l'anteprima."
   },
+  "finalOutputLine.notCollected": {
+    "defaultMessage": "Il risultato strutturato non è stato raccolto"
+  },
+  "finalOutputLine.rejected": {
+    "defaultMessage": "Il risultato strutturato è stato rifiutato"
+  },
+  "finalOutputLine.returned": {
+    "defaultMessage": "Risultato strutturato restituito"
+  },
+  "finalOutputLine.returning": {
+    "defaultMessage": "Restituzione del risultato strutturato…"
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "Impossibile passare a {branch}"
   },
@@ -2326,12 +2338,6 @@
   },
   "modeSelectionItem.autonomousLabel": {
     "defaultMessage": "Autonoma"
-  },
-  "modeSelectionItem.chatOnlyDescription": {
-    "defaultMessage": "Interagisci con il provider selezionato senza usare strumenti o estensioni."
-  },
-  "modeSelectionItem.chatOnlyLabel": {
-    "defaultMessage": "Solo chat"
   },
   "modeSelectionItem.manualDescription": {
     "defaultMessage": "Tutti gli strumenti, le estensioni e le modifiche ai file richiederanno l'approvazione umana"
@@ -4438,6 +4444,9 @@
   },
   "settings.language.description": {
     "defaultMessage": "Scegli la lingua di visualizzazione per goose"
+  },
+  "settings.language.dutch": {
+    "defaultMessage": "Olandese"
   },
   "settings.language.english": {
     "defaultMessage": "English"

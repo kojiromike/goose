@@ -600,8 +600,6 @@ mod tests {
                     .description("Ask before every tool call"),
                 SessionMode::new(SessionModeId::new("smart_approve"), "smart_approve")
                     .description("Ask only for sensitive tool calls"),
-                SessionMode::new(SessionModeId::new("chat"), "chat")
-                    .description("Chat only, no tool calls"),
             ],
         ))
         ; "auto mode"
@@ -617,8 +615,6 @@ mod tests {
                     .description("Ask before every tool call"),
                 SessionMode::new(SessionModeId::new("smart_approve"), "smart_approve")
                     .description("Ask only for sensitive tool calls"),
-                SessionMode::new(SessionModeId::new("chat"), "chat")
-                    .description("Chat only, no tool calls"),
             ],
         ))
         ; "approve mode"
@@ -716,7 +712,6 @@ mod tests {
                     SessionConfigSelectOption::new("auto", "auto").description("Automatically approve tool calls"),
                     SessionConfigSelectOption::new("approve", "approve").description("Ask before every tool call"),
                     SessionConfigSelectOption::new("smart_approve", "smart_approve").description("Ask only for sensitive tool calls"),
-                    SessionConfigSelectOption::new("chat", "chat").description("Chat only, no tool calls"),
                 ],
             ).category(SessionConfigOptionCategory::Mode),
             SessionConfigOption::select(
@@ -751,7 +746,6 @@ mod tests {
                     SessionConfigSelectOption::new("auto", "auto").description("Automatically approve tool calls"),
                     SessionConfigSelectOption::new("approve", "approve").description("Ask before every tool call"),
                     SessionConfigSelectOption::new("smart_approve", "smart_approve").description("Ask only for sensitive tool calls"),
-                    SessionConfigSelectOption::new("chat", "chat").description("Chat only, no tool calls"),
                 ],
             ).category(SessionConfigOptionCategory::Mode),
             SessionConfigOption::select(

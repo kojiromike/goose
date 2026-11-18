@@ -44,9 +44,16 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
     const [isScrolled, setIsScrolled] = React.useState(false);
     const userScrolledUpRef = React.useRef(false);
     const lastScrollHeightRef = React.useRef(0);
+    const lastScrollTopRef = React.useRef(0);
+    const pendingGrowthRef = React.useRef(false);
+    const pinFrameRef = React.useRef<number | null>(null);
+    const autoScrollRef = React.useRef(autoScroll);
     const isActivelyScrollingRef = React.useRef(false);
     const scrollTimeoutRef = React.useRef<number | null>(null);
-    const programmaticScrollTopRef = React.useRef<number | null>(null);
+
+    React.useLayoutEffect(() => {
+      autoScrollRef.current = autoScroll;
+    }, [autoScroll]);
 
     const BOTTOM_SCROLL_THRESHOLD = 200;
 
@@ -60,30 +67,56 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
       return distanceFromBottom <= BOTTOM_SCROLL_THRESHOLD;
     }, []);
 
-    // Jump instantly rather than animating: a smooth programmatic scroll emits
-    // intermediate scroll events that handleScroll mistakes for a manual
-    // scroll-up, which disables auto-follow mid-animation.
     const pinToBottom = React.useCallback(() => {
       const viewport = viewportRef.current;
       if (!viewport) return;
-
-      const before = viewport.scrollTop;
       viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'auto' });
-      if (viewport.scrollTop === before) return;
-
-      // Record where this jump landed so handleScroll can tell it apart from
-      // the user grabbing the wheel. Without this, a burst of programmatic
-      // pins — one per progressively rendered batch — reads as continuous
-      // manual scrolling and switches auto-follow off for the whole load.
-      // Only arm the guard when the viewport actually moved: a no-op pin emits
-      // no scroll event, so a stale armed value would swallow a real one later.
-      programmaticScrollTopRef.current = viewport.scrollTop;
+      // The native scroll event may arrive after another content resize.
+      lastScrollTopRef.current = viewport.scrollTop;
+      lastScrollHeightRef.current = viewport.scrollHeight;
+      pendingGrowthRef.current = false;
     }, []);
+
+    const queuePin = React.useCallback(() => {
+      if (
+        !autoScrollRef.current ||
+        userScrolledUpRef.current ||
+        isActivelyScrollingRef.current ||
+        !pendingGrowthRef.current ||
+        pinFrameRef.current !== null
+      ) {
+        return;
+      }
+      pinFrameRef.current = requestAnimationFrame(() => {
+        pinFrameRef.current = null;
+        // Reading intent can change between the resize and this frame.
+        if (
+          autoScrollRef.current &&
+          !userScrolledUpRef.current &&
+          !isActivelyScrollingRef.current &&
+          pendingGrowthRef.current
+        ) {
+          pinToBottom();
+        }
+      });
+    }, [pinToBottom]);
+
+    const checkForGrowth = React.useCallback(() => {
+      const viewport = viewportRef.current;
+      if (!viewport || !autoScrollRef.current) return;
+      if (viewport.scrollHeight > lastScrollHeightRef.current && !userScrolledUpRef.current) {
+        pendingGrowthRef.current = true;
+      }
+      lastScrollHeightRef.current = viewport.scrollHeight;
+      queuePin();
+    }, [queuePin]);
 
     const scrollToBottom = React.useCallback(() => {
       if (viewportRef.current) {
+        if (scrollTimeoutRef.current !== null) clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
+        isActivelyScrollingRef.current = false;
         pinToBottom();
-        // When explicitly scrolling to bottom, reset the following state
         setIsFollowing(true);
         userScrolledUpRef.current = false;
         onScrollChange?.(true);
@@ -115,10 +148,6 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
       [scrollToBottom, scrollToPosition, isAtBottom, isFollowing]
     );
 
-    // track last scroll position to detect user-initiated scrolling
-    const lastScrollTopRef = React.useRef(0);
-
-    // Handle scroll events to update isFollowing state
     const handleScroll = React.useCallback(() => {
       if (!viewportRef.current) return;
 
@@ -126,107 +155,58 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
       const { scrollTop } = viewport;
       const currentIsAtBottom = isAtBottom();
 
-      // A pin we issued ourselves is not user input: it must neither mark the
-      // viewport as actively scrolling nor drop follow mode. Content that grew
-      // between the scrollTo and this event can leave us short of the bottom,
-      // and treating that as a manual scroll-up is what strands the reader
-      // partway up a session that is still rendering.
-      if (programmaticScrollTopRef.current === scrollTop) {
-        programmaticScrollTopRef.current = null;
-        lastScrollTopRef.current = scrollTop;
-        setIsScrolled(scrollTop > 0);
-        handleScrollProp?.(viewport);
-        return;
-      }
-      programmaticScrollTopRef.current = null;
-
-      // detect if this is a user-initiated scroll (position changed from last known position)
+      const isScrollingUp = scrollTop < lastScrollTopRef.current;
       const scrollDelta = Math.abs(scrollTop - lastScrollTopRef.current);
       if (scrollDelta > 0) {
-        // Mark that user is actively scrolling immediately
         isActivelyScrollingRef.current = true;
-
-        // clear any existing timeout and set a new one
-        if (scrollTimeoutRef.current) {
+        if (scrollTimeoutRef.current !== null) {
           clearTimeout(scrollTimeoutRef.current);
         }
-
-        // mark as not actively scrolling
         scrollTimeoutRef.current = window.setTimeout(() => {
+          scrollTimeoutRef.current = null;
           isActivelyScrollingRef.current = false;
+          queuePin();
         }, 100);
       }
 
       lastScrollTopRef.current = scrollTop;
 
-      // Detect if user manually scrolled up from the bottom
-      if (!currentIsAtBottom && isFollowing) {
-        // user scrolled up, disabling auto-scroll
+      // Growth alone can move the bottom away without any upward scrolling.
+      if (isScrollingUp && !currentIsAtBottom && !userScrolledUpRef.current) {
         userScrolledUpRef.current = true;
+        pendingGrowthRef.current = false;
         setIsFollowing(false);
         onScrollChange?.(false);
       } else if (currentIsAtBottom && userScrolledUpRef.current) {
-        // user scrolled back to bottom
         userScrolledUpRef.current = false;
         setIsFollowing(true);
         onScrollChange?.(true);
       }
 
+      checkForGrowth();
       setIsScrolled(scrollTop > 0);
 
       if (handleScrollProp) {
         handleScrollProp(viewport);
       }
-    }, [isAtBottom, isFollowing, onScrollChange, handleScrollProp]);
+    }, [isAtBottom, onScrollChange, handleScrollProp, queuePin, checkForGrowth]);
 
     // Auto-scroll when content changes and user is following
     React.useEffect(() => {
-      if (!autoScroll || !viewportRef.current) return;
-
-      const viewport = viewportRef.current;
-      const currentScrollHeight = viewport.scrollHeight;
-
-      // Only auto-scroll if:
-      // 1. Content has actually grown (new content added)
-      // 2. User was following (at the bottom)
-      // 3. User hasn't manually scrolled up
-      // 4. User is not actively scrolling
-      if (
-        currentScrollHeight > lastScrollHeightRef.current &&
-        isFollowing &&
-        !userScrolledUpRef.current &&
-        !isActivelyScrollingRef.current
-      ) {
-        // Use requestAnimationFrame to ensure DOM has updated
-        requestAnimationFrame(() => {
-          if (viewportRef.current && !isActivelyScrollingRef.current) {
-            pinToBottom();
-          }
-        });
-      }
-
-      lastScrollHeightRef.current = currentScrollHeight;
-    }, [children, autoScroll, isFollowing, pinToBottom]);
+      if (autoScroll) checkForGrowth();
+    }, [children, autoScroll, isFollowing, checkForGrowth]);
 
     // Keep pinned to the bottom when content grows from async media (images,
     // syntax highlighting) that resizes after paint without a React re-render,
     // so it isn't covered by the [children] effect above.
     React.useEffect(() => {
       if (!autoScroll) return;
-      const viewport = viewportRef.current;
       const content = contentRef.current;
-      if (!viewport || !content || typeof ResizeObserver === 'undefined') return;
-
-      const observer = new ResizeObserver(() => {
-        // Mirror the [children] effect's guards, including isActivelyScrolling, so
-        // the re-pin doesn't fight a user scrolling up while content is still growing.
-        if (isFollowing && !userScrolledUpRef.current && !isActivelyScrollingRef.current) {
-          pinToBottom();
-        }
-      });
+      if (!content || typeof ResizeObserver === 'undefined') return;
+      const observer = new ResizeObserver(checkForGrowth);
       observer.observe(content);
       return () => observer.disconnect();
-    }, [autoScroll, isFollowing, pinToBottom]);
+    }, [autoScroll, checkForGrowth]);
 
     // Add scroll event listener
     React.useEffect(() => {
@@ -234,13 +214,19 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
       if (!viewport) return;
 
       viewport.addEventListener('scroll', handleScroll, { passive: true });
-      return () => {
-        viewport.removeEventListener('scroll', handleScroll);
-        if (scrollTimeoutRef.current) {
-          clearTimeout(scrollTimeoutRef.current);
-        }
-      };
+      return () => viewport.removeEventListener('scroll', handleScroll);
     }, [handleScroll]);
+
+    React.useEffect(() => {
+      return () => {
+        if (pinFrameRef.current !== null) cancelAnimationFrame(pinFrameRef.current);
+        if (scrollTimeoutRef.current !== null) clearTimeout(scrollTimeoutRef.current);
+        pinFrameRef.current = null;
+        scrollTimeoutRef.current = null;
+        isActivelyScrollingRef.current = false;
+        // Keep pending growth so StrictMode's effect replay can queue it again.
+      };
+    }, [autoScroll]);
 
     return (
       <ScrollAreaPrimitive.Root

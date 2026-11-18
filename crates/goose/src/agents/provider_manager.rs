@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use goose_providers::model::ModelConfig;
 use tracing::warn;
 
-use crate::agents::extension_manager::ExtensionManager;
+use crate::agents::StateMachineServices;
 use crate::config::Config;
 use crate::providers::base::Provider;
 use crate::providers::provider_registry::ProviderEntry;
@@ -21,12 +21,12 @@ pub struct ProviderManager {
     sessions: Mutex<HashMap<String, SessionSlot>>,
     /// Serves bridged platform extensions to ACP agents, which run their own tool
     /// loop and so never see goose's in-process tools.
-    extension_manager: std::sync::OnceLock<std::sync::Weak<ExtensionManager>>,
+    services: std::sync::OnceLock<std::sync::Weak<StateMachineServices>>,
 }
 
 impl ProviderManager {
-    pub fn set_extension_manager(&self, extension_manager: std::sync::Weak<ExtensionManager>) {
-        let _ = self.extension_manager.set(extension_manager);
+    pub fn set_services(&self, services: std::sync::Weak<StateMachineServices>) {
+        let _ = self.services.set(services);
     }
 
     pub async fn provider_for(&self, session: &Session) -> Result<Arc<dyn Provider>> {
@@ -48,15 +48,10 @@ impl ProviderManager {
             Some(&session.extension_data),
             Config::global(),
         );
-        let extensions = match self.extension_manager.get().and_then(|weak| weak.upgrade()) {
-            Some(extension_manager) => {
-                crate::acp::bridge_platform_extensions(
-                    &name,
-                    &session.id,
-                    extensions,
-                    &extension_manager,
-                )
-                .await
+        let extensions = match self.services.get().and_then(|weak| weak.upgrade()) {
+            Some(services) => {
+                crate::acp::bridge_platform_extensions(&name, &session.id, extensions, &services)
+                    .await
             }
             None => extensions,
         };

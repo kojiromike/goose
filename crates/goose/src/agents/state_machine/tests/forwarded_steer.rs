@@ -177,7 +177,7 @@ async fn a_forwarded_steer_survives_stopping_the_held_turn() -> Result<()> {
     assert_eq!(next_text().await?, "before");
     services
         .steer(&session.id, Message::user().with_text("stop merging"))
-        .await;
+        .await?;
     assert_eq!(next_text().await?, "stop merging");
 
     cancel.cancel();

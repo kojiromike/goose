@@ -1,5 +1,6 @@
 use crate::agents::extension::PlatformExtensionContext;
-use crate::agents::mcp_client::{Error, McpClientTrait};
+use crate::agents::mcp_client::Error;
+use crate::agents::platform_extensions::PlatformExtension;
 use crate::agents::platform_extensions::SessionDriver;
 use crate::agents::tool_execution::ToolCallContext;
 use crate::config::GooseMode;
@@ -13,8 +14,8 @@ use crate::session::{ExtensionState, StagedPromptState};
 use anyhow::Result;
 use async_trait::async_trait;
 use rmcp::model::{
-    CallToolResult, ContentBlock, Implementation, InitializeResult, JsonObject, ListToolsResult,
-    ServerCapabilities, Tool,
+    CallToolResult, ContentBlock, Implementation, InitializeResult, JsonObject, ServerCapabilities,
+    Tool,
 };
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
@@ -569,13 +570,8 @@ fn agent_visible_session_messages(conversation: &Conversation) -> Vec<Message> {
 }
 
 #[async_trait]
-impl McpClientTrait for OrchestratorClient {
-    async fn list_tools(
-        &self,
-        session_id: &str,
-        _next_cursor: Option<String>,
-        _cancel_token: CancellationToken,
-    ) -> Result<ListToolsResult, Error> {
+impl PlatformExtension for OrchestratorClient {
+    async fn list_tools(&self, session_id: &str) -> Result<Vec<Tool>, Error> {
         let mut tools = vec![
             Tool::new(
                 "list_sessions".to_string(),
@@ -615,12 +611,7 @@ impl McpClientTrait for OrchestratorClient {
             ),
         ]);
 
-        Ok(ListToolsResult {
-            tools,
-            next_cursor: None,
-            meta: None,
-            ..Default::default()
-        })
+        Ok(tools)
     }
 
     async fn call_tool(
@@ -813,22 +804,13 @@ mod tests {
         let client = client_for(Arc::clone(&session_manager), Some(user.clone()));
 
         assert!(client.authorize_start_agent(&user.id).await.is_ok());
-        let user_tools = client
-            .list_tools(&user.id, None, CancellationToken::default())
-            .await
-            .unwrap();
-        assert!(user_tools
-            .tools
-            .iter()
-            .any(|tool| tool.name == "start_agent"));
+        let user_tools = client.list_tools(&user.id).await.unwrap();
+        assert!(user_tools.iter().any(|tool| tool.name == "start_agent"));
 
         for session_id in [&subagent.id, "missing-session"] {
-            let tools = client
-                .list_tools(session_id, None, CancellationToken::default())
-                .await
-                .unwrap();
-            assert!(tools.tools.iter().all(|tool| tool.name != "start_agent"));
-            assert!(tools.tools.iter().any(|tool| tool.name == "send_message"));
+            let tools = client.list_tools(session_id).await.unwrap();
+            assert!(tools.iter().all(|tool| tool.name != "start_agent"));
+            assert!(tools.iter().any(|tool| tool.name == "send_message"));
         }
 
         assert!(client

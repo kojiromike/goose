@@ -10,6 +10,7 @@ export type AddSessionExtensionRequest_unstable = {
 };
 
 export type GooseExtension = {
+    type: 'builtin';
     name: string;
     description?: string | null;
     display_name?: string | null;
@@ -19,8 +20,8 @@ export type GooseExtension = {
      * Tool allowlist for this extension. Omit this field to allow all tools.
      */
     available_tools?: Array<string> | null;
-    type: 'builtin';
 } | {
+    type: 'platform';
     name: string;
     description?: string | null;
     display_name?: string | null;
@@ -29,8 +30,8 @@ export type GooseExtension = {
      * Tool allowlist for this extension. Omit this field to allow all tools.
      */
     available_tools?: Array<string> | null;
-    type: 'platform';
 } | {
+    type: 'mcp';
     server: McpServer;
     envKeys?: Array<string>;
     description?: string | null;
@@ -53,7 +54,6 @@ export type GooseExtension = {
      * Tool allowlist for this extension. Omit this field to allow all tools.
      */
     available_tools?: Array<string> | null;
-    type: 'mcp';
 };
 
 /**
@@ -1867,6 +1867,7 @@ export type RecipeDto = {
 };
 
 export type RecipeExtensionDto = {
+    type: 'builtin';
     name: string;
     description?: string | null;
     display_name?: string | null;
@@ -1876,8 +1877,8 @@ export type RecipeExtensionDto = {
      * Tool allowlist for this extension. Omit this field to allow all tools.
      */
     available_tools?: Array<string> | null;
-    type: 'builtin';
 } | {
+    type: 'platform';
     name: string;
     description?: string | null;
     display_name?: string | null;
@@ -1886,8 +1887,8 @@ export type RecipeExtensionDto = {
      * Tool allowlist for this extension. Omit this field to allow all tools.
      */
     available_tools?: Array<string> | null;
-    type: 'platform';
 } | {
+    type: 'stdio';
     name: string;
     description?: string | null;
     cmd: string;
@@ -1903,8 +1904,8 @@ export type RecipeExtensionDto = {
      * Tool allowlist for this extension. Omit this field to allow all tools.
      */
     available_tools?: Array<string> | null;
-    type: 'stdio';
 } | {
+    type: 'streamable_http';
     name: string;
     description?: string | null;
     uri: string;
@@ -1934,7 +1935,6 @@ export type RecipeExtensionDto = {
      * Tool allowlist for this extension. Omit this field to allow all tools.
      */
     available_tools?: Array<string> | null;
-    type: 'streamable_http';
 };
 
 export type RecipeSettingsDto = {
@@ -1985,8 +1985,8 @@ export type RecipeRetryConfigDto = {
 };
 
 export type RecipeSuccessCheckDto = {
-    command: string;
     type: 'shell';
+    command: string;
 };
 
 export type EncodeRecipeResponse_unstable = {
@@ -2340,11 +2340,11 @@ export type SourceType = 'skill' | 'builtinSkill' | 'recipe' | 'subrecipe' | 'ag
 export type SourceScope = {
     scope: 'global';
 } | {
-    projectDir: string;
     scope: 'projectDir';
+    projectDir: string;
 } | {
-    projectId: string;
     scope: 'projectId';
+    projectId: string;
 };
 
 export type CreateSourceResponse_unstable = {
@@ -2753,17 +2753,17 @@ export type LocalInferenceModelSettingsDto = {
 export type LocalInferenceSamplingConfig = {
     type: 'Greedy';
 } | {
+    type: 'Temperature';
     temperature: number;
     topK: number;
     topP: number;
     minP: number;
     seed?: number | null;
-    type: 'Temperature';
 } | {
+    type: 'MirostatV2';
     tau: number;
     eta: number;
     seed?: number | null;
-    type: 'MirostatV2';
 };
 
 export type LocalInferenceToolCallingMode = 'auto' | 'force_native' | 'force_emulated';
@@ -2771,11 +2771,11 @@ export type LocalInferenceToolCallingMode = 'auto' | 'force_native' | 'force_emu
 export type LocalInferenceChatTemplate = {
     type: 'embedded';
 } | {
-    name: string;
     type: 'builtin';
+    name: string;
 } | {
-    template: string;
     type: 'custom_inline';
+    template: string;
 };
 
 /**
@@ -2968,11 +2968,11 @@ export type SessionUsageUpdate = {
 };
 
 export type StatusMessage = {
-    message: string;
     type: 'notice';
-} | {
     message: string;
+} | {
     type: 'progress';
+    message: string;
 };
 
 /**

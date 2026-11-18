@@ -29,7 +29,7 @@ pub struct ResponsesApiResponse {
     // Not every OpenAI-compatible provider echoes created_at back; the value
     // is carried but never used, so tolerate its absence.
     #[serde(default)]
-    pub created_at: i64,
+    pub created_at: f64,
     pub status: String,
     pub model: String,
     pub output: Vec<ResponseOutputItem>,
@@ -187,9 +187,9 @@ fn response_reached_output_token_limit(
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ResponseUsage {
-    pub input_tokens: i32,
-    pub output_tokens: i32,
-    pub total_tokens: i32,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub total_tokens: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub input_tokens_details: Option<InputTokensDetails>,
 }
@@ -197,9 +197,9 @@ pub struct ResponseUsage {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InputTokensDetails {
     #[serde(default)]
-    pub cached_tokens: Option<i32>,
+    pub cached_tokens: Option<i64>,
     #[serde(default)]
-    pub cache_write_tokens: Option<i32>,
+    pub cache_write_tokens: Option<i64>,
 }
 
 impl ResponseUsage {
@@ -357,6 +357,25 @@ fn is_known_responses_stream_event_type(event_type: &str) -> bool {
     )
 }
 
+fn responses_stream_error(error: &Value) -> ProviderError {
+    let details = format!("Responses API error: {error}");
+    match (
+        error.get("type").and_then(Value::as_str),
+        error.get("code").and_then(Value::as_str),
+    ) {
+        (Some("service_unavailable_error" | "server_error"), _)
+        | (_, Some("server_is_overloaded" | "server_error")) => ProviderError::ServerError(details),
+        (Some("rate_limit_error"), _) | (_, Some("rate_limit_exceeded")) => {
+            ProviderError::RateLimitExceeded {
+                details,
+                retry_delay: None,
+            }
+        }
+        (_, Some("context_length_exceeded")) => ProviderError::ContextLengthExceeded(details),
+        _ => ProviderError::RequestFailed(details),
+    }
+}
+
 fn parse_responses_stream_event(data_line: &str) -> anyhow::Result<Option<ResponsesStreamEvent>> {
     let raw_event: Value = serde_json::from_str(data_line).map_err(|e| {
         ProviderError::stream_decode_error(format!(
@@ -365,7 +384,23 @@ fn parse_responses_stream_event(data_line: &str) -> anyhow::Result<Option<Respon
         ))
     })?;
 
-    let Some(event_type) = raw_event.get("type").and_then(Value::as_str) else {
+    let event_type = raw_event.get("type").and_then(Value::as_str);
+    let error = raw_event
+        .get("error")
+        .filter(|error| !error.is_null())
+        .or_else(|| {
+            (event_type == Some("response.failed"))
+                .then(|| raw_event.pointer("/response/error"))
+                .flatten()
+                .filter(|error| !error.is_null())
+        });
+    if let Some(error) = error
+        .or_else(|| matches!(event_type, Some("error" | "response.failed")).then_some(&raw_event))
+    {
+        return Err(responses_stream_error(error).into());
+    }
+
+    let Some(event_type) = event_type else {
         return Ok(None);
     };
 
@@ -387,7 +422,7 @@ pub struct ResponseMetadata {
     pub id: String,
     pub object: String,
     #[serde(default)]
-    pub created_at: i64,
+    pub created_at: f64,
     pub status: String,
     pub model: String,
     #[serde(default)]
@@ -1358,6 +1393,12 @@ where
             }
         }
 
+        if final_usage.is_none() {
+            Err(ProviderError::stream_decode_error(
+                "Responses stream ended without a completion event",
+            ))?;
+        }
+
         // Process final output items and yield usage data
         let content = process_streaming_output_items(output_items, is_text_response)?;
 
@@ -1556,7 +1597,7 @@ mod tests {
     }
 
     // OpenAI-compatible providers do not all echo `created_at` back on
-    // `response.*` events; a strict i64 there terminates the whole session on
+    // `response.*` events; a required field there terminates the whole session on
     // the first event. The timestamp is carried but never used, so a missing
     // field must degrade to the default instead of killing the stream.
     #[tokio::test]
@@ -1586,6 +1627,87 @@ mod tests {
         }
 
         assert_eq!(text_parts.concat(), "Hello world");
+
+        Ok(())
+    }
+
+    fn created_at_cases() -> Vec<(Option<Value>, f64)> {
+        vec![
+            (Some(json!(1741476542)), 1741476542.0),
+            (Some(json!(1741476542.0)), 1741476542.0),
+            (Some(json!(1741476542.25)), 1741476542.25),
+            (None, 0.0),
+        ]
+    }
+
+    fn response_json(created_at: Option<Value>) -> Value {
+        let mut response = json!({
+            "id": "resp_1",
+            "object": "response",
+            "status": "completed",
+            "model": "gpt-5",
+            "output": [],
+        });
+        if let Some(created_at) = created_at {
+            response["created_at"] = created_at;
+        }
+        response
+    }
+
+    #[test]
+    fn test_responses_api_response_decodes_numeric_created_at() -> anyhow::Result<()> {
+        for (created_at, expected) in created_at_cases() {
+            let response: ResponsesApiResponse =
+                serde_json::from_value(response_json(created_at.clone()))?;
+            assert_eq!(
+                serde_json::to_value(&response)?["created_at"].as_f64(),
+                Some(expected),
+                "created_at: {created_at:?}"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_response_metadata_decodes_numeric_created_at() -> anyhow::Result<()> {
+        for (created_at, expected) in created_at_cases() {
+            let metadata: ResponseMetadata =
+                serde_json::from_value(response_json(created_at.clone()))?;
+            assert_eq!(
+                serde_json::to_value(&metadata)?["created_at"].as_f64(),
+                Some(expected),
+                "created_at: {created_at:?}"
+            );
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_responses_stream_continues_after_decimal_created_at() -> anyhow::Result<()> {
+        let lines = vec![
+            r#"data: {"type":"response.created","sequence_number":1,"response":{"id":"resp_1","object":"response","created_at":1741476542.25,"status":"in_progress","model":"gpt-5.2-pro","output":[]}}"#.to_string(),
+            r#"data: {"type":"response.output_text.delta","sequence_number":2,"item_id":"msg_1","output_index":0,"content_index":0,"delta":"Hello"}"#.to_string(),
+            r#"data: {"type":"response.completed","sequence_number":3,"response":{"id":"resp_1","object":"response","created_at":1741476542.0,"status":"completed","model":"gpt-5.2-pro","output":[],"usage":{"input_tokens":10,"output_tokens":1,"total_tokens":11}}}"#.to_string(),
+            "data: [DONE]".to_string(),
+        ];
+
+        let response_stream = tokio_stream::iter(lines.into_iter().map(Ok));
+        let messages = responses_api_to_streaming_message(response_stream);
+        futures::pin_mut!(messages);
+
+        let mut text_parts = Vec::new();
+        while let Some(item) = messages.next().await {
+            let (message, _) = item?;
+            if let Some(msg) = message {
+                for content in msg.content {
+                    if let MessageContentBlock::Text(text) = content {
+                        text_parts.push(text.text.clone());
+                    }
+                }
+            }
+        }
+
+        assert_eq!(text_parts.concat(), "Hello");
 
         Ok(())
     }
@@ -1948,7 +2070,7 @@ mod tests {
         let response = ResponsesApiResponse {
             id: "resp_1".to_string(),
             object: "response".to_string(),
-            created_at: 0,
+            created_at: 0.0,
             status: "completed".to_string(),
             model: "gpt-5.3-codex".to_string(),
             output: vec![ResponseOutputItem::FunctionCall {
@@ -1975,7 +2097,7 @@ mod tests {
         let response = ResponsesApiResponse {
             id: "resp_1".to_string(),
             object: "response".to_string(),
-            created_at: 0,
+            created_at: 0.0,
             status: "completed".to_string(),
             model: "gpt-5.3-codex".to_string(),
             output: vec![
@@ -2027,7 +2149,7 @@ mod tests {
         let response = ResponsesApiResponse {
             id: "resp_1".to_string(),
             object: "response".to_string(),
-            created_at: 0,
+            created_at: 0.0,
             status: "completed".to_string(),
             model: "gpt-5.3-codex".to_string(),
             output: vec![
@@ -2072,7 +2194,7 @@ mod tests {
             ResponsesApiResponse {
                 id: "resp_1".to_string(),
                 object: "response".to_string(),
-                created_at: 0,
+                created_at: 0.0,
                 status: "completed".to_string(),
                 model: "gpt-5.3-codex".to_string(),
                 output: vec![ResponseOutputItem::Message {
@@ -2091,7 +2213,7 @@ mod tests {
             ResponsesApiResponse {
                 id: "resp_2".to_string(),
                 object: "response".to_string(),
-                created_at: 0,
+                created_at: 0.0,
                 status: "completed".to_string(),
                 model: "gpt-5.3-codex".to_string(),
                 output: vec![ResponseOutputItem::FunctionCall {
@@ -3067,6 +3189,7 @@ mod tests {
                     "delta": "cannot\u{E0042}help"
                 })
             ),
+            r#"data: {"type":"response.completed","sequence_number":6,"response":{"id":"resp_1","object":"response","created_at":0,"status":"completed","model":"gpt-5.5","output":[]}}"#.to_string(),
             "data: [DONE]".to_string(),
         ];
         let response_stream = tokio_stream::iter(lines.into_iter().map(Ok));

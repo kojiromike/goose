@@ -951,14 +951,12 @@ pub fn get_usage(usage: &Value) -> Usage {
     let input_tokens = usage
         .get("prompt_tokens")
         .and_then(|v| v.as_i64())
-        .or_else(|| usage.get("prompt_eval_count").and_then(|v| v.as_i64()))
-        .map(|v| v as i32);
+        .or_else(|| usage.get("prompt_eval_count").and_then(|v| v.as_i64()));
 
     let output_tokens = usage
         .get("completion_tokens")
         .and_then(|v| v.as_i64())
-        .or_else(|| usage.get("eval_count").and_then(|v| v.as_i64()))
-        .map(|v| v as i32);
+        .or_else(|| usage.get("eval_count").and_then(|v| v.as_i64()));
 
     let cache_read_input_tokens = usage
         .get("cache_read_input_tokens")
@@ -968,8 +966,7 @@ pub fn get_usage(usage: &Value) -> Usage {
                 .get("prompt_tokens_details")
                 .and_then(|d| d.get("cached_tokens"))
                 .and_then(|v| v.as_i64())
-        })
-        .map(|v| v as i32);
+        });
 
     let cache_write_input_tokens = usage
         .get("cache_creation_input_tokens")
@@ -979,13 +976,11 @@ pub fn get_usage(usage: &Value) -> Usage {
                 .get("prompt_tokens_details")
                 .and_then(|d| d.get("cache_write_tokens"))
                 .and_then(|v| v.as_i64())
-        })
-        .map(|v| v as i32);
+        });
 
     let total_tokens = usage
         .get("total_tokens")
         .and_then(|v| v.as_i64())
-        .map(|v| v as i32)
         .or_else(|| match (input_tokens, output_tokens) {
             (Some(input), Some(output)) => Some(input.saturating_add(output)),
             _ => None,
@@ -1832,6 +1827,10 @@ pub fn create_request_for_model_with_options(
 
     if !tools_spec.is_empty() {
         payload["tools"] = json!(tools_spec);
+        // Some OpenAI-compatible backends default to "none" when tools are sent
+        // without tool_choice, so the model never calls them. "auto" is the
+        // OpenAI default, and a request_params override below still wins.
+        payload["tool_choice"] = json!("auto");
     }
 
     if !is_reasoning_model && !supports_xai_effort {
@@ -3345,6 +3344,69 @@ mod tests {
         Ok(())
     }
 
+    fn tool_choice_test_tool() -> Tool {
+        Tool::new(
+            "test_tool",
+            "A test tool",
+            object!({
+                "type": "object",
+                "properties": {"input": {"type": "string"}},
+                "required": ["input"]
+            }),
+        )
+    }
+
+    #[test]
+    fn test_create_request_sets_tool_choice_auto_when_tools_present() -> anyhow::Result<()> {
+        let request = create_request(
+            &test_model_config("gpt-4o"),
+            "system",
+            &[],
+            &[tool_choice_test_tool()],
+            &ImageFormat::OpenAi,
+            false,
+        )?;
+        assert_eq!(request["tool_choice"], "auto");
+        assert_eq!(request["tools"].as_array().map(Vec::len), Some(1));
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_request_omits_tool_choice_without_tools() -> anyhow::Result<()> {
+        let request = create_request(
+            &test_model_config("gpt-4o"),
+            "system",
+            &[],
+            &[],
+            &ImageFormat::OpenAi,
+            false,
+        )?;
+        let obj = request.as_object().unwrap();
+        assert!(!obj.contains_key("tools"));
+        assert!(
+            !obj.contains_key("tool_choice"),
+            "some backends reject tool_choice on a request that has no tools"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_request_params_can_override_tool_choice() -> anyhow::Result<()> {
+        let model_config = test_model_config("gpt-4o").with_merged_request_params(
+            std::collections::HashMap::from([("tool_choice".to_string(), json!("required"))]),
+        );
+        let request = create_request(
+            &model_config,
+            "system",
+            &[],
+            &[tool_choice_test_tool()],
+            &ImageFormat::OpenAi,
+            false,
+        )?;
+        assert_eq!(request["tool_choice"], "required");
+        Ok(())
+    }
+
     #[test]
     fn test_create_request_omits_max_tokens_when_unset() -> anyhow::Result<()> {
         // Unknown models on OpenAI-compatible local providers (llama_swap,
@@ -3719,9 +3781,9 @@ mod tests {
 
     fn assert_usage_yielded_once(
         result: &StreamingUsageTestResult,
-        expected_input: i32,
-        expected_output: i32,
-        expected_total: i32,
+        expected_input: i64,
+        expected_output: i64,
+        expected_total: i64,
     ) {
         assert_eq!(
             result.usage_count, 1,

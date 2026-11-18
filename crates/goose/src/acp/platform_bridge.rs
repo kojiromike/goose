@@ -3,9 +3,9 @@
 //! An ACP agent runs its own tool loop and sees only the MCP servers named in
 //! `session/new`. Platform extensions live inside the goose process, so without
 //! this bridge the agent never sees them. Each bridged (session, extension) pair
-//! gets a loopback Streamable HTTP endpoint that forwards to that session's own
-//! `ExtensionManager`, so a bridged call is authorized and dispatched exactly like
-//! one from goose's own agent loop.
+//! gets a loopback Streamable HTTP endpoint that forwards to that session's tool
+//! snapshot, so a bridged call is authorized and dispatched exactly like one from
+//! goose's own agent loop.
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -34,8 +34,10 @@ use subtle::ConstantTimeEq;
 use tokio::task::JoinHandle;
 
 use crate::agents::extension::ExtensionConfig;
-use crate::agents::extension_manager::{CallRequest, ExtensionLease, ExtensionManager};
+use crate::agents::extension_manager::CallRequest;
 use crate::agents::platform_extensions::PLATFORM_EXTENSIONS;
+use crate::agents::tool_snapshot::ToolSnapshot;
+use crate::agents::StateMachineServices;
 use crate::config::extensions::name_to_key;
 
 const SECRET_HEADER: &str = "X-Secret-Key";
@@ -51,7 +53,7 @@ static BRIDGE: tokio::sync::Mutex<Option<Arc<PlatformBridge>>> =
 
 struct BridgedSession {
     token: String,
-    extension_manager: Weak<ExtensionManager>,
+    services: Weak<StateMachineServices>,
 }
 
 struct PlatformBridge {
@@ -64,7 +66,7 @@ struct PlatformBridge {
 struct BridgeTarget {
     session_id: String,
     extension: String,
-    extension_manager: Arc<ExtensionManager>,
+    services: Arc<StateMachineServices>,
 }
 
 /// Replace each bridged platform extension with a Streamable HTTP extension that
@@ -74,7 +76,7 @@ pub async fn bridge_platform_extensions(
     provider_name: &str,
     session_id: &str,
     extensions: Vec<ExtensionConfig>,
-    extension_manager: &Arc<ExtensionManager>,
+    services: &Arc<StateMachineServices>,
 ) -> Vec<ExtensionConfig> {
     if !extensions.iter().any(is_bridged) || !is_acp_provider(provider_name).await {
         return extensions;
@@ -87,7 +89,7 @@ pub async fn bridge_platform_extensions(
             return extensions;
         }
     };
-    let token = bridge.register(session_id, extension_manager);
+    let token = bridge.register(session_id, services);
 
     extensions
         .into_iter()
@@ -101,7 +103,10 @@ pub async fn bridge_platform_extensions(
                     description.clone(),
                     TOOL_TIMEOUT_SECS,
                 );
-                if let ExtensionConfig::StreamableHttp { headers, .. } = &mut bridged {
+                if let ExtensionConfig::External(
+                    goose_agent::extension::ExtensionConfig::StreamableHttp { headers, .. },
+                ) = &mut bridged
+                {
                     headers.insert(SECRET_HEADER.to_string(), token.clone());
                 }
                 bridged
@@ -173,12 +178,11 @@ impl PlatformBridge {
         Ok(bridge)
     }
 
-    /// Point `session_id` at `extension_manager`, keeping its token stable so an ACP
-    /// child that already holds it keeps working when the session's agent is rebuilt.
-    fn register(&self, session_id: &str, extension_manager: &Arc<ExtensionManager>) -> String {
+    /// Point `session_id` at `services`, keeping its token stable so an ACP child that
+    /// already holds it keeps working when the session's provider is rebuilt.
+    fn register(&self, session_id: &str, services: &Arc<StateMachineServices>) -> String {
         let mut sessions = self.sessions.lock().expect("bridge session lock poisoned");
-        sessions
-            .retain(|id, session| id == session_id || session.extension_manager.strong_count() > 0);
+        sessions.retain(|id, session| id == session_id || session.services.strong_count() > 0);
         let session = sessions
             .entry(session_id.to_string())
             .or_insert_with(|| BridgedSession {
@@ -187,9 +191,9 @@ impl PlatformBridge {
                     .take(TOKEN_LENGTH)
                     .map(char::from)
                     .collect(),
-                extension_manager: Weak::new(),
+                services: Weak::new(),
             });
-        session.extension_manager = Arc::downgrade(extension_manager);
+        session.services = Arc::downgrade(services);
         session.token.clone()
     }
 
@@ -223,14 +227,11 @@ impl PlatformBridge {
                 })
             })
             .ok_or(StatusCode::UNAUTHORIZED)?;
-        let extension_manager = session
-            .extension_manager
-            .upgrade()
-            .ok_or(StatusCode::NOT_FOUND)?;
+        let services = session.services.upgrade().ok_or(StatusCode::NOT_FOUND)?;
         Ok(BridgeTarget {
             session_id,
             extension,
-            extension_manager,
+            services,
         })
     }
 }
@@ -260,14 +261,14 @@ impl BridgeTarget {
             .ok_or_else(|| McpError::internal_error("request has no bridge target", None))
     }
 
-    async fn lease(&self) -> Result<ExtensionLease, McpError> {
-        self.extension_manager
-            .current_lease(&self.session_id)
+    async fn lease(&self) -> Result<ToolSnapshot, McpError> {
+        self.services
+            .current_tools(&self.session_id)
             .await
             .map_err(|error| McpError::internal_error(error.to_string(), None))
     }
 
-    async fn wait_until_loaded(&self) -> Result<ExtensionLease, McpError> {
+    async fn wait_until_loaded(&self) -> Result<ToolSnapshot, McpError> {
         let loaded = async {
             loop {
                 if let Ok(lease) = self.lease().await {
@@ -379,7 +380,12 @@ impl ServerHandler for BridgeHandler {
         let call = target
             .lease()
             .await?
-            .call(request, CallRequest::default(), context.ct.clone())
+            .call(
+                request,
+                CallRequest::default(),
+                context.ct.clone(),
+                &target.services,
+            )
             .await?;
         Ok(call.result.await?.into())
     }
@@ -403,10 +409,23 @@ mod tests {
         }
     }
 
-    async fn session_with_orchestrator(dir: &std::path::Path) -> (Arc<ExtensionManager>, String) {
-        let manager = Arc::new(ExtensionManager::with_data_dir(dir.to_path_buf()));
-        let session = manager
-            .get_context()
+    fn services_in(dir: &std::path::Path) -> Arc<StateMachineServices> {
+        StateMachineServices::with_config(crate::agents::StateMachineServicesConfig::new(
+            Arc::new(crate::session::SessionManager::new(dir.to_path_buf())),
+            Arc::new(crate::config::permission::PermissionManager::new(
+                dir.join("permissions"),
+            )),
+            None,
+            true,
+            crate::agents::GoosePlatform::GooseCli,
+        ))
+    }
+
+    async fn session_with_orchestrator(
+        dir: &std::path::Path,
+    ) -> (Arc<StateMachineServices>, String) {
+        let services = services_in(dir);
+        let session = services
             .session_manager
             .create_session(
                 dir.to_path_buf(),
@@ -416,11 +435,11 @@ mod tests {
             )
             .await
             .unwrap();
-        manager
-            .enable(&session.id, platform("orchestrator"))
+        services
+            .enable_extension(&session.id, platform("orchestrator"))
             .await
             .unwrap();
-        (manager, session.id)
+        (services, session.id)
     }
 
     fn bridged_config(configs: &[ExtensionConfig], name: &str) -> ExtensionConfig {
@@ -446,7 +465,9 @@ mod tests {
         .await;
         assert!(matches!(
             bridged_config(&configs, "orchestrator"),
-            ExtensionConfig::StreamableHttp { .. }
+            ExtensionConfig::External(
+                goose_agent::extension::ExtensionConfig::StreamableHttp { .. }
+            )
         ));
         assert!(matches!(
             bridged_config(&configs, "developer"),
@@ -456,25 +477,14 @@ mod tests {
         // The ACP agent is another process with its own state; sharing goose's
         // session store would let the bridged entry replace the session's own.
         let child_dir = tempfile::tempdir().unwrap();
-        let acp_child = Arc::new(ExtensionManager::with_data_dir(
-            child_dir.path().to_path_buf(),
-        ));
-        let child_session = acp_child
-            .get_context()
-            .session_manager
-            .create_session(
-                child_dir.path().to_path_buf(),
-                "acp child".to_string(),
-                SessionType::Hidden,
-                GooseMode::default(),
-            )
-            .await
-            .unwrap();
-        acp_child
-            .enable(&child_session.id, bridged_config(&configs, "orchestrator"))
-            .await
-            .unwrap();
-        let lease = acp_child.current_lease(&child_session.id).await.unwrap();
+        let acp_child = services_in(child_dir.path());
+        let child_set = crate::agents::extension_manager::ExtensionSet::new(
+            "acp-child",
+            Some(child_dir.path().to_path_buf()),
+            vec![bridged_config(&configs, "orchestrator")],
+        )
+        .unwrap();
+        let lease = acp_child.resolve_tools(&child_set).await;
         let tools: Vec<String> = lease
             .tools_for("orchestrator")
             .await
@@ -496,6 +506,7 @@ mod tests {
                     .with_arguments(arguments.as_object().unwrap().clone()),
                 CallRequest::default(),
                 CancellationToken::default(),
+                &acp_child,
             )
             .await
             .unwrap();
@@ -520,8 +531,11 @@ mod tests {
             &manager,
         )
         .await;
-        let ExtensionConfig::StreamableHttp { uri, headers, .. } =
-            bridged_config(&configs, "orchestrator")
+        let ExtensionConfig::External(goose_agent::extension::ExtensionConfig::StreamableHttp {
+            uri,
+            headers,
+            ..
+        }) = bridged_config(&configs, "orchestrator")
         else {
             panic!("orchestrator was not bridged");
         };

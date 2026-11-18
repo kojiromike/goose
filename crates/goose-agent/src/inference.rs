@@ -22,6 +22,7 @@ use crate::operation::{
     applied, messages_since_kickoff, not_applicable, trailing_error, Emitter, Inference,
     InferenceInput, Operation, OperationResult, CLIENT_LOG,
 };
+use crate::tool_call_state::add_error_response;
 use goose_provider_types::maybe_send::{MaybeSend, MaybeSync};
 
 pub struct PreparedInferenceRequest {
@@ -71,22 +72,6 @@ impl<S: MaybeSync> InferenceRequestPreparer<S> for IdentityInferenceRequestPrepa
 
 pub trait InferenceEffect: From<Message> + MaybeSend + 'static {
     fn record_usage(usage: ProviderUsage) -> Self;
-}
-
-pub const EMPTY_RESPONSE_MESSAGE: &str =
-    "The model returned an empty response. Please resend your message to continue.";
-const MAX_EMPTY_RESPONSE_RETRIES: usize = 3;
-const EMPTY_RESPONSE_NOTE_SCOPE: &str = "inference";
-const EMPTY_RESPONSE_NOTE: &str = "empty_response";
-
-/// The model's response stayed empty after retries. The fallback message is stored
-/// hidden so that operations owning the end of a turn (recipe retries, final output)
-/// can take over; when none does, it is revealed to the user.
-pub fn is_empty_response_marker(message: &Message) -> bool {
-    message
-        .metadata
-        .operation_note(EMPTY_RESPONSE_NOTE_SCOPE, EMPTY_RESPONSE_NOTE)
-        .is_some()
 }
 
 fn is_thinking(content: &MessageContent) -> bool {
@@ -176,14 +161,15 @@ pub fn chat_span(
     span
 }
 
-fn is_empty_response(message: &Message) -> bool {
-    message.content.iter().all(|content| match content {
-        MessageContent::Text(text) => text.text.trim().is_empty(),
-        MessageContent::Thinking(thinking) => {
-            thinking.thinking.trim().is_empty() && thinking.signature.is_empty()
-        }
-        _ => false,
-    })
+pub(crate) fn is_empty_response(message: &Message) -> bool {
+    !message.metadata.output_token_limit_reached
+        && message.content.iter().all(|content| match content {
+            MessageContent::Text(text) => text.text.trim().is_empty(),
+            MessageContent::Thinking(thinking) => {
+                thinking.thinking.trim().is_empty() && thinking.signature.is_empty()
+            }
+            _ => false,
+        })
 }
 
 pub fn ends_with_successful_tool_response(messages: &[Message]) -> bool {
@@ -237,6 +223,42 @@ pub fn record_chat_usage(span: &tracing::Span, usage: &ProviderUsage) {
     if let Some(id) = &usage.request_id {
         span.record("gen_ai.request.id", id.as_str());
     }
+}
+
+fn unadvertised_tool_responses(
+    reply: &Conversation,
+    tools: &[rmcp::model::Tool],
+) -> Option<Message> {
+    let mut available_tools = tools
+        .iter()
+        .map(|tool| tool.name.as_ref())
+        .collect::<Vec<_>>();
+    available_tools.sort_unstable();
+    available_tools.dedup();
+    let available_tools = available_tools.join(", ");
+    let mut tool_responses = Message::user();
+    for request in reply
+        .iter()
+        .filter(|message| message.role == rmcp::model::Role::Assistant)
+        .flat_map(|message| &message.content)
+        .filter_map(MessageContent::as_tool_request)
+        .filter(|request| !request.was_executed_externally())
+    {
+        let Ok(tool_call) = &request.tool_call else {
+            continue;
+        };
+        if !tools.iter().any(|tool| tool.name == tool_call.name) {
+            add_error_response(
+                &mut tool_responses,
+                request,
+                &format!(
+                    "Tool '{}' was not available in this request. Available tools: [{available_tools}].",
+                    tool_call.name
+                ),
+            );
+        }
+    }
+    (!tool_responses.content.is_empty()).then_some(tool_responses)
 }
 
 #[derive(Default)]
@@ -401,12 +423,21 @@ impl<'a, S: MaybeSync, E: InferenceEffect> InferenceRunner<'a, S, E> {
         emit.message(message);
     }
 
+    fn answer_unadvertised_tool_calls(&self, tools: &[rmcp::model::Tool], emit: &Emitter) {
+        let unadvertised = unadvertised_tool_responses(&self.output().accumulator, tools);
+        if let Some(tool_responses) = unadvertised {
+            self.emit_message(tool_responses, emit);
+        }
+    }
+
     fn error_outcome(
         &self,
         err: &ProviderError,
+        tools: &[rmcp::model::Tool],
         operation_logs: &mut Vec<String>,
         emit: &Emitter,
     ) -> Result<OperationResult<E>> {
+        self.answer_unadvertised_tool_calls(tools, emit);
         tracing::Span::current().record("error.type", err.telemetry_type());
         tracing::error!("LLM provider error: {err}");
         let mut message = Message::from_provider_error(err);
@@ -504,10 +535,6 @@ impl<S: MachineSession, E: InferenceEffect> Inference<S, E> for InferenceRunner<
             let conversation_for_provider = Conversation::new_unvalidated(
                 merge_consecutive_messages_for_request(fixed.messages().clone()),
             );
-            let successful_tool_response =
-                ends_with_successful_tool_response(conversation.messages());
-            let mut empty_responses = 0;
-            let empty_output = loop {
             let attempt_start = self.output().usage.len();
             let stream = self
                 .provider
@@ -521,7 +548,7 @@ impl<S: MachineSession, E: InferenceEffect> Inference<S, E> for InferenceRunner<
 
             let mut stream = match stream {
                 Ok(stream) => stream,
-                Err(err) => return self.error_outcome(&err, &mut operation_logs, emit),
+                Err(err) => return self.error_outcome(&err, &tools, &mut operation_logs, emit),
             };
 
             let requested_model = model_config.model_name.clone();
@@ -543,7 +570,7 @@ impl<S: MachineSession, E: InferenceEffect> Inference<S, E> for InferenceRunner<
             while let Some(result) = stream.next().await {
                 let (msg_opt, usage_opt) = match result {
                     Ok(chunk) => chunk,
-                    Err(err) => return self.error_outcome(&err, &mut operation_logs, emit),
+                    Err(err) => return self.error_outcome(&err, &tools, &mut operation_logs, emit),
                 };
                 if let Some(usage) = usage_opt {
                     record_chat_usage(&tracing::Span::current(), &usage);
@@ -571,55 +598,13 @@ impl<S: MachineSession, E: InferenceEffect> Inference<S, E> for InferenceRunner<
                 }
             }
 
-            let empty_output = {
-                let output = self.output();
-                !output
-                    .accumulator
-                    .iter()
-                    .any(|message| message.metadata.output_token_limit_reached)
-                    && output.accumulator.iter().all(is_empty_response)
-            };
-            if !empty_output || successful_tool_response || emit.cancel_token().is_cancelled() {
-                break empty_output;
+            let empty_output = self.output().accumulator.iter().all(is_empty_response);
+            if empty_output && !emit.cancel_token().is_cancelled() {
+                let mut message = Message::assistant();
+                attach_operation_logs(&mut message, &mut operation_logs);
+                self.output().accumulator = Conversation::new_unvalidated([message]);
             }
-            self.output().accumulator.clear();
-            if empty_responses < MAX_EMPTY_RESPONSE_RETRIES {
-                empty_responses += 1;
-                tracing::warn!(
-                    "Provider returned an empty response; retrying ({empty_responses}/{MAX_EMPTY_RESPONSE_RETRIES})"
-                );
-                continue;
-            }
-            let mut marker = Message::assistant()
-                .with_text(EMPTY_RESPONSE_MESSAGE)
-                .with_visibility(false, false);
-            attach_operation_logs(&mut marker, &mut operation_logs);
-            marker.metadata.set_operation_note(
-                EMPTY_RESPONSE_NOTE_SCOPE,
-                EMPTY_RESPONSE_NOTE,
-                serde_json::Value::Bool(true),
-            );
-            self.output().accumulator.push(marker);
-            return applied(self.take_output());
-            };
-
-            if empty_output && successful_tool_response {
-                let message = {
-                    let mut output = self.output();
-                    let mut message = output
-                        .accumulator
-                        .last()
-                        .cloned()
-                        .unwrap_or_else(Message::assistant);
-                    message.content.clear();
-                    message.metadata.user_visible = false;
-                    message.metadata.agent_visible = true;
-                    attach_operation_logs(&mut message, &mut operation_logs);
-                    output.accumulator.clear();
-                    message
-                };
-                self.emit_message(message, emit);
-            }
+            self.answer_unadvertised_tool_calls(&tools, emit);
             applied(self.take_output())
         }
         .instrument(span)

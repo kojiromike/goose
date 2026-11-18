@@ -3,6 +3,7 @@ pub mod container;
 pub mod context_report;
 pub mod execute_commands;
 pub mod extension;
+pub mod extension_config;
 pub mod extension_malware_check;
 pub mod extension_manager;
 pub mod final_output_tool;
@@ -20,6 +21,7 @@ pub mod retry;
 #[cfg(feature = "scheduler")]
 mod schedule_tool;
 mod services;
+mod session_hooks;
 mod session_runtime;
 pub mod state_machine;
 mod state_machine_builder;
@@ -29,6 +31,7 @@ pub(crate) mod subagent_task_config;
 mod tool_confirmation_coordinator;
 pub mod tool_execution;
 mod tool_schema_normalize;
+pub mod tool_snapshot;
 pub mod types;
 pub mod validate_extensions;
 

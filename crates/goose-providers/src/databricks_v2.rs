@@ -1,4 +1,7 @@
-use crate::formats::anthropic::{AnthropicFormatOptions, ANTHROPIC_PROVIDER_NAME};
+use crate::anthropic::beta_header_value;
+use crate::formats::anthropic::{
+    block_binding_behavior, AnthropicFormatOptions, PrefixMismatchBehavior, ANTHROPIC_PROVIDER_NAME,
+};
 use crate::formats::openai::{self, extract_reasoning_effort, is_openai_responses_model};
 use crate::http_status::{read_error_body, read_json_response};
 use crate::images::ImageFormat;
@@ -18,7 +21,7 @@ use tokio_util::io::StreamReader;
 use crate::api_client::{ApiClient, AuthMethod, TlsConfig};
 use crate::base::{ConfigKey, MessageStream, Provider, ProviderMetadata};
 const DEFAULT_PROVIDER_TIMEOUT_SECS: u64 = 600;
-use crate::conversation::message::Message;
+use crate::conversation::message::{Message, MessageContentBlock};
 use crate::databricks_auth::{
     DatabricksAuth, DatabricksAuthProvider, DatabricksOauthTokenProvider, DatabricksRefreshHook,
     DatabricksTokenResolver,
@@ -36,6 +39,7 @@ use crate::retry::{
 };
 use crate::thinking::ThinkingEffort;
 use rmcp::model::Tool;
+use uuid::Uuid;
 
 const DATABRICKS_V2_PROVIDER_NAME: &str = "databricks_v2";
 const DATABRICKS_V2_DEFAULT_GATEWAY_PATH: &str = "ai-gateway";
@@ -106,6 +110,11 @@ pub struct DatabricksV2Provider {
     refresh_hook: Option<DatabricksRefreshHook>,
     #[serde(skip)]
     gateway_path: String,
+    /// Models that rejected a replayed thinking block as bound to a different
+    /// prefix. Only those get `block_binding`: older Claude models on the gateway
+    /// reject the field itself.
+    #[serde(skip)]
+    binding_models: Arc<Mutex<HashSet<String>>>,
 }
 
 impl DatabricksV2Provider {
@@ -153,6 +162,7 @@ impl DatabricksV2Provider {
             token_cache,
             refresh_hook,
             gateway_path: DATABRICKS_V2_DEFAULT_GATEWAY_PATH.to_string(),
+            binding_models: Arc::default(),
         })
     }
 
@@ -470,7 +480,71 @@ impl DatabricksV2Provider {
                 let _ = log.error(e);
             })?;
 
-        stream_openai_compat(response, log)
+        let stream = stream_openai_compat(response, log)?;
+        if Self::is_gemini_model(&model_config.model_name) {
+            return Ok(Self::with_unique_tool_call_ids(stream));
+        }
+        Ok(stream)
+    }
+
+    /// The gateway gives each Gemini tool call the function's name as its id, so two
+    /// `shell` calls, in one response or in two turns, share an id and goose loses all
+    /// but one of them. The gateway pairs tool results by whatever id we send back, so
+    /// give each call its own id.
+    fn with_unique_tool_call_ids(stream: MessageStream) -> MessageStream {
+        Box::pin(stream.map_ok(|(message, usage)| {
+            let message = message.map(|mut message| {
+                for content in &mut message.content {
+                    if let MessageContentBlock::ToolRequest(request) = content {
+                        request.id = format!("call_{}", Uuid::new_v4().simple());
+                    }
+                }
+                message
+            });
+            (message, usage)
+        }))
+    }
+
+    fn anthropic_messages_payload(
+        &self,
+        model_config: &ModelConfig,
+        system: &str,
+        messages: &[Message],
+        tools: &[Tool],
+        drop_mismatched_thinking: bool,
+    ) -> Result<Value> {
+        let options = if drop_mismatched_thinking {
+            AnthropicFormatOptions::native()
+        } else {
+            AnthropicFormatOptions::default()
+        };
+        let mut payload = anthropic::create_request(
+            ANTHROPIC_PROVIDER_NAME,
+            model_config,
+            system,
+            messages,
+            tools,
+            options,
+        )?;
+        payload["stream"] = Value::Bool(true);
+        Ok(payload)
+    }
+
+    async fn post_anthropic_messages(
+        &self,
+        model_config: &ModelConfig,
+        payload: &Value,
+    ) -> Result<reqwest::Response, ProviderError> {
+        let beta_header = beta_header_value(&self.api_client, model_config, payload);
+        let path = self.route_path(DatabricksV2Route::AnthropicMessages);
+        self.with_retry(|| async {
+            let mut request = self.api_client.request(&path).model_headers(model_config)?;
+            if let Some(beta) = &beta_header {
+                request = request.header("anthropic-beta", beta)?;
+            }
+            handle_status(request.streaming(true).response_post(payload).await?).await
+        })
+        .await
     }
 
     async fn stream_anthropic_messages(
@@ -480,32 +554,35 @@ impl DatabricksV2Provider {
         messages: &[Message],
         tools: &[Tool],
     ) -> Result<MessageStream, ProviderError> {
-        let mut payload = anthropic::create_request(
-            ANTHROPIC_PROVIDER_NAME,
-            model_config,
-            system,
-            messages,
-            tools,
-            AnthropicFormatOptions::default(),
-        )?;
-        payload["stream"] = Value::Bool(true);
+        let model = &model_config.model_name;
+        let binds = self.binding_models.lock().unwrap().contains(model);
+        let payload =
+            self.anthropic_messages_payload(model_config, system, messages, tools, binds)?;
         let mut log = start_log(model_config, &payload)?;
 
-        let response = self
-            .with_retry(|| async {
-                let resp = self
-                    .api_client
-                    .request(&self.route_path(DatabricksV2Route::AnthropicMessages))
-                    .model_headers(model_config)?
-                    .streaming(true)
-                    .response_post(&payload)
-                    .await?;
-                handle_status(resp).await
-            })
-            .await
-            .inspect_err(|e| {
-                let _ = log.error(e);
-            })?;
+        let response = match self.post_anthropic_messages(model_config, &payload).await {
+            Err(ProviderError::RequestFailed(message))
+                if !binds && Self::is_thinking_binding_error(&message) =>
+            {
+                let retry =
+                    self.anthropic_messages_payload(model_config, system, messages, tools, true)?;
+                if block_binding_behavior(&retry) != Some(PrefixMismatchBehavior::DropBlock) {
+                    Err(ProviderError::RequestFailed(message))
+                } else {
+                    let _ = log.error(&message);
+                    log = start_log(model_config, &retry)?;
+                    self.post_anthropic_messages(model_config, &retry)
+                        .await
+                        .inspect(|_| {
+                            self.binding_models.lock().unwrap().insert(model.clone());
+                        })
+                }
+            }
+            other => other,
+        }
+        .inspect_err(|e| {
+            let _ = log.error(e);
+        })?;
 
         let stream = response.bytes_stream().map_err(io::Error::other);
 
@@ -522,6 +599,10 @@ impl DatabricksV2Provider {
                 yield (message, usage);
             }
         }))
+    }
+
+    fn is_thinking_binding_error(message: &str) -> bool {
+        message.contains("bound to a different conversation")
     }
 }
 
@@ -882,7 +963,7 @@ mod tests {
     mod gateway_path {
         use super::*;
         use serde_json::json;
-        use wiremock::matchers::{body_partial_json, method, path};
+        use wiremock::matchers::{body_partial_json, header, method, path};
         use wiremock::{Mock, MockServer, ResponseTemplate};
 
         fn provider(host: String) -> DatabricksV2Provider {
@@ -1040,6 +1121,91 @@ mod tests {
                 )
                 .await
                 .expect("Claude model service should use the Anthropic Messages API");
+        }
+
+        const BINDING_ERROR: &str = r#"{"error_code":"BAD_REQUEST","message":"{\"message\":\"messages.1.content.0: Invalid `signature` in `thinking` block. The block is bound to a different conversation. Remove the block, or set `thinking.block_binding.prefix_mismatch_behavior` to \\\"drop_block\\\". That setting requires the `thinking-binding-controls-2026-08-01` value in the `anthropic-beta` header. The `system` prompt differs from the one this block was created with.\"}"}"#;
+
+        fn has_block_binding(request: &wiremock::Request) -> bool {
+            serde_json::from_slice::<Value>(&request.body)
+                .unwrap()
+                .pointer("/thinking/block_binding")
+                .is_some()
+        }
+
+        async fn complete_fable_5_2(provider: &DatabricksV2Provider) -> Result<(), ProviderError> {
+            provider
+                .complete(
+                    &ModelConfig::new("system.ai.claude-fable-5-2"),
+                    "system",
+                    &[Message::user().with_text("hi")],
+                    &[],
+                )
+                .await
+                .map(|_| ())
+        }
+
+        #[tokio::test]
+        async fn claude_drops_thinking_bound_to_another_prefix_and_remembers_the_model() {
+            let body = concat!(
+                r#"data: {"type":"message_start","message":{"id":"msg_1","role":"assistant","content":[],"usage":{"input_tokens":1,"output_tokens":0}}}"#,
+                "\n",
+                r#"data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":1}}"#,
+                "\n",
+                r#"data: {"type":"message_stop"}"#,
+                "\n",
+            );
+
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path("/ai-gateway/anthropic/v1/messages"))
+                .and(|request: &wiremock::Request| !has_block_binding(request))
+                .respond_with(ResponseTemplate::new(400).set_body_string(BINDING_ERROR))
+                .expect(1)
+                .mount(&server)
+                .await;
+            Mock::given(method("POST"))
+                .and(path("/ai-gateway/anthropic/v1/messages"))
+                .and(header(
+                    "anthropic-beta",
+                    "thinking-binding-controls-2026-08-01",
+                ))
+                .and(body_partial_json(json!({
+                    "thinking": {"block_binding": {"prefix_mismatch_behavior": "drop_block"}}
+                })))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .set_body_string(body)
+                        .append_header("content-type", "text/event-stream"),
+                )
+                .expect(2)
+                .mount(&server)
+                .await;
+
+            let provider = provider(server.uri());
+            complete_fable_5_2(&provider)
+                .await
+                .expect("the binding error should be retried with drop_block");
+            complete_fable_5_2(&provider)
+                .await
+                .expect("later requests should send drop_block up front");
+        }
+
+        #[tokio::test]
+        async fn claude_does_not_retry_other_bad_requests() {
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path("/ai-gateway/anthropic/v1/messages"))
+                .respond_with(ResponseTemplate::new(400).set_body_string(
+                    r#"{"message":"messages.1.content.0: Invalid `signature` in `thinking` block."}"#,
+                ))
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let error = complete_fable_5_2(&provider(server.uri()))
+                .await
+                .unwrap_err();
+            assert!(matches!(error, ProviderError::RequestFailed(_)), "{error}");
         }
 
         #[test_case::test_case("catalog.schema.goose-glm-5-3" ; "glm 5.3")]
@@ -1247,6 +1413,74 @@ mod tests {
                 json!({"include_thoughts": false, "thinking_level": "high"})
             );
             assert!(request.get("reasoning_effort").is_none());
+        }
+
+        #[test_case::test_case("system.ai.gemini-4-carbon", true ; "gemini")]
+        #[test_case::test_case("catalog.schema.goose-glm-5-3", false ; "not gemini")]
+        #[tokio::test]
+        async fn gemini_tool_calls_get_unique_ids(model: &str, rewritten: bool) {
+            // The gateway names each Gemini tool call after its function.
+            let call = |index: u32, command: &str, signature: &str| {
+                format!(
+                    r#"data: {{"model":"{model}","choices":[{{"delta":{{"role":"assistant","content":null,"tool_calls":[{{{signature}"id":"shell","function":{{"name":"shell","arguments":"{{\"command\":\"{command}\"}}"}},"type":"function","index":{index}}}]}},"finish_reason":null}}]}}"#
+                )
+            };
+            let last = format!(
+                r#"data: {{"model":"{model}","choices":[{{"delta":{{"role":"assistant","content":null}},"finish_reason":"stop"}}]}}"#
+            );
+            let body = format!(
+                "{}\n\n{}\n\n{last}\n\ndata: [DONE]\n\n",
+                call(0, "echo a", r#""thoughtSignature":"sig_a","#),
+                call(1, "echo b", "")
+            );
+
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path("/ai-gateway/mlflow/v1/chat/completions"))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .set_body_string(body)
+                        .append_header("content-type", "text/event-stream"),
+                )
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let (message, _) = provider(server.uri())
+                .complete(&ModelConfig::new(model), "system", &[], &[])
+                .await
+                .expect("tool calls should stream");
+
+            let requests: Vec<_> = message
+                .content
+                .iter()
+                .filter_map(|content| content.as_tool_request())
+                .collect();
+            assert_eq!(requests.len(), 2);
+            let commands: Vec<_> = requests
+                .iter()
+                .map(|request| {
+                    request
+                        .tool_call
+                        .as_ref()
+                        .unwrap()
+                        .arguments
+                        .as_ref()
+                        .unwrap()["command"]
+                        .clone()
+                })
+                .collect();
+            assert_eq!(commands, vec![json!("echo a"), json!("echo b")]);
+            assert_eq!(
+                requests[0].metadata.as_ref().unwrap()["thoughtSignature"],
+                "sig_a"
+            );
+            if rewritten {
+                assert_ne!(requests[0].id, requests[1].id);
+                assert!(requests.iter().all(|request| request.id != "shell"));
+            } else {
+                assert!(requests.iter().all(|request| request.id == "shell"));
+            }
         }
 
         #[tokio::test]

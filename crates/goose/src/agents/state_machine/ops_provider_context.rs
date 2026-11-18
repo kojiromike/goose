@@ -6,10 +6,12 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use goose_providers::base::Provider;
 
-use crate::agents::execute_commands::{stale_provider_context_message, PASSTHROUGH_COMMAND};
+use crate::agents::execute_commands::{
+    is_passthrough_command, stale_provider_context_message, PASSTHROUGH_COMMAND,
+};
 use crate::agents::state_machine::{
-    messages_since_kickoff, not_applicable, yielded_with, ConversationEffect, Emitter, GooseEffect,
-    Operation, OperationResult, SlashCommand,
+    messages_since_kickoff, not_applicable, yielded_with, Command, ConversationEffect, Emitter,
+    GooseEffect, Operation, OperationResult, SlashCommandOperation,
 };
 use crate::agents::AgentEvent;
 use crate::conversation::message::Message;
@@ -119,19 +121,52 @@ impl Operation<Session, GooseEffect> for ProviderContextOperation {
         "provider_context"
     }
 
-    async fn run_command(
+    async fn commands(&self, _session: &Session) -> Result<Vec<Command<'_, Session, GooseEffect>>> {
+        let mut commands = vec![Command::new(
+            PASSTHROUGH_COMMAND,
+            "Send /<command> to the underlying agent instead of goose",
+            |call| Box::pin(async move { Self::passthrough_usage(call.conversation, call.emit) }),
+        )];
+        if self.provider.manages_own_context() {
+            commands.push(Command::new(
+                "clear",
+                "Clear the conversation history",
+                move |call| Box::pin(self.clear(call.session, call.conversation, call.emit)),
+            ));
+        }
+        Ok(commands)
+    }
+}
+
+/// Leaves a prompt rewritten from `/acp <command>` to the agent: goose must
+/// not dispatch the bare command it now reads as.
+pub struct PassthroughSkippingSlashCommand<'a> {
+    inner: SlashCommandOperation<'a, Session, GooseEffect>,
+}
+
+impl<'a> PassthroughSkippingSlashCommand<'a> {
+    pub fn new(inner: SlashCommandOperation<'a, Session, GooseEffect>) -> Self {
+        Self { inner }
+    }
+}
+
+#[async_trait]
+impl Operation<Session, GooseEffect> for PassthroughSkippingSlashCommand<'_> {
+    fn name(&self) -> &'static str {
+        self.inner.name()
+    }
+
+    async fn run(
         &self,
-        command: &SlashCommand<'_>,
         session: &Session,
         conversation: &Conversation,
         emit: &Emitter,
     ) -> Result<OperationResult<GooseEffect>> {
-        match command.command {
-            PASSTHROUGH_COMMAND => Self::passthrough_usage(conversation, emit),
-            "clear" if self.provider.manages_own_context() => {
-                self.clear(session, conversation, emit).await
+        if let [kickoff] = messages_since_kickoff(conversation)? {
+            if is_passthrough_command(kickoff) {
+                return not_applicable();
             }
-            _ => not_applicable(),
         }
+        self.inner.run(session, conversation, emit).await
     }
 }

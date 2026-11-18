@@ -5,7 +5,8 @@ mod shell_output_streaming;
 mod shell_process;
 pub mod tree;
 
-use crate::agents::mcp_client::{Error, McpClientTrait};
+use crate::agents::mcp_client::Error;
+use crate::agents::platform_extensions::PlatformExtension;
 use crate::agents::ToolCallContext;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -14,7 +15,7 @@ use image::{ImageReadParams, ImageTool};
 use indoc::indoc;
 use rmcp::model::{
     Annotations, CallToolResult, ContentBlock, Implementation, InitializeResult, JsonObject,
-    ListToolsResult, ServerCapabilities, TextContent, Tool, ToolAnnotations,
+    ServerCapabilities, TextContent, Tool, ToolAnnotations,
 };
 use schemars::{schema_for, JsonSchema};
 use serde_json::Value;
@@ -186,19 +187,9 @@ impl DeveloperClient {
 }
 
 #[async_trait]
-impl McpClientTrait for DeveloperClient {
-    async fn list_tools(
-        &self,
-        _session_id: &str,
-        _next_cursor: Option<String>,
-        _cancellation_token: CancellationToken,
-    ) -> Result<ListToolsResult, Error> {
-        Ok(ListToolsResult {
-            tools: Self::get_tools(),
-            next_cursor: None,
-            meta: None,
-            ..Default::default()
-        })
+impl PlatformExtension for DeveloperClient {
+    async fn list_tools(&self, _session_id: &str) -> Result<Vec<Tool>, Error> {
+        Ok(Self::get_tools())
     }
 
     async fn call_tool(
@@ -363,6 +354,28 @@ mod tests {
 
         assert_eq!(result.is_error, Some(false));
         assert_eq!(first_text(&result), "session-789");
+    }
+
+    #[cfg(not(windows))]
+    #[tokio::test]
+    async fn developer_client_sets_agent_environment_for_shell_tool() {
+        let client = DeveloperClient::new().unwrap();
+        let ctx = ToolCallContext::new("session".to_owned(), None, None);
+
+        let result = client
+            .call_tool(
+                &ctx,
+                "shell",
+                Some(object!({
+                    "command": "printf '%s %s' \"$AGENT\" \"$GOOSE_TERMINAL\""
+                })),
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result.is_error, Some(false));
+        assert_eq!(first_text(&result), "goose 1");
     }
 
     #[cfg(not(windows))]

@@ -56,8 +56,6 @@ fn mode_mapping() -> HashMap<GooseMode, Vec<String>> {
         (GooseMode::Approve, vec!["default".to_string()]),
         // acceptEdits auto-accepts file edits but still prompts for risky ops.
         (GooseMode::SmartApprove, vec!["acceptEdits".to_string()]),
-        // Plan mode disables tool execution, aligning with chat-only intent.
-        (GooseMode::Chat, vec!["plan".to_string()]),
     ])
 }
 

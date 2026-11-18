@@ -1711,6 +1711,7 @@ export default function ChatInput({
               latestInference={latestInference}
               onModelChanged={setModelOverride}
               sessionLoaded={sessionLoaded}
+              disabled={isSubmissionBusy || queueProcessingBlocked}
             />
           </div>
         </Tooltip>

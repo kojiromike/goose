@@ -1382,6 +1382,18 @@
   "filePreview.tooLarge": {
     "defaultMessage": "यह फ़ाइल पूर्वावलोकन के लिए बहुत बड़ी है।"
   },
+  "finalOutputLine.notCollected": {
+    "defaultMessage": "संरचित परिणाम एकत्र नहीं किया गया"
+  },
+  "finalOutputLine.rejected": {
+    "defaultMessage": "संरचित परिणाम अस्वीकार कर दिया गया"
+  },
+  "finalOutputLine.returned": {
+    "defaultMessage": "संरचित परिणाम लौटाया गया"
+  },
+  "finalOutputLine.returning": {
+    "defaultMessage": "संरचित परिणाम लौटाया जा रहा है…"
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "{branch} पर स्विच नहीं किया जा सका"
   },
@@ -2326,12 +2338,6 @@
   },
   "modeSelectionItem.autonomousLabel": {
     "defaultMessage": "स्वायत्त"
-  },
-  "modeSelectionItem.chatOnlyDescription": {
-    "defaultMessage": "टूल या एक्सटेंशन का उपयोग किए बिना चयनित प्रदाता से बातचीत करें।"
-  },
-  "modeSelectionItem.chatOnlyLabel": {
-    "defaultMessage": "केवल चैट करें"
   },
   "modeSelectionItem.manualDescription": {
     "defaultMessage": "सभी टूल, एक्सटेंशन और फ़ाइल संशोधनों के लिए मानव अनुमोदन की आवश्यकता होगी"
@@ -4438,6 +4444,9 @@
   },
   "settings.language.description": {
     "defaultMessage": "goose के लिए प्रदर्शन भाषा चुनें"
+  },
+  "settings.language.dutch": {
+    "defaultMessage": "डच"
   },
   "settings.language.english": {
     "defaultMessage": "अंग्रेज़ी"
