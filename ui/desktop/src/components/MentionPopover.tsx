@@ -95,6 +95,18 @@ interface MentionPopoverProps {
   sessionId?: string | null;
 }
 
+const isPathItem = (item: DisplayItem): boolean =>
+  item.itemType === 'File' || item.itemType === 'Directory';
+
+// Only files and directories carry a path in `extra`. For commands and agents it is a
+// description, whose slashes say nothing about nesting.
+const pathDepth = (item: DisplayItem, workingDir: string | undefined): number => {
+  if (!workingDir || !isPathItem(item)) {
+    return 0;
+  }
+  return item.extra.replace(workingDir, '').split('/').length - 1;
+};
+
 // Enhanced fuzzy matching algorithm
 const fuzzyMatch = (pattern: string, text: string): { score: number; matches: number[] } => {
   if (!pattern) return { score: 0, matches: [] };
@@ -446,9 +458,7 @@ const MentionPopover = forwardRef<
             matchScore: 0,
             matches: [],
             matchedText: file.name,
-            depth: currentWorkingDir
-              ? file.extra.replace(currentWorkingDir, '').split('/').length - 1
-              : 0,
+            depth: pathDepth(file, currentWorkingDir),
           }))
           .sort((a, b) => {
             if (a.depth !== b.depth) return a.depth - b.depth;
@@ -470,10 +480,14 @@ const MentionPopover = forwardRef<
           );
 
           let finalScore = bestMatch.score;
+          if (finalScore > 0 && file.name.toLowerCase() === query.toLowerCase()) {
+            // Rank what the user typed exactly above every longer name that starts with it
+            finalScore += 1000;
+          }
           if (finalScore > 0 && file.itemType === 'Agent') {
             finalScore += 100;
-          } else if (finalScore > 0 && currentWorkingDir) {
-            const depth = file.extra.replace(currentWorkingDir, '').split('/').length - 1;
+          } else if (finalScore > 0 && currentWorkingDir && isPathItem(file)) {
+            const depth = pathDepth(file, currentWorkingDir);
             finalScore += depth <= 1 ? 50 : depth <= 2 ? 30 : depth <= 3 ? 15 : 0;
           }
 
