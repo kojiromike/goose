@@ -8,7 +8,6 @@ import {
   ipcMain,
   Menu,
   MenuItem,
-  net,
   Notification,
   powerMonitor,
   powerSaveBlocker,
@@ -74,6 +73,7 @@ import {
 } from './filePreview';
 import { getWindowIconFilename } from './utils/windowIcon';
 import { recoverFromRendererCrashes } from './utils/rendererRecovery';
+import { createBackendReadinessProbe } from './backendReadinessProbe';
 
 const windowIconPath = path.join(__dirname, '../images', getWindowIconFilename(process.platform));
 
@@ -324,8 +324,8 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('com.electron.goose');
 }
 
-// Certificate trust for active backend leases. Renderer requests and
-// main-process net.fetch both pin to the exact cert fingerprint. Each backend
+// Certificate trust for active backend leases. Renderer requests, main-process
+// net requests, and the local readiness probe all pin to the exact cert fingerprint. Each backend
 // lease owns a trust record so old windows keep working after settings change.
 interface BackendCertificateTrust {
   hostname: string;
@@ -418,7 +418,7 @@ app.whenReady().then(() => {
   appConfig.GOOSE_LOCALE = getConfiguredGooseLocale();
 });
 
-// Main-process net.fetch and renderer WebSockets: pin to the exact cert once known.
+// Main-process net requests and renderer WebSockets: pin to the exact cert once known.
 app.whenReady().then(() => {
   installBackendCertificateVerifiers(
     [session.defaultSession, session.fromPartition('persist:goose')],
@@ -1195,7 +1195,7 @@ const createChat = async (
         resourcesPath: app.isPackaged ? process.resourcesPath : undefined,
         logger: log,
         diagnosticsDir: STARTUP_LOGS_DIR,
-        readinessFetch: net.fetch as unknown as typeof globalThis.fetch,
+        readinessFetch: createBackendReadinessProbe(verifyBackendCertificate),
       });
       if (!gooseServeResult.certFingerprint) {
         await gooseServeResult.cleanup();

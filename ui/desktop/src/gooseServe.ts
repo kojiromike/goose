@@ -24,9 +24,11 @@ export interface FindGooseBinaryOptions {
   resourcesPath?: string;
 }
 
-type ReadinessFetchInit = Parameters<typeof globalThis.fetch>[1];
 export type GooseServeExitSignal = ChildProcess['signalCode'];
-type ReadinessFetch = (input: string, init?: ReadinessFetchInit) => Promise<Response>;
+type ReadinessFetch = (
+  input: string,
+  init?: { signal?: AbortSignal | null }
+) => Promise<{ ok: boolean }>;
 
 export interface StartGooseServeOptions extends FindGooseBinaryOptions {
   dir?: string;
@@ -136,10 +138,7 @@ const appendErrorTail = (target: string[], lines: string[], maxLines = 100): voi
 const CERT_FINGERPRINT_PREFIX = 'GOOSED_CERT_FINGERPRINT=';
 const TLS_FINGERPRINT_TIMEOUT_MS = 5000;
 
-const fetchStatus = async (
-  statusUrl: string,
-  readinessFetch: ReadinessFetch
-): Promise<boolean> => {
+const fetchStatus = async (statusUrl: string, readinessFetch: ReadinessFetch): Promise<boolean> => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 1000);
 
