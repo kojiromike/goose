@@ -730,16 +730,16 @@ impl SessionManager {
             .count();
 
         if let Some(naming) = &naming {
-            // In manual mode only the first prompt names the session; the user
-            // asks for anything after that through `retitle`.
-            if naming.retitle == RetitleMode::Manual && user_prompt_count(&conversation) > 1 {
-                return Ok(None);
-            }
-            // A naming provider keeps retitling the session as the work moves on.
-            if !self
-                .storage
-                .claim_naming_attempt(id, SESSION_RETITLE_INTERVAL)
-            {
+            let interval = match naming.retitle {
+                // A naming provider keeps retitling the session as the work moves on.
+                RetitleMode::Every(interval) => interval,
+                // In manual mode only the first prompt names the session; the
+                // user asks for anything after that through `retitle`. The
+                // default interval still keeps that first turn to one attempt.
+                RetitleMode::Manual if user_prompt_count(&conversation) > 1 => return Ok(None),
+                RetitleMode::Manual => SESSION_RETITLE_INTERVAL,
+            };
+            if !self.storage.claim_naming_attempt(id, interval) {
                 return Ok(None);
             }
             match generate_session_name_with_naming_provider(
@@ -3551,7 +3551,7 @@ mod tests {
         Some(NamingProvider {
             provider,
             model_config: ModelConfig::new("naming-model"),
-            retitle: RetitleMode::Auto,
+            retitle: RetitleMode::AUTO,
         })
     }
 
@@ -4229,6 +4229,50 @@ mod tests {
             retitle: RetitleMode::Manual,
             ..naming
         })
+    }
+
+    #[tokio::test]
+    async fn test_configured_retitle_interval_replaces_the_default() {
+        let temp_dir = TempDir::new().unwrap();
+        let sm = SessionManager::new(temp_dir.path().to_path_buf());
+        let id = create_stateful_session_with_prompt(&sm, temp_dir.path()).await;
+        let every_prompt = |title| {
+            naming_provider(Arc::new(RecordingNamingTestProvider {
+                title,
+                requests: Arc::new(std::sync::Mutex::new(Vec::new())),
+            }))
+            .map(|naming| NamingProvider {
+                retitle: RetitleMode::Every(std::time::Duration::ZERO),
+                ..naming
+            })
+        };
+
+        sm.maybe_update_name_with(
+            &id,
+            Arc::new(StatefulNamingTestProvider),
+            every_prompt("ACP naming"),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        sm.add_message(
+            &id,
+            &Message::user().with_text("now rebuild the desktop app"),
+        )
+        .await
+        .unwrap();
+
+        // No rewind: a zero interval lets the very next prompt retitle.
+        let retitled = sm
+            .maybe_update_name_with(
+                &id,
+                Arc::new(StatefulNamingTestProvider),
+                every_prompt("Desktop rebuild"),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(retitled.name, "Desktop rebuild");
     }
 
     #[tokio::test]

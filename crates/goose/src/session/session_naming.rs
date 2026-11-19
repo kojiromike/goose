@@ -23,8 +23,10 @@ pub const SESSION_NAMING_MODEL_KEY: &str = "GOOSE_SESSION_NAMING_MODEL";
 /// `reasoning_effort: none` to stop a local reasoning model from thinking
 /// for a thousand tokens before it writes four words.
 pub const SESSION_NAMING_REQUEST_PARAMS_KEY: &str = "GOOSE_SESSION_NAMING_REQUEST_PARAMS";
-/// `auto` (the default) retitles a session as the work moves on; `manual`
-/// names it from the first prompt and retitles only when the user asks.
+/// `auto` (the default) retitles a session every [`SESSION_RETITLE_INTERVAL`]
+/// as the work moves on, an interval such as `15m` sets how often, and
+/// `manual` names it from the first prompt and retitles only when the user
+/// asks. Read on every naming attempt, so a change needs no restart.
 pub const SESSION_RETITLE_KEY: &str = "GOOSE_SESSION_RETITLE";
 
 // A local model may have to load before it answers, and a reasoning model
@@ -32,8 +34,8 @@ pub const SESSION_RETITLE_KEY: &str = "GOOSE_SESSION_RETITLE";
 const NAMING_PROVIDER_TIMEOUT: Duration = Duration::from_secs(120);
 // Keep a pasted document from overflowing a small naming model's context.
 const NAMING_PROVIDER_MESSAGE_CHARS: usize = 4000;
-/// How long the naming provider waits before retitling a session again. The
-/// retitle runs on the first prompt after this much time has passed.
+/// How long the naming provider waits by default before retitling a session
+/// again. The retitle runs on the first prompt after this much time has passed.
 pub(crate) const SESSION_RETITLE_INTERVAL: Duration = Duration::from_secs(180);
 // Prompts after the first that a retitle reads, so the title follows the work.
 const RETITLE_RECENT_PROMPTS: usize = 2;
@@ -49,18 +51,56 @@ pub(crate) struct NamingProvider {
 /// When the naming provider writes a new title for a session that has one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RetitleMode {
-    /// On the next prompt after [`SESSION_RETITLE_INTERVAL`].
-    Auto,
+    /// On the next prompt after this much time has passed.
+    Every(Duration),
     /// Only when the user asks for it.
     Manual,
 }
 
 impl RetitleMode {
+    pub(crate) const AUTO: Self = Self::Every(SESSION_RETITLE_INTERVAL);
+
     fn from_config(config: &Config) -> Self {
-        match non_empty_param(config, SESSION_RETITLE_KEY) {
-            Some(mode) if mode.eq_ignore_ascii_case("manual") => Self::Manual,
-            _ => Self::Auto,
+        let value = match config.get_param::<Value>(SESSION_RETITLE_KEY) {
+            Ok(value) => value,
+            Err(_) => return Self::AUTO,
+        };
+        let parsed = match &value {
+            Value::Number(seconds) => seconds
+                .as_u64()
+                .map(|s| Self::Every(Duration::from_secs(s))),
+            Value::String(text) => Self::parse(text),
+            _ => None,
+        };
+        parsed.unwrap_or_else(|| {
+            tracing::warn!(
+                "Ignoring {SESSION_RETITLE_KEY}={value}: expected auto, manual, or an interval such as 15m"
+            );
+            Self::AUTO
+        })
+    }
+
+    fn parse(text: &str) -> Option<Self> {
+        let text = text.trim().to_ascii_lowercase();
+        match text.as_str() {
+            "" | "auto" => return Some(Self::AUTO),
+            "manual" => return Some(Self::Manual),
+            _ => {}
         }
+        let split = text
+            .find(|c: char| !c.is_ascii_digit())
+            .unwrap_or(text.len());
+        let (number, unit) = text.split_at(split);
+        let number: u64 = number.parse().ok()?;
+        let seconds_per_unit = match unit.trim() {
+            "" | "s" | "sec" | "secs" | "second" | "seconds" => 1,
+            "m" | "min" | "mins" | "minute" | "minutes" => 60,
+            "h" | "hr" | "hrs" | "hour" | "hours" => 3600,
+            _ => return None,
+        };
+        Some(Self::Every(Duration::from_secs(
+            number.checked_mul(seconds_per_unit)?,
+        )))
     }
 }
 
@@ -358,9 +398,24 @@ mod tests {
         let (_dir, config) = config_with("GOOSE_SESSION_RETITLE: Manual\n");
         assert_eq!(RetitleMode::from_config(&config), RetitleMode::Manual);
         let (_dir, config) = config_with("GOOSE_SESSION_RETITLE: sometimes\n");
-        assert_eq!(RetitleMode::from_config(&config), RetitleMode::Auto);
+        assert_eq!(RetitleMode::from_config(&config), RetitleMode::AUTO);
         let (_dir, config) = config_with("{}\n");
-        assert_eq!(RetitleMode::from_config(&config), RetitleMode::Auto);
+        assert_eq!(RetitleMode::from_config(&config), RetitleMode::AUTO);
+    }
+
+    #[test]
+    fn retitle_mode_reads_an_interval() {
+        let every = |secs| RetitleMode::Every(Duration::from_secs(secs));
+        let (_dir, config) = config_with("GOOSE_SESSION_RETITLE: 15m\n");
+        assert_eq!(RetitleMode::from_config(&config), every(900));
+        let (_dir, config) = config_with("GOOSE_SESSION_RETITLE: 90\n");
+        assert_eq!(RetitleMode::from_config(&config), every(90));
+        for (text, secs) in [("45s", 45), ("2 min", 120), ("1h", 3600), ("auto", 180)] {
+            assert_eq!(RetitleMode::parse(text), Some(every(secs)), "{text}");
+        }
+        for text in ["15x", "m", "-5m", "1.5h"] {
+            assert_eq!(RetitleMode::parse(text), None, "{text}");
+        }
     }
 
     #[test]
