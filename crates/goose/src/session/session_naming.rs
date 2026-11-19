@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
@@ -6,13 +7,22 @@ use anyhow::Result;
 use goose_providers::conversation::{message::Message, Conversation};
 use goose_providers::model::ModelConfig;
 use regex::Regex;
+use serde_json::Value;
 
-use crate::{config::Config, providers::base::Provider, utils::safe_truncate};
+use crate::{
+    config::{Config, ConfigError},
+    providers::base::Provider,
+    utils::safe_truncate,
+};
 
 pub static MSG_COUNT_FOR_SESSION_NAME_GENERATION: usize = 3;
 
 pub const SESSION_NAMING_PROVIDER_KEY: &str = "GOOSE_SESSION_NAMING_PROVIDER";
 pub const SESSION_NAMING_MODEL_KEY: &str = "GOOSE_SESSION_NAMING_MODEL";
+/// Extra request-body fields for naming calls only, such as
+/// `reasoning_effort: none` to stop a local reasoning model from thinking
+/// for a thousand tokens before it writes four words.
+pub const SESSION_NAMING_REQUEST_PARAMS_KEY: &str = "GOOSE_SESSION_NAMING_REQUEST_PARAMS";
 
 // A local model may have to load before it answers, and a reasoning model
 // thinks before it writes four words.
@@ -47,13 +57,26 @@ impl NamingProvider {
             .ok_or_else(|| {
                 anyhow::anyhow!("No model configured for session naming provider '{provider_name}'")
             })?;
-        let model_config =
+        let mut model_config =
             crate::model_config::model_config_from_user_config(&provider_name, &model_name)?;
+        if let Some(params) = naming_request_params(config)? {
+            model_config = model_config.with_merged_request_params(params);
+        }
         let provider = crate::providers::create(&provider_name, Vec::new()).await?;
         Ok(Some(Self {
             provider,
             model_config,
         }))
+    }
+}
+
+fn naming_request_params(config: &Config) -> Result<Option<HashMap<String, Value>>> {
+    match config.get_param::<HashMap<String, Value>>(SESSION_NAMING_REQUEST_PARAMS_KEY) {
+        Ok(params) => Ok(Some(params).filter(|params| !params.is_empty())),
+        Err(ConfigError::NotFound(_)) => Ok(None),
+        Err(err) => Err(anyhow::anyhow!(
+            "Invalid {SESSION_NAMING_REQUEST_PARAMS_KEY}, expected a map of request fields: {err}"
+        )),
     }
 }
 
@@ -284,6 +307,35 @@ pub(crate) async fn generate_session_name_with_naming_provider(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn config_with(yaml: &str) -> (tempfile::TempDir, Config) {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("config.yaml");
+        std::fs::write(&config_path, yaml).unwrap();
+        let config =
+            Config::new_with_file_secrets(&config_path, dir.path().join("secrets.yaml")).unwrap();
+        (dir, config)
+    }
+
+    #[test]
+    fn naming_request_params_read_a_yaml_map() {
+        let (_dir, config) =
+            config_with("GOOSE_SESSION_NAMING_REQUEST_PARAMS:\n  reasoning_effort: none\n");
+        let params = naming_request_params(&config).unwrap().unwrap();
+        assert_eq!(params.get("reasoning_effort"), Some(&Value::from("none")));
+    }
+
+    #[test]
+    fn naming_request_params_are_optional() {
+        let (_dir, config) = config_with("GOOSE_SESSION_NAMING_PROVIDER: lmstudio\n");
+        assert!(naming_request_params(&config).unwrap().is_none());
+    }
+
+    #[test]
+    fn naming_request_params_reject_a_scalar() {
+        let (_dir, config) = config_with("GOOSE_SESSION_NAMING_REQUEST_PARAMS: 3\n");
+        assert!(naming_request_params(&config).is_err());
+    }
 
     fn conversation_of(messages: Vec<Message>) -> Conversation {
         Conversation::new_unvalidated(messages)
