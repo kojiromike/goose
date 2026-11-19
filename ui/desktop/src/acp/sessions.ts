@@ -30,6 +30,7 @@ interface GooseSessionInfoMeta {
   lastMessageSnippet?: string;
   activeRun?: boolean;
   stagedPrompt?: string;
+  lastStatusLine?: string;
 }
 
 export interface SessionListItem {
@@ -49,6 +50,8 @@ export interface SessionListItem {
   sessionType?: Session['session_type'];
   /** True while the backend has an active prompt run for this session. */
   activeRun?: boolean;
+  /** The `STATUS:` line the agent closed its latest reply with, if any. */
+  lastStatusLine?: string;
 }
 
 export interface SessionListPage {
@@ -140,6 +143,7 @@ function sessionInfoToListItem(s: SessionInfo): SessionListItem {
     hasRecipe: meta.hasRecipe,
     sessionType: meta.sessionType,
     activeRun: meta.activeRun,
+    lastStatusLine: meta.lastStatusLine,
   };
 }
 
@@ -194,7 +198,11 @@ export async function acpListRecentSessions(maxSessions: number): Promise<Sessio
 
   const client = await getAcpClient();
   const response = await client.connection.agent.request(methods.agent.session.list, {
-    _meta: { types: SESSION_LIST_TYPES, archived: 'active' },
+    _meta: {
+      types: SESSION_LIST_TYPES,
+      archived: 'active',
+      goose: { includeLastStatusLine: true },
+    },
   });
   return response.sessions.slice(0, maxSessions).map(sessionInfoToListItem);
 }

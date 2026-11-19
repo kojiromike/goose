@@ -171,8 +171,15 @@ impl AcpConnection {
             })?;
 
         let active_run = self.has_active_run(session_id) || self.run_lock_held(session_id);
+        let status_line = self
+            .services
+            .session_manager
+            .last_status_lines(std::slice::from_ref(&session.id))
+            .await
+            .internal_err()?
+            .remove(&session.id);
         Ok(GetSessionInfoResponse {
-            session: build_session_info(session, active_run),
+            session: build_session_info_with_status(session, active_run, status_line.as_deref()),
         })
     }
 

@@ -29,12 +29,7 @@ export interface SessionSnooze {
 export type SnoozedMap = Record<string, SessionSnooze>;
 
 export type SnoozePresetKey =
-  | 'tenMinutes'
-  | 'thirtyMinutes'
-  | 'oneHour'
-  | 'threeHours'
-  | 'tomorrow'
-  | 'monday';
+  'tenMinutes' | 'thirtyMinutes' | 'oneHour' | 'threeHours' | 'tomorrow' | 'monday';
 
 export interface SnoozePreset {
   key: SnoozePresetKey;
@@ -60,6 +55,59 @@ export function snoozePresets(now = Date.now()): SnoozePreset[] {
     { key: 'tomorrow', until: atWakeHour(today, 1) },
     { key: 'monday', until: atWakeHour(today, daysToMonday) },
   ];
+}
+
+const CHECK_BACK = /check(?:ing)? back/i;
+// A clock time needs minutes or a meridiem, so "PR 42" or "3 tests" never
+// reads as one.
+const CLOCK_TIME =
+  /\b(tomorrow\s+(?:at\s+|by\s+)?)?(\d{1,2})(?::(\d{2}))?(?:\s*([ap])\.?m\b\.?)?(?![\d:])(\s+tomorrow\b)?/gi;
+
+// A leading zero ("09:00") marks a 24-hour time; otherwise 1 to 12 without am
+// or pm could be either half of the day.
+function clockCandidates(hourText: string, meridiem: string | undefined): number[] {
+  const hour = Number(hourText);
+  if (meridiem) return [(hour % 12) + (meridiem.toLowerCase() === 'p' ? 12 : 0)];
+  if (hour >= 1 && hour <= 12 && !hourText.startsWith('0')) return [hour, (hour + 12) % 24];
+  return [hour];
+}
+
+/**
+ * The wake time an agent's closing `STATUS:` line asks for, such as "check
+ * back at 11:45", resolved to the next time the clock reads that after the
+ * line was written. A time without am or pm takes whichever reading comes
+ * first. Returns undefined when the line names no clock time or the time has
+ * already passed.
+ */
+export function suggestedWakeTime(
+  statusLine: string | undefined,
+  writtenAt: string | number | null | undefined,
+  now = Date.now()
+): number | undefined {
+  if (!statusLine) return undefined;
+  const written = parseTimestamp(writtenAt) ?? now;
+  const checkBack = statusLine.search(CHECK_BACK);
+  const text = checkBack === -1 ? statusLine : statusLine.slice(checkBack);
+
+  for (const match of text.matchAll(CLOCK_TIME)) {
+    const [, tomorrowBefore, hourText, minuteText, meridiem, tomorrowAfter] = match;
+    const tomorrow = tomorrowBefore ?? tomorrowAfter;
+    if (minuteText === undefined && meridiem === undefined) continue;
+    const hour = Number(hourText);
+    const minute = minuteText === undefined ? 0 : Number(minuteText);
+    if (minute > 59 || hour > 23 || (meridiem && (hour < 1 || hour > 12))) continue;
+
+    const wakes = clockCandidates(hourText, meridiem).map((candidate) => {
+      const wake = new Date(written);
+      wake.setHours(candidate, minute, 0, 0);
+      if (tomorrow) wake.setDate(wake.getDate() + 1);
+      else if (wake.getTime() <= written) wake.setDate(wake.getDate() + 1);
+      return wake.getTime();
+    });
+    const wake = Math.min(...wakes);
+    return wake > now ? wake : undefined;
+  }
+  return undefined;
 }
 
 /** Whether a session with this snooze is still snoozed. */

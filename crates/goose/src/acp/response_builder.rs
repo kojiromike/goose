@@ -53,6 +53,9 @@ struct SessionMeta<'a> {
     active_run: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     staged_prompt: Option<String>,
+    /// The `STATUS:` line the agent closed its latest reply with, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_status_line: Option<&'a str>,
 }
 
 impl<'a> From<&'a Session> for SessionMeta<'a> {
@@ -75,6 +78,7 @@ impl<'a> From<&'a Session> for SessionMeta<'a> {
             active_run: false,
             staged_prompt: StagedPromptState::from_extension_data(&session.extension_data)
                 .map(|staged| staged.text),
+            last_status_line: None,
         }
     }
 }
@@ -116,8 +120,17 @@ pub(super) fn session_response_meta(
 }
 
 pub(super) fn build_session_info(session: Session, active_run: bool) -> SessionInfo {
+    build_session_info_with_status(session, active_run, None)
+}
+
+pub(super) fn build_session_info_with_status(
+    session: Session,
+    active_run: bool,
+    last_status_line: Option<&str>,
+) -> SessionInfo {
     let mut session_meta = SessionMeta::from(&session);
     session_meta.active_run = active_run;
+    session_meta.last_status_line = last_status_line;
     let meta = session_meta_map(session_meta);
     let mut info = SessionInfo::new(SessionId::new(session.id), session.working_dir)
         .updated_at(session.updated_at.to_rfc3339())

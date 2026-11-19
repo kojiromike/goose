@@ -1,6 +1,6 @@
 use super::{
-    build_session_info, is_acp_visible_session_type, meta_string, meta_tags, AcpConnection,
-    ResultExt, ACP_VISIBLE_SESSION_TYPES,
+    build_session_info_with_status, is_acp_visible_session_type, meta_string, meta_tags,
+    AcpConnection, ResultExt, ACP_VISIBLE_SESSION_TYPES,
 };
 use crate::session::session_manager::{
     ArchivedFilter, SessionListCursor, SessionListFilters, SessionListPageQuery, SessionType,
@@ -11,6 +11,7 @@ use agent_client_protocol::schema::v1::{
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 
 const SESSION_LIST_PAGE_SIZE: usize = 50;
 
@@ -114,9 +115,7 @@ fn archived_filter_from_meta(
     }
 }
 
-fn include_last_message_snippet_from_meta(
-    meta: Option<&Meta>,
-) -> Result<bool, agent_client_protocol::Error> {
+fn goose_meta_flag(meta: Option<&Meta>, key: &str) -> Result<bool, agent_client_protocol::Error> {
     let Some(value) = meta.and_then(|meta| meta.get("goose")) else {
         return Ok(false);
     };
@@ -127,7 +126,7 @@ fn include_last_message_snippet_from_meta(
     let Some(goose_meta) = value.as_object() else {
         return Err(agent_client_protocol::Error::invalid_params().data("goose must be an object"));
     };
-    let Some(value) = goose_meta.get("includeLastMessageSnippet") else {
+    let Some(value) = goose_meta.get(key) else {
         return Ok(false);
     };
     if value.is_null() {
@@ -136,7 +135,7 @@ fn include_last_message_snippet_from_meta(
 
     value.as_bool().ok_or_else(|| {
         agent_client_protocol::Error::invalid_params()
-            .data("goose.includeLastMessageSnippet must be a boolean")
+            .data(format!("goose.{key} must be a boolean"))
     })
 }
 
@@ -238,7 +237,8 @@ impl AcpConnection {
         let tags = meta_tags(req.meta.as_ref())?;
         let archived = archived_filter_from_meta(req.meta.as_ref())?;
         let include_last_message_snippet =
-            include_last_message_snippet_from_meta(req.meta.as_ref())?;
+            goose_meta_flag(req.meta.as_ref(), "includeLastMessageSnippet")?;
+        let include_last_status_line = goose_meta_flag(req.meta.as_ref(), "includeLastStatusLine")?;
         let cursor = decode_session_list_cursor(
             req.cursor.as_deref(),
             cwd,
@@ -268,6 +268,16 @@ impl AcpConnection {
             .await
             .internal_err()?;
 
+        let status_lines = if include_last_status_line {
+            let ids: Vec<String> = page.sessions.iter().map(|s| s.id.clone()).collect();
+            self.services
+                .session_manager
+                .last_status_lines(&ids)
+                .await
+                .internal_err()?
+        } else {
+            HashMap::new()
+        };
         let active_run_ids = self.active_run_session_ids();
         let session_infos: Vec<SessionInfo> = page
             .sessions
@@ -275,7 +285,8 @@ impl AcpConnection {
             .map(|session| {
                 let active_run =
                     active_run_ids.contains(&session.id) || self.run_lock_held(&session.id);
-                build_session_info(session, active_run)
+                let status_line = status_lines.get(&session.id).map(String::as_str);
+                build_session_info_with_status(session, active_run, status_line)
             })
             .collect();
         let next_cursor = page

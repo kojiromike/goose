@@ -571,6 +571,16 @@ impl SessionManager {
         self.storage.list_sessions_paged(query).await
     }
 
+    /// Each listed session's closing `STATUS:` line, where its newest message
+    /// ends with one.
+    pub(crate) async fn last_status_lines(
+        &self,
+        session_ids: &[String],
+    ) -> Result<HashMap<String, String>> {
+        let pool = self.storage.pool().await?;
+        super::last_status_line::last_status_lines(pool, session_ids).await
+    }
+
     pub async fn set_session_tags(
         &self,
         session_id: &str,

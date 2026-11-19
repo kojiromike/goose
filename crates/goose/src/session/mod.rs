@@ -5,6 +5,7 @@ mod export_markdown;
 pub mod extension_data;
 pub mod import_formats;
 mod last_message_snippet;
+mod last_status_line;
 mod legacy;
 pub mod session_manager;
 mod session_naming;

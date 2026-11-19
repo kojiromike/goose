@@ -540,7 +540,7 @@ const SessionRow: React.FC<SessionRowProps> = ({
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent onClick={(e) => e.stopPropagation()}>
                   {menuOpen &&
-                    snoozeChoices(intl, now).map((choice) => (
+                    snoozeChoices(intl, now, session).map((choice) => (
                       <DropdownMenuItem key={choice.key} onSelect={() => onSnooze(choice.until)}>
                         {choice.label}
                       </DropdownMenuItem>

@@ -4694,6 +4694,9 @@
   "snoozeChoices.oneHour": {
     "defaultMessage": "For 1 hour ({time})"
   },
+  "snoozeChoices.suggested": {
+    "defaultMessage": "Until {time} (session's check-back)"
+  },
   "snoozeChoices.tenMinutes": {
     "defaultMessage": "For 10 minutes ({time})"
   },

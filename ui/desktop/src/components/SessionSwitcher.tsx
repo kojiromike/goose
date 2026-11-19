@@ -90,7 +90,7 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
   const foundIndex = matches.findIndex(({ session }) => session.id === selectedId);
   const selectedIndex = foundIndex === -1 ? 0 : foundIndex;
   const choices = useMemo(
-    () => (snoozeTarget ? snoozeChoices(intl, Date.now()) : []),
+    () => (snoozeTarget ? snoozeChoices(intl, Date.now(), snoozeTarget.session) : []),
     [snoozeTarget, intl]
   );
 

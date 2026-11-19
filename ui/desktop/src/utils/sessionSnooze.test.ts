@@ -5,6 +5,7 @@ import {
   pruneSnoozedMap,
   snoozePresets,
   snoozeSession,
+  suggestedWakeTime,
   unsnoozeSession,
 } from './sessionSnooze';
 
@@ -95,5 +96,57 @@ describe('snooze storage', () => {
     );
     expect(map).toEqual({ asleep: { at: at(5) } });
     expect(loadSnoozedMap()).toEqual({ asleep: { at: at(5) } });
+  });
+});
+
+describe('suggestedWakeTime', () => {
+  const local = (day: number, hour: number, minute = 0) =>
+    new Date(2026, 10, day, hour, minute).getTime();
+  const written = local(19, 15, 42);
+  const wake = (line: string, now = written) => suggestedWakeTime(line, written, now);
+
+  it('reads the check-back time from a status line', () => {
+    expect(wake('STATUS: waiting-external: CI is running; check back at 16:15')).toBe(
+      local(19, 16, 15)
+    );
+    expect(wake('STATUS: waiting-external: check back at 4:15 pm; the run took 30 min')).toBe(
+      local(19, 16, 15)
+    );
+    expect(wake('STATUS: needs-michael: review it; check back at 5pm for CodeRabbit')).toBe(
+      local(19, 17)
+    );
+  });
+
+  it('takes the first reading of a time without am or pm that is still ahead', () => {
+    expect(wake('STATUS: waiting-external: check back at 4:15')).toBe(local(19, 16, 15));
+    expect(wake('STATUS: waiting-external: check back at 3:30')).toBe(local(20, 3, 30));
+  });
+
+  it('rolls a time already past when written into the next day, and honors tomorrow', () => {
+    expect(wake('STATUS: waiting-external: check back at 09:00')).toBe(local(20, 9));
+    expect(wake('STATUS: waiting-external: check back tomorrow at 17:00')).toBe(local(20, 17));
+    expect(
+      suggestedWakeTime('STATUS: x: check back at 09:00 tomorrow', local(19, 1), local(19, 1))
+    ).toBe(local(20, 9));
+  });
+
+  it('prefers the time after "check back" over earlier ones', () => {
+    expect(
+      wake('STATUS: waiting-external: the 15:00 export failed; check back at 18:30 after rerun')
+    ).toBe(local(19, 18, 30));
+  });
+
+  it('ignores numbers that are not clock times', () => {
+    expect(wake('STATUS: done: merged https://github.com/o/r/pull/854')).toBeUndefined();
+    expect(wake('STATUS: blocked: 3 tests fail on 2026-11-19')).toBeUndefined();
+    expect(wake('STATUS: waiting-external: CI, about 20 minutes')).toBeUndefined();
+    expect(wake('STATUS: waiting-external: check back at 11:45 and retry')).toBe(local(19, 23, 45));
+  });
+
+  it('offers nothing once the time has passed or without a line', () => {
+    expect(
+      wake('STATUS: waiting-external: check back at 16:15', local(19, 16, 15))
+    ).toBeUndefined();
+    expect(suggestedWakeTime(undefined, written, written)).toBeUndefined();
   });
 });
