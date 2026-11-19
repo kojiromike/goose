@@ -172,6 +172,8 @@ import type {
   RemoveSessionExtensionRequest_unstable,
   RenameSessionRequest_unstable,
   ResetPromptRequest_unstable,
+  RetitleSessionRequest_unstable,
+  RetitleSessionResponse_unstable,
   RunScheduleNowRequest_unstable,
   RunScheduleNowResponse_unstable,
   SavePromptRequest_unstable,
@@ -271,6 +273,7 @@ import {
   zReadResourceResponse_unstable,
   zRecipeToYamlResponse_unstable,
   zRefreshProviderInventoryResponse_unstable,
+  zRetitleSessionResponse_unstable,
   zRunScheduleNowResponse_unstable,
   zSaveRecipeResponse_unstable,
   zScanRecipeResponse_unstable,
@@ -1187,6 +1190,18 @@ export class GooseExtClient {
     params: RenameSessionRequest_unstable,
   ): Promise<void> {
     await this.conn.request("_goose/unstable/session/rename", params);
+  }
+
+  async sessionRetitle_unstable(
+    params: RetitleSessionRequest_unstable,
+  ): Promise<RetitleSessionResponse_unstable> {
+    const raw = await this.conn.request(
+      "_goose/unstable/session/retitle",
+      params,
+    );
+    return zRetitleSessionResponse_unstable.parse(
+      raw,
+    ) as RetitleSessionResponse_unstable;
   }
 
   async sessionArchive_unstable(

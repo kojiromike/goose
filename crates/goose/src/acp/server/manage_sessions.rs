@@ -235,6 +235,25 @@ impl AcpConnection {
         Ok(EmptyResponse {})
     }
 
+    pub(super) async fn on_retitle_session(
+        &self,
+        req: RetitleSessionRequest,
+    ) -> Result<RetitleSessionResponse, agent_client_protocol::Error> {
+        let provider = self
+            .services
+            .provider(&req.session_id)
+            .await
+            .map_err(|e| agent_client_protocol::Error::internal_error().data(e.to_string()))?;
+        let title = self
+            .services
+            .session_manager
+            .retitle(&req.session_id, provider)
+            .await
+            .map_err(|e| agent_client_protocol::Error::internal_error().data(e.to_string()))?;
+        self.notify_session_renamed(&req.session_id).await;
+        Ok(RetitleSessionResponse { title })
+    }
+
     /// Mirror the generated-name notifier (`spawn_session_name_update_notifier`)
     /// so clients refresh session lists after a user-initiated rename.
     async fn notify_session_renamed(&self, session_id: &str) {

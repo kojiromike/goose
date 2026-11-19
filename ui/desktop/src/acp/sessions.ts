@@ -311,6 +311,13 @@ export async function acpRenameSession(sessionId: string, title: string): Promis
   await client.goose.sessionRename_unstable({ sessionId, title });
 }
 
+/** Ask the naming model for a new title now; resolves to the title it wrote. */
+export async function acpRetitleSession(sessionId: string): Promise<string> {
+  const client = await getAcpClient();
+  const { title } = await client.goose.sessionRetitle_unstable({ sessionId });
+  return title;
+}
+
 export async function acpArchiveSession(sessionId: string): Promise<void> {
   const client = await getAcpClient();
   await client.goose.sessionArchive_unstable({ sessionId });

@@ -1788,6 +1788,21 @@ export const zRenameSessionRequest_unstable = z.object({
 });
 
 /**
+ * Ask the naming model for a new session title now. Unlike automatic
+ * naming, this replaces a title the user typed.
+ */
+export const zRetitleSessionRequest_unstable = z.object({
+    sessionId: z.string()
+});
+
+/**
+ * The title a retitle wrote.
+ */
+export const zRetitleSessionResponse_unstable = z.object({
+    title: z.string()
+});
+
+/**
  * Archive a session (soft delete).
  */
 export const zArchiveSessionRequest_unstable = z.object({
@@ -2570,6 +2585,7 @@ export const zExtRequest = z.object({
             zTruncateSessionConversationRequest_unstable,
             zUpdateSessionProjectRequest_unstable,
             zRenameSessionRequest_unstable,
+            zRetitleSessionRequest_unstable,
             zArchiveSessionRequest_unstable,
             zUnarchiveSessionRequest_unstable,
             zCreateSourceRequest_unstable,
@@ -2669,6 +2685,7 @@ export const zExtResponse = z.union([
                 zKillRunningJobResponse_unstable,
                 zInspectRunningJobResponse_unstable,
                 zGetSessionInfoResponse_unstable,
+                zRetitleSessionResponse_unstable,
                 zCreateSourceResponse_unstable,
                 zListSourcesResponse_unstable,
                 zListAgentMentionsResponse_unstable,

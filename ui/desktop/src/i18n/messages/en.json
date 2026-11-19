@@ -2684,6 +2684,12 @@
   "navigationPanel.rename": {
     "defaultMessage": "Rename"
   },
+  "navigationPanel.retitle": {
+    "defaultMessage": "Retitle"
+  },
+  "navigationPanel.retitleFailed": {
+    "defaultMessage": "Failed to retitle session: {error}"
+  },
   "navigationPanel.sessionActions": {
     "defaultMessage": "Session actions"
   },
@@ -4091,6 +4097,12 @@
   "sessionActionsHeader.renamed": {
     "defaultMessage": "Session renamed"
   },
+  "sessionActionsHeader.retitleFailed": {
+    "defaultMessage": "Failed to retitle session: {error}"
+  },
+  "sessionActionsHeader.retitleSession": {
+    "defaultMessage": "Retitle session"
+  },
   "sessionActionsHeader.save": {
     "defaultMessage": "Save"
   },
@@ -4140,7 +4152,7 @@
     "defaultMessage": "Working"
   },
   "sessionIndicators.workingInBackground": {
-    "defaultMessage": "{count,plural,=0{Working in the background} one{Working in the background (# background command)} other{Working in the background (# background commands)}}"
+    "defaultMessage": "{count,plural,one{Working in the background (# background command)} other{Working in the background (# background commands)} =0{Working in the background}}"
   },
   "sessionSwitcher.actionsHint": {
     "defaultMessage": "{archiveKey} to archive · {endKey} to end"

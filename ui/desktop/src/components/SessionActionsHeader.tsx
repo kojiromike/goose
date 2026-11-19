@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Copy,
   Edit2,
+  Sparkles,
   FileJson,
   LoaderCircle,
 } from 'lucide-react';
@@ -13,7 +14,12 @@ import { toast } from 'react-toastify';
 import { AppEvents } from '../constants/events';
 import { defineMessages, useIntl } from '../i18n';
 import { getDiagnosticsReport } from '../acp/diagnostics';
-import { acpExportSession, acpForkSession, acpRenameSession } from '../acp/sessions';
+import {
+  acpExportSession,
+  acpForkSession,
+  acpRenameSession,
+  acpRetitleSession,
+} from '../acp/sessions';
 import { getSessionDisplayName } from '../sessions';
 import type { Session } from '../types/session';
 import { errorMessage } from '../utils/conversionUtils';
@@ -35,6 +41,14 @@ const i18n = defineMessages({
   renameSession: {
     id: 'sessionActionsHeader.renameSession',
     defaultMessage: 'Rename session',
+  },
+  retitleSession: {
+    id: 'sessionActionsHeader.retitleSession',
+    defaultMessage: 'Retitle session',
+  },
+  retitleFailed: {
+    id: 'sessionActionsHeader.retitleFailed',
+    defaultMessage: 'Failed to retitle session: {error}',
   },
   duplicateSession: {
     id: 'sessionActionsHeader.duplicateSession',
@@ -361,6 +375,7 @@ export default function SessionActionsHeader({
   const [isJsonLoading, setIsJsonLoading] = useState(false);
   const [isModelInteractionsLoading, setIsModelInteractionsLoading] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [isRetitling, setIsRetitling] = useState(false);
   const [fullTextSelection, setFullTextSelection] = useState<FullTextSelection | null>(null);
   const jsonLoadRequestId = useRef(0);
 
@@ -405,6 +420,29 @@ export default function SessionActionsHeader({
       setIsRenaming(false);
     }
   }, [intl, isRenaming, onSessionChange, renameValue, session]);
+
+  const handleRetitle = useCallback(async () => {
+    if (!session || isRetitling) return;
+
+    setIsRetitling(true);
+    try {
+      const newName = await acpRetitleSession(session.id);
+      onSessionChange((current) => ({ ...current, name: newName, user_set_name: false }));
+      window.dispatchEvent(
+        new CustomEvent(AppEvents.SESSION_RENAMED, {
+          detail: { sessionId: session.id, newName },
+        })
+      );
+    } catch (error) {
+      toast.error(
+        intl.formatMessage(i18n.retitleFailed, {
+          error: errorMessage(error, 'Unknown error'),
+        })
+      );
+    } finally {
+      setIsRetitling(false);
+    }
+  }, [intl, isRetitling, onSessionChange, session]);
 
   const handleDuplicate = useCallback(async () => {
     if (!session || isDuplicating) return;
@@ -560,6 +598,14 @@ export default function SessionActionsHeader({
             <DropdownMenuItem onSelect={() => setTimeout(() => setIsRenameOpen(true), 0)}>
               <Edit2 className="size-4" />
               {intl.formatMessage(i18n.renameSession)}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={isRetitling} onSelect={() => void handleRetitle()}>
+              {isRetitling ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <Sparkles className="size-4" />
+              )}
+              {intl.formatMessage(i18n.retitleSession)}
             </DropdownMenuItem>
             <DropdownMenuItem disabled={isDuplicating} onSelect={() => void handleDuplicate()}>
               {isDuplicating ? (

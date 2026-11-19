@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   Pencil,
   Power,
+  Sparkles,
   Trash2,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -51,6 +52,7 @@ import {
   acpCloseSession,
   acpDeleteSession,
   acpRenameSession,
+  acpRetitleSession,
   type SessionListItem,
 } from '../../acp/sessions';
 import type { LiveSession } from '../../acp/liveSessions';
@@ -150,6 +152,14 @@ const i18n = defineMessages({
   rename: {
     id: 'navigationPanel.rename',
     defaultMessage: 'Rename',
+  },
+  retitle: {
+    id: 'navigationPanel.retitle',
+    defaultMessage: 'Retitle',
+  },
+  retitleFailed: {
+    id: 'navigationPanel.retitleFailed',
+    defaultMessage: 'Failed to retitle session: {error}',
   },
   archive: {
     id: 'navigationPanel.archive',
@@ -378,6 +388,7 @@ const SessionRow: React.FC<SessionRowProps> = ({
   useEffect(() => (holdingLayout ? holdLayout() : undefined), [holdingLayout, holdLayout]);
   const [editSignal, setEditSignal] = useState(0);
   const [isEnding, setIsEnding] = useState(false);
+  const [isRetitling, setIsRetitling] = useState(false);
   const renameRequested = useRef(false);
   const isStreaming = live?.runningTurn ?? false;
   // Archive and delete both drop the loaded agent without cancelling an active
@@ -418,6 +429,25 @@ const SessionRow: React.FC<SessionRowProps> = ({
   };
 
   const handleArchive = useCallback(() => archiveSession(intl, session), [intl, session]);
+
+  const handleRetitle = async () => {
+    setIsRetitling(true);
+    try {
+      const newName = await acpRetitleSession(session.id);
+      window.dispatchEvent(
+        new CustomEvent(AppEvents.SESSION_RENAMED, {
+          detail: { sessionId: session.id, newName },
+        })
+      );
+      onRenamed();
+    } catch (error) {
+      toast.error(
+        intl.formatMessage(i18n.retitleFailed, { error: errorMessage(error, 'Unknown error') })
+      );
+    } finally {
+      setIsRetitling(false);
+    }
+  };
 
   return (
     <Tooltip
@@ -498,6 +528,10 @@ const SessionRow: React.FC<SessionRowProps> = ({
               >
                 <Pencil className="w-4 h-4" />
                 {intl.formatMessage(i18n.rename)}
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={isRetitling} onSelect={() => void handleRetitle()}>
+                <Sparkles className="w-4 h-4" />
+                {intl.formatMessage(i18n.retitle)}
               </DropdownMenuItem>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>

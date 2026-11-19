@@ -5520,6 +5520,34 @@
       "x-side": "agent",
       "x-method": "_goose/unstable/session/rename"
     },
+    "RetitleSessionRequest_unstable": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "description": "Ask the naming model for a new session title now. Unlike automatic\nnaming, this replaces a title the user typed.",
+      "x-side": "agent",
+      "x-method": "_goose/unstable/session/retitle"
+    },
+    "RetitleSessionResponse_unstable": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "description": "The title a retitle wrote.",
+      "x-side": "agent",
+      "x-method": "_goose/unstable/session/retitle"
+    },
     "ArchiveSessionRequest_unstable": {
       "type": "object",
       "properties": {
@@ -8412,6 +8440,15 @@
                 {
                   "allOf": [
                     {
+                      "$ref": "#/$defs/RetitleSessionRequest_unstable"
+                    }
+                  ],
+                  "description": "Params for _goose/unstable/session/retitle",
+                  "title": "RetitleSessionRequest_unstable"
+                },
+                {
+                  "allOf": [
+                    {
                       "$ref": "#/$defs/ArchiveSessionRequest_unstable"
                     }
                   ],
@@ -9178,6 +9215,14 @@
                         }
                       ],
                       "title": "GetSessionInfoResponse_unstable"
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/RetitleSessionResponse_unstable"
+                        }
+                      ],
+                      "title": "RetitleSessionResponse_unstable"
                     },
                     {
                       "allOf": [

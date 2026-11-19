@@ -11,8 +11,8 @@ use crate::recipe::Recipe;
 use crate::session::export_markdown::export_session_to_markdown;
 use crate::session::extension_data::{EnabledExtensionsState, ExtensionData, ExtensionState};
 use crate::session::session_naming::{
-    generate_session_name, generate_session_name_with_naming_provider, NamingProvider,
-    MSG_COUNT_FOR_SESSION_NAME_GENERATION, SESSION_RETITLE_INTERVAL,
+    generate_session_name, generate_session_name_with_naming_provider, user_prompt_count,
+    NamingProvider, RetitleMode, MSG_COUNT_FOR_SESSION_NAME_GENERATION, SESSION_RETITLE_INTERVAL,
 };
 use anyhow::Result;
 use chrono::{DateTime, TimeZone, Utc};
@@ -718,21 +718,7 @@ impl SessionManager {
             return self.system_generated_name_update(id, name).await;
         }
 
-        let model_config = match session.model_config.clone() {
-            Some(model_config) => model_config,
-            None => {
-                let model_name =
-                    crate::config::Config::global()
-                        .get_goose_model()
-                        .map_err(|_| {
-                            anyhow::anyhow!("Could not resolve model config: missing model")
-                        })?;
-                crate::model_config::model_config_from_user_config(
-                    provider.get_name(),
-                    &model_name,
-                )?
-            }
-        };
+        let model_config = naming_model_config(&session, provider.as_ref())?;
         let conversation = session
             .conversation
             .ok_or_else(|| anyhow::anyhow!("No messages found"))?;
@@ -744,6 +730,11 @@ impl SessionManager {
             .count();
 
         if let Some(naming) = &naming {
+            // In manual mode only the first prompt names the session; the user
+            // asks for anything after that through `retitle`.
+            if naming.retitle == RetitleMode::Manual && user_prompt_count(&conversation) > 1 {
+                return Ok(None);
+            }
             // A naming provider keeps retitling the session as the work moves on.
             if !self
                 .storage
@@ -786,6 +777,60 @@ impl SessionManager {
             return self.system_generated_name_update(id, name).await;
         }
         Ok(None)
+    }
+
+    /// Write a new title now because the user asked for one. Unlike automatic
+    /// naming, this replaces a title the user typed, and it ignores the
+    /// retitle interval and mode.
+    pub async fn retitle(&self, id: &str, provider: Arc<dyn Provider>) -> Result<String> {
+        let naming = NamingProvider::from_config().await?;
+        self.retitle_with(id, provider, naming).await
+    }
+
+    async fn retitle_with(
+        &self,
+        id: &str,
+        provider: Arc<dyn Provider>,
+        naming: Option<NamingProvider>,
+    ) -> Result<String> {
+        let session = self.get_session(id, true).await?;
+        let conversation = session
+            .conversation
+            .as_ref()
+            .filter(|conversation| user_prompt_count(conversation) > 0)
+            .ok_or_else(|| anyhow::anyhow!("The session has no prompts to title"))?;
+        let working_dir = Some(session.working_dir.as_path());
+        let name = match &naming {
+            Some(naming) => {
+                generate_session_name_with_naming_provider(
+                    naming,
+                    id,
+                    conversation,
+                    working_dir,
+                    &session.name,
+                )
+                .await?
+            }
+            None => {
+                let model_config = naming_model_config(&session, provider.as_ref())?;
+                generate_session_name(
+                    provider.as_ref(),
+                    &model_config,
+                    id,
+                    conversation,
+                    working_dir,
+                )
+                .await?
+            }
+        };
+        if name.trim().is_empty() {
+            anyhow::bail!("The naming model returned an empty title");
+        }
+        self.update(id)
+            .system_generated_name(name.clone())
+            .apply()
+            .await?;
+        Ok(name.trim().to_string())
     }
 
     pub async fn search_chat_history(
@@ -3229,6 +3274,18 @@ fn merge_tool_meta(
     serde_json::Value::Object(base)
 }
 
+/// The model a session's own provider titles it with when no naming provider
+/// is configured.
+fn naming_model_config(session: &Session, provider: &dyn Provider) -> Result<ModelConfig> {
+    if let Some(model_config) = session.model_config.clone() {
+        return Ok(model_config);
+    }
+    let model_name = crate::config::Config::global()
+        .get_goose_model()
+        .map_err(|_| anyhow::anyhow!("Could not resolve model config: missing model"))?;
+    crate::model_config::model_config_from_user_config(provider.get_name(), &model_name)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3494,6 +3551,7 @@ mod tests {
         Some(NamingProvider {
             provider,
             model_config: ModelConfig::new("naming-model"),
+            retitle: RetitleMode::Auto,
         })
     }
 
@@ -4160,6 +4218,112 @@ mod tests {
         assert!(!request.contains("second prompt"));
         assert!(request.contains("third prompt\nnow rebuild the desktop app"));
         assert!(!request.contains("tool output"));
+    }
+
+    fn manual_naming(title: &'static str) -> Option<NamingProvider> {
+        naming_provider(Arc::new(RecordingNamingTestProvider {
+            title,
+            requests: Arc::new(std::sync::Mutex::new(Vec::new())),
+        }))
+        .map(|naming| NamingProvider {
+            retitle: RetitleMode::Manual,
+            ..naming
+        })
+    }
+
+    #[tokio::test]
+    async fn test_manual_retitle_mode_names_only_the_first_prompt() {
+        let temp_dir = TempDir::new().unwrap();
+        let sm = SessionManager::new(temp_dir.path().to_path_buf());
+        let id = create_stateful_session_with_prompt(&sm, temp_dir.path()).await;
+
+        let first = sm
+            .maybe_update_name_with(
+                &id,
+                Arc::new(StatefulNamingTestProvider),
+                manual_naming("ACP naming"),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(first.name, "ACP naming");
+
+        sm.add_message(
+            &id,
+            &Message::user().with_text("now rebuild the desktop app"),
+        )
+        .await
+        .unwrap();
+        rewind_naming_attempt(&sm, &id);
+        let later = sm
+            .maybe_update_name_with(
+                &id,
+                Arc::new(StatefulNamingTestProvider),
+                manual_naming("Desktop rebuild"),
+            )
+            .await
+            .unwrap();
+        assert!(later.is_none());
+        assert_eq!(sm.get_session(&id, false).await.unwrap().name, "ACP naming");
+    }
+
+    #[tokio::test]
+    async fn test_retitle_replaces_a_user_set_name_at_once() {
+        let temp_dir = TempDir::new().unwrap();
+        let sm = SessionManager::new(temp_dir.path().to_path_buf());
+        let id = create_stateful_session_with_prompt(&sm, temp_dir.path()).await;
+        sm.update(&id)
+            .user_provided_name("My own name")
+            .apply()
+            .await
+            .unwrap();
+        // A recent automatic attempt does not hold back an explicit retitle.
+        assert!(sm
+            .storage
+            .claim_naming_attempt(&id, SESSION_RETITLE_INTERVAL));
+
+        let name = sm
+            .retitle_with(
+                &id,
+                Arc::new(StatefulNamingTestProvider),
+                manual_naming("Desktop rebuild"),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(name, "Desktop rebuild");
+        let session = sm.get_session(&id, false).await.unwrap();
+        assert_eq!(session.name, "Desktop rebuild");
+        assert!(!session.user_set_name);
+    }
+
+    #[tokio::test]
+    async fn test_retitle_without_prompts_fails() {
+        let temp_dir = TempDir::new().unwrap();
+        let sm = SessionManager::new(temp_dir.path().to_path_buf());
+        let session = sm
+            .create_session(
+                temp_dir.path().to_path_buf(),
+                "New Chat".to_string(),
+                SessionType::User,
+                GooseMode::default(),
+            )
+            .await
+            .unwrap();
+
+        let result = sm
+            .retitle_with(
+                &session.id,
+                Arc::new(StatefulNamingTestProvider),
+                manual_naming("Anything"),
+            )
+            .await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            sm.get_session(&session.id, false).await.unwrap().name,
+            "New Chat"
+        );
     }
 
     #[tokio::test]

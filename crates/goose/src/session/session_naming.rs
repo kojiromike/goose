@@ -23,6 +23,9 @@ pub const SESSION_NAMING_MODEL_KEY: &str = "GOOSE_SESSION_NAMING_MODEL";
 /// `reasoning_effort: none` to stop a local reasoning model from thinking
 /// for a thousand tokens before it writes four words.
 pub const SESSION_NAMING_REQUEST_PARAMS_KEY: &str = "GOOSE_SESSION_NAMING_REQUEST_PARAMS";
+/// `auto` (the default) retitles a session as the work moves on; `manual`
+/// names it from the first prompt and retitles only when the user asks.
+pub const SESSION_RETITLE_KEY: &str = "GOOSE_SESSION_RETITLE";
 
 // A local model may have to load before it answers, and a reasoning model
 // thinks before it writes four words.
@@ -40,6 +43,25 @@ const RETITLE_RECENT_PROMPTS: usize = 2;
 pub(crate) struct NamingProvider {
     pub(crate) provider: Arc<dyn Provider>,
     pub(crate) model_config: ModelConfig,
+    pub(crate) retitle: RetitleMode,
+}
+
+/// When the naming provider writes a new title for a session that has one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RetitleMode {
+    /// On the next prompt after [`SESSION_RETITLE_INTERVAL`].
+    Auto,
+    /// Only when the user asks for it.
+    Manual,
+}
+
+impl RetitleMode {
+    fn from_config(config: &Config) -> Self {
+        match non_empty_param(config, SESSION_RETITLE_KEY) {
+            Some(mode) if mode.eq_ignore_ascii_case("manual") => Self::Manual,
+            _ => Self::Auto,
+        }
+    }
 }
 
 impl NamingProvider {
@@ -66,6 +88,7 @@ impl NamingProvider {
         Ok(Some(Self {
             provider,
             model_config,
+            retitle: RetitleMode::from_config(config),
         }))
     }
 }
@@ -166,6 +189,11 @@ fn user_prompts(messages: &Conversation) -> Vec<String> {
         })
         .filter(|text| !text.trim().is_empty())
         .collect()
+}
+
+/// How many prompts the user has typed, not counting tool results.
+pub(crate) fn user_prompt_count(messages: &Conversation) -> usize {
+    user_prompts(messages).len()
 }
 
 fn get_initial_user_messages(messages: &Conversation) -> Vec<String> {
@@ -323,6 +351,16 @@ mod tests {
             config_with("GOOSE_SESSION_NAMING_REQUEST_PARAMS:\n  reasoning_effort: none\n");
         let params = naming_request_params(&config).unwrap().unwrap();
         assert_eq!(params.get("reasoning_effort"), Some(&Value::from("none")));
+    }
+
+    #[test]
+    fn retitle_mode_reads_manual_and_defaults_to_auto() {
+        let (_dir, config) = config_with("GOOSE_SESSION_RETITLE: Manual\n");
+        assert_eq!(RetitleMode::from_config(&config), RetitleMode::Manual);
+        let (_dir, config) = config_with("GOOSE_SESSION_RETITLE: sometimes\n");
+        assert_eq!(RetitleMode::from_config(&config), RetitleMode::Auto);
+        let (_dir, config) = config_with("{}\n");
+        assert_eq!(RetitleMode::from_config(&config), RetitleMode::Auto);
     }
 
     #[test]

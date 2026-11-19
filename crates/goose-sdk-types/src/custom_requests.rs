@@ -872,6 +872,21 @@ pub struct RenameSessionRequest {
     pub title: String,
 }
 
+/// Ask the naming model for a new session title now. Unlike automatic
+/// naming, this replaces a title the user typed.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcRequest)]
+#[request(method = "_goose/unstable/session/retitle", response = RetitleSessionResponse)]
+#[serde(rename_all = "camelCase")]
+pub struct RetitleSessionRequest {
+    pub session_id: String,
+}
+
+/// The title a retitle wrote.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcResponse)]
+pub struct RetitleSessionResponse {
+    pub title: String,
+}
+
 /// Archive a session (soft delete).
 #[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcRequest)]
 #[request(method = "_goose/unstable/session/archive", response = EmptyResponse)]

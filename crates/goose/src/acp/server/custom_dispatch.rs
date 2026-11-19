@@ -734,6 +734,14 @@ impl AcpConnection {
         self.on_rename_session(req).await
     }
 
+    #[custom_method(RetitleSessionRequest)]
+    async fn dispatch_retitle_session(
+        &self,
+        req: RetitleSessionRequest,
+    ) -> Result<RetitleSessionResponse, agent_client_protocol::Error> {
+        self.on_retitle_session(req).await
+    }
+
     #[custom_method(ArchiveSessionRequest)]
     async fn dispatch_archive_session(
         &self,

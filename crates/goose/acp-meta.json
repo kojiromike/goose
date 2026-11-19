@@ -441,6 +441,11 @@
       "responseType": "EmptyResponse"
     },
     {
+      "method": "_goose/unstable/session/retitle",
+      "requestType": "RetitleSessionRequest_unstable",
+      "responseType": "RetitleSessionResponse_unstable"
+    },
+    {
       "method": "_goose/unstable/session/archive",
       "requestType": "ArchiveSessionRequest_unstable",
       "responseType": "EmptyResponse"
