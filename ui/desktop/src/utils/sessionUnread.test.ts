@@ -5,6 +5,7 @@ import {
   markSessionViewed,
   parseTimestamp,
   syncLastViewedMap,
+  UNLISTED_ENTRY_TTL_MS,
 } from './sessionUnread';
 
 const STORAGE_KEY = 'session_last_viewed';
@@ -95,11 +96,18 @@ describe('localStorage-backed map', () => {
     expect(loadLastViewedMap()).toEqual({ s1: 1000, s2: 1000 });
   });
 
-  it('syncLastViewedMap keeps existing timestamps and prunes departed sessions', () => {
+  it('syncLastViewedMap keeps existing timestamps, including unlisted sessions', () => {
     markSessionViewed('s1', 111);
-    markSessionViewed('gone', 222);
+    markSessionViewed('offList', 222);
     const map = syncLastViewedMap(['s1', 's3'], 1000);
-    expect(map).toEqual({ s1: 111, s3: 1000 });
-    expect(loadLastViewedMap()).toEqual({ s1: 111, s3: 1000 });
+    expect(map).toEqual({ s1: 111, offList: 222, s3: 1000 });
+    expect(loadLastViewedMap()).toEqual({ s1: 111, offList: 222, s3: 1000 });
+  });
+
+  it('syncLastViewedMap drops unlisted entries older than the TTL', () => {
+    markSessionViewed('stale', 100);
+    markSessionViewed('listed', 100);
+    const now = 100 + UNLISTED_ENTRY_TTL_MS;
+    expect(syncLastViewedMap(['listed'], now)).toEqual({ listed: 100 });
   });
 });

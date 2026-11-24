@@ -8,6 +8,7 @@ import {
   suggestedWakeTime,
   unsnoozeSession,
 } from './sessionSnooze';
+import { UNLISTED_ENTRY_TTL_MS } from './sessionUnread';
 
 const at = (minute: number) => Date.UTC(2026, 10, 5, 12, minute);
 const iso = (minute: number) => new Date(at(minute)).toISOString();
@@ -80,11 +81,10 @@ describe('snooze storage', () => {
     expect(loadSnoozedMap()).toEqual({});
   });
 
-  it('prunes sessions that left the list, woke up, or ran out', () => {
+  it('prunes listed sessions that woke up or ran out', () => {
     snoozeSession('asleep', undefined, at(5));
     snoozeSession('woke', undefined, at(5));
     snoozeSession('due', at(8), at(5));
-    snoozeSession('gone', undefined, at(5));
     const map = pruneSnoozedMap(
       [
         { id: 'asleep', lastMessageAt: iso(4) },
@@ -96,6 +96,25 @@ describe('snooze storage', () => {
     );
     expect(map).toEqual({ asleep: { at: at(5) } });
     expect(loadSnoozedMap()).toEqual({ asleep: { at: at(5) } });
+  });
+
+  it('keeps a snooze while its quiet session is off the recent list', () => {
+    snoozeSession('quiet', undefined, at(5));
+    snoozeSession('timed', at(50), at(5));
+    snoozeSession('due', at(8), at(5));
+    expect(pruneSnoozedMap([{ id: 'busy', lastMessageAt: iso(9) }], at(10))).toEqual({
+      quiet: { at: at(5) },
+      timed: { at: at(5), until: at(50) },
+    });
+
+    // Back on the list with no new message, it is still snoozed.
+    const back = pruneSnoozedMap([{ id: 'quiet', lastMessageAt: iso(4) }], at(20));
+    expect(back.quiet).toEqual({ at: at(5) });
+  });
+
+  it('forgets an untimed snooze on an unlisted session after the TTL', () => {
+    snoozeSession('old', undefined, at(0));
+    expect(pruneSnoozedMap([], at(0) + UNLISTED_ENTRY_TTL_MS)).toEqual({});
   });
 });
 

@@ -83,14 +83,25 @@ export function markSessionViewed(sessionId: string, viewedAt = Date.now()): Las
 }
 
 /**
+ * How long an entry outlives its session's absence from the sidebar list. The
+ * list holds only the most recent sessions, so a quiet session drops off it
+ * within minutes when others are busy; its entry has to survive until the
+ * session comes back. This bound only keeps the map from growing forever.
+ */
+export const UNLISTED_ENTRY_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
  * Reconcile the stored map with the current session list: seed sessions seen
- * for the first time as viewed-now (so they start out read), and prune
- * entries for sessions no longer listed to bound growth. Returns the updated
- * map.
+ * for the first time as viewed-now (so they start out read), and drop entries
+ * for unlisted sessions once they are older than UNLISTED_ENTRY_TTL_MS.
+ * Returns the updated map.
  */
 export function syncLastViewedMap(sessionIds: readonly string[], now = Date.now()): LastViewedMap {
   const stored = loadLastViewedMap();
   const map: LastViewedMap = {};
+  for (const [id, viewedAt] of Object.entries(stored)) {
+    if (now - viewedAt < UNLISTED_ENTRY_TTL_MS) map[id] = viewedAt;
+  }
   for (const id of sessionIds) {
     map[id] = stored[id] ?? now;
   }

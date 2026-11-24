@@ -10,7 +10,7 @@
  * map in sessionUnread.
  */
 
-import { parseTimestamp } from './sessionUnread';
+import { parseTimestamp, UNLISTED_ENTRY_TTL_MS } from './sessionUnread';
 
 const STORAGE_KEY = 'session_snoozed';
 
@@ -177,19 +177,26 @@ export function unsnoozeSession(sessionId: string): SnoozedMap {
 }
 
 /**
- * Drop entries for sessions that left the list or have woken, so the stored
- * map stays bounded and a woken session does not fall back asleep. Returns
- * the updated map.
+ * Drop entries for listed sessions that have woken, so a woken session does
+ * not fall back asleep. Keep entries for sessions missing from the list: the
+ * list holds only the most recent sessions, and a snoozed session is quiet by
+ * design, so it drops off the list while still snoozed (and stays in the
+ * sidebar if its agent is live). An unlisted entry goes once its wake time
+ * passes, or after UNLISTED_ENTRY_TTL_MS when it has none. Returns the
+ * updated map.
  */
 export function pruneSnoozedMap(
   sessions: readonly { id: string; lastMessageAt?: string | number | null }[],
   now = Date.now()
 ): SnoozedMap {
   const stored = loadSnoozedMap();
+  const listed = new Map(sessions.map(({ id, lastMessageAt }) => [id, lastMessageAt]));
   const map: SnoozedMap = {};
-  for (const { id, lastMessageAt } of sessions) {
-    const snooze = stored[id];
-    if (isSessionSnoozed(lastMessageAt, snooze, now)) map[id] = snooze;
+  for (const [id, snooze] of Object.entries(stored)) {
+    const keep = listed.has(id)
+      ? isSessionSnoozed(listed.get(id), snooze, now)
+      : now < (snooze.until ?? snooze.at + UNLISTED_ENTRY_TTL_MS);
+    if (keep) map[id] = snooze;
   }
   saveSnoozedMap(map);
   return map;
