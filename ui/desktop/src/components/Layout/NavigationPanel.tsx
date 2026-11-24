@@ -36,7 +36,7 @@ import {
 } from '../../hooks/useNavigationItems';
 import { AppEvents } from '../../constants/events';
 import { InlineEditText } from '../common/InlineEditText';
-import { describeSessionActivity, SessionIndicators } from '../SessionIndicators';
+import { describeSessionActivity, formatWakeTime, SessionIndicators } from '../SessionIndicators';
 import { SessionSwitcher } from '../SessionSwitcher';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { formatShortcutCompact } from '../settings/keyboard/KeyboardShortcutsSection';
@@ -85,6 +85,7 @@ import {
   loadSnoozedMap,
   pruneSnoozedMap,
   snoozeSession,
+  suggestedWakeTime,
   unsnoozeSession,
   type SessionSnooze,
   type SnoozedMap,
@@ -243,6 +244,14 @@ const i18n = defineMessages({
     id: 'navigationPanel.notLive',
     defaultMessage: '“{name}” has no running agent to end',
   },
+  snoozedUntilCheckBack: {
+    id: 'navigationPanel.snoozedUntilCheckBack',
+    defaultMessage: 'Snoozed “{name}” until {time}',
+  },
+  noCheckBack: {
+    id: 'navigationPanel.noCheckBack',
+    defaultMessage: '“{name}” gave no check-back time to snooze to',
+  },
   stillBusy: {
     id: 'navigationPanel.stillBusy',
     defaultMessage: '“{name}” is still working; stop it first',
@@ -343,7 +352,7 @@ interface SessionRowProps {
   onEnded: () => void;
   holdLayout: HoldLayout;
   /** Present on the open chat's row, which the end and archive shortcuts act on. */
-  shortcuts?: Pick<KeyboardShortcuts, 'endSession' | 'archiveSession'>;
+  shortcuts?: Pick<KeyboardShortcuts, 'endSession' | 'archiveSession' | 'snoozeSuggested'>;
 }
 
 const ShortcutHint: React.FC<{ accelerator: string | null | undefined }> = ({ accelerator }) =>
@@ -593,6 +602,9 @@ const SessionRow: React.FC<SessionRowProps> = ({
                     snoozeChoices(intl, now, session).map((choice) => (
                       <DropdownMenuItem key={choice.key} onSelect={() => onSnooze(choice.until)}>
                         {choice.label}
+                        {choice.key === 'suggested' && (
+                          <ShortcutHint accelerator={shortcuts?.snoozeSuggested} />
+                        )}
                       </DropdownMenuItem>
                     ))}
                 </DropdownMenuSubContent>
@@ -854,6 +866,32 @@ export const Navigation: React.FC<{
     setSnoozes(unsnoozeSession(sessionId));
   }, []);
 
+  // Snooze to the time the agent's closing STATUS line asked to be checked on.
+  // The sidebar row already offers it as the first snooze choice; this is the
+  // one-key version, so it reads the same list the row menu does.
+  const snoozeToCheckBack = useCallback(
+    (sessionId: string | undefined): boolean => {
+      const session = recentSessions.find(({ id }) => id === sessionId);
+      if (!session) return false;
+      const name = session.name || intl.formatMessage(i18n.untitledSession);
+      const now = Date.now();
+      const until = suggestedWakeTime(session.lastStatusLine, session.lastMessageAt, now);
+      if (until === undefined) {
+        toast.info(intl.formatMessage(i18n.noCheckBack, { name }));
+        return false;
+      }
+      snooze(session.id, until);
+      toast.success(
+        intl.formatMessage(i18n.snoozedUntilCheckBack, {
+          name,
+          time: formatWakeTime(intl, until, now),
+        })
+      );
+      return true;
+    },
+    [recentSessions, intl, snooze]
+  );
+
   const toggleSnooze = useCallback(
     (sessionId: string) => {
       const session = recentSessions.find(({ id }) => id === sessionId);
@@ -1062,6 +1100,11 @@ export const Navigation: React.FC<{
         void endOrArchive(action, activeSessionId);
         return;
       }
+      if (matchesAccelerator(event, shortcuts.snoozeSuggested, isMac)) {
+        event.preventDefault();
+        snoozeToCheckBack(activeSessionId);
+        return;
+      }
       const step = matchesAccelerator(event, shortcuts.nextSession, isMac)
         ? 1
         : matchesAccelerator(event, shortcuts.previousSession, isMac)
@@ -1083,6 +1126,7 @@ export const Navigation: React.FC<{
     refreshLiveSessions,
     fetchSessions,
     endOrArchive,
+    snoozeToCheckBack,
   ]);
 
   const toggleProjectCollapsed = useCallback((path: string) => {
@@ -1135,6 +1179,7 @@ export const Navigation: React.FC<{
       onSelect={openSession}
       onToggleSnooze={toggleSnooze}
       onSnooze={snooze}
+      onSnoozeSuggested={snoozeToCheckBack}
       shortcuts={shortcuts}
       onEnd={(sessionId) => void endOrArchive('end', sessionId)}
       onArchive={(sessionId) => void endOrArchive('archive', sessionId)}

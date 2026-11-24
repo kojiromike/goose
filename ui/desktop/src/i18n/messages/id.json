@@ -1904,6 +1904,12 @@
   "keyboardShortcuts.shortcutConflictToggleMessage": {
     "defaultMessage": "Pintasan {shortcut} sudah ditetapkan ke \"{conflictLabel}\"."
   },
+  "keyboardShortcuts.snoozeSuggestedDescription": {
+    "defaultMessage": "Tunda obrolan saat ini sampai waktu cek ulang yang diberikan agennya"
+  },
+  "keyboardShortcuts.snoozeSuggestedLabel": {
+    "defaultMessage": "Tunda sampai waktu cek ulang"
+  },
   "keyboardShortcuts.toggleNavigationDescription": {
     "defaultMessage": "Tampilkan atau sembunyikan menu navigasi"
   },
@@ -2666,6 +2672,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Tidak ada obrolan terbaru"
   },
+  "navigationPanel.noCheckBack": {
+    "defaultMessage": "“{name}” tidak memberi waktu cek ulang"
+  },
   "navigationPanel.notLive": {
     "defaultMessage": "“{name}” tidak memiliki agen yang berjalan untuk diakhiri"
   },
@@ -2686,6 +2695,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Tunda"
+  },
+  "navigationPanel.snoozedUntilCheckBack": {
+    "defaultMessage": "“{name}” ditunda sampai {time}"
   },
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” masih bekerja; hentikan terlebih dahulu"
@@ -4150,6 +4162,9 @@
   },
   "sessionSwitcher.actionsHint": {
     "defaultMessage": "{archiveKey} untuk mengarsipkan · {endKey} untuk mengakhiri"
+  },
+  "sessionSwitcher.checkBackHint": {
+    "defaultMessage": "{key} untuk menunda sampai waktu cek ulangnya"
   },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ untuk berpindah · ↵ untuk membuka · {snoozeKey} untuk menunda ({snoozeUntilKey} dengan waktu) · esc untuk menutup"

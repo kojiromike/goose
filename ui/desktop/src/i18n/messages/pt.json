@@ -1904,6 +1904,12 @@
   "keyboardShortcuts.shortcutConflictToggleMessage": {
     "defaultMessage": "O atalho {shortcut} já está atribuído a \"{conflictLabel}\"."
   },
+  "keyboardShortcuts.snoozeSuggestedDescription": {
+    "defaultMessage": "Adiar o chat atual até a hora de retorno indicada pelo agente"
+  },
+  "keyboardShortcuts.snoozeSuggestedLabel": {
+    "defaultMessage": "Adiar até a hora de retorno"
+  },
   "keyboardShortcuts.toggleNavigationDescription": {
     "defaultMessage": "Mostrar ou ocultar o menu de navegação"
   },
@@ -2666,6 +2672,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Sem conversas recentes"
   },
+  "navigationPanel.noCheckBack": {
+    "defaultMessage": "“{name}” não indicou uma hora de retorno"
+  },
   "navigationPanel.notLive": {
     "defaultMessage": "“{name}” não tem nenhum agente em execução para encerrar"
   },
@@ -2686,6 +2695,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Adiar"
+  },
+  "navigationPanel.snoozedUntilCheckBack": {
+    "defaultMessage": "“{name}” adiada até {time}"
   },
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” ainda está trabalhando; pare-a primeiro"
@@ -4150,6 +4162,9 @@
   },
   "sessionSwitcher.actionsHint": {
     "defaultMessage": "{archiveKey} para arquivar · {endKey} para encerrar"
+  },
+  "sessionSwitcher.checkBackHint": {
+    "defaultMessage": "{key} para adiar até a hora de retorno"
   },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ para mover · ↵ para abrir · {snoozeKey} para adiar ({snoozeUntilKey} com horário) · esc para fechar"

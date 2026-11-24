@@ -41,6 +41,10 @@ const i18n = defineMessages({
     id: 'sessionSwitcher.actionsHint',
     defaultMessage: '{archiveKey} to archive · {endKey} to end',
   },
+  checkBackHint: {
+    id: 'sessionSwitcher.checkBackHint',
+    defaultMessage: '{key} to snooze until its check-back time',
+  },
   snoozeHint: {
     id: 'sessionSwitcher.snoozeHint',
     defaultMessage: '↑↓ to move · ↵ to snooze · esc to go back',
@@ -57,7 +61,12 @@ interface SessionSwitcherProps {
   onToggleSnooze: (sessionId: string) => void;
   /** Snooze the session until new activity or, given `until`, that time. */
   onSnooze: (sessionId: string, until?: number) => void;
-  shortcuts: Pick<KeyboardShortcuts, 'endSession' | 'archiveSession'>;
+  /**
+   * Snooze the session until its agent's check-back time. Returns whether the
+   * session had one to snooze to.
+   */
+  onSnoozeSuggested: (sessionId: string) => boolean;
+  shortcuts: Pick<KeyboardShortcuts, 'endSession' | 'archiveSession' | 'snoozeSuggested'>;
   onEnd: (sessionId: string) => void;
   onArchive: (sessionId: string) => void;
 }
@@ -71,6 +80,7 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
   onSelect,
   onToggleSnooze,
   onSnooze,
+  onSnoozeSuggested,
   shortcuts,
   onEnd,
   onArchive,
@@ -151,6 +161,13 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
       event.preventDefault();
       const match = matches[selectedIndex];
       if (match) choose(match.session.id);
+    } else if (matchesAccelerator(event, shortcuts.snoozeSuggested, isMac())) {
+      event.preventDefault();
+      const match = matches[selectedIndex];
+      if (!match) return;
+      // The snoozed row moves down the ranking; keep the cursor in place.
+      const neighbor = matches[selectedIndex + 1] ?? matches[selectedIndex - 1];
+      if (onSnoozeSuggested(match.session.id) && neighbor) setSelectedId(neighbor.session.id);
     } else if (matchesAccelerator(event, shortcuts.archiveSession, isMac())) {
       event.preventDefault();
       const match = matches[selectedIndex];
@@ -290,6 +307,13 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
                 {intl.formatMessage(i18n.actionsHint, {
                   archiveKey: formatShortcutCompact(shortcuts.archiveSession),
                   endKey: formatShortcutCompact(shortcuts.endSession),
+                })}
+              </div>
+            )}
+            {!snoozeTarget && shortcuts.snoozeSuggested && (
+              <div>
+                {intl.formatMessage(i18n.checkBackHint, {
+                  key: formatShortcutCompact(shortcuts.snoozeSuggested),
                 })}
               </div>
             )}

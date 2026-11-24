@@ -1904,6 +1904,12 @@
   "keyboardShortcuts.shortcutConflictToggleMessage": {
     "defaultMessage": "Das Tastenkürzel {shortcut} ist bereits \"{conflictLabel}\" zugewiesen."
   },
+  "keyboardShortcuts.snoozeSuggestedDescription": {
+    "defaultMessage": "Den aktuellen Chat bis zu der Rückmeldezeit schlummern, die sein Agent genannt hat"
+  },
+  "keyboardShortcuts.snoozeSuggestedLabel": {
+    "defaultMessage": "Bis zur Rückmeldezeit schlummern"
+  },
   "keyboardShortcuts.toggleNavigationDescription": {
     "defaultMessage": "Navigationsmenü ein- oder ausblenden"
   },
@@ -2666,6 +2672,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Keine aktuellen Chats"
   },
+  "navigationPanel.noCheckBack": {
+    "defaultMessage": "„{name}“ hat keine Rückmeldezeit genannt"
+  },
   "navigationPanel.notLive": {
     "defaultMessage": "„{name}“ hat keinen laufenden Agenten, der beendet werden kann"
   },
@@ -2686,6 +2695,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Schlummern"
+  },
+  "navigationPanel.snoozedUntilCheckBack": {
+    "defaultMessage": "„{name}“ schlummert bis {time}"
   },
   "navigationPanel.stillBusy": {
     "defaultMessage": "„{name}“ arbeitet noch; zuerst stoppen"
@@ -4150,6 +4162,9 @@
   },
   "sessionSwitcher.actionsHint": {
     "defaultMessage": "{archiveKey} archivieren · {endKey} beenden"
+  },
+  "sessionSwitcher.checkBackHint": {
+    "defaultMessage": "{key} bis zur Rückmeldezeit schlummern"
   },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ bewegen · ↵ öffnen · {snoozeKey} schlummern ({snoozeUntilKey} mit Zeit) · Esc schließen"

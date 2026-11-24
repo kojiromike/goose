@@ -1904,6 +1904,12 @@
   "keyboardShortcuts.shortcutConflictToggleMessage": {
     "defaultMessage": "{shortcut} kısayolu zaten \"{conflictLabel}\" öğesine atanmıştır."
   },
+  "keyboardShortcuts.snoozeSuggestedDescription": {
+    "defaultMessage": "Geçerli sohbeti ajanının verdiği kontrol saatine kadar ertele"
+  },
+  "keyboardShortcuts.snoozeSuggestedLabel": {
+    "defaultMessage": "Kontrol saatine kadar ertele"
+  },
   "keyboardShortcuts.toggleNavigationDescription": {
     "defaultMessage": "Gezinme menüsünü göster veya gizle"
   },
@@ -2666,6 +2672,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Son sohbet yok"
   },
+  "navigationPanel.noCheckBack": {
+    "defaultMessage": "“{name}” bir kontrol saati vermedi"
+  },
   "navigationPanel.notLive": {
     "defaultMessage": "“{name}” için sonlandırılacak çalışan bir ajan yok"
   },
@@ -2686,6 +2695,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Ertele"
+  },
+  "navigationPanel.snoozedUntilCheckBack": {
+    "defaultMessage": "“{name}” {time} saatine kadar ertelendi"
   },
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” hâlâ çalışıyor; önce durdurun"
@@ -4150,6 +4162,9 @@
   },
   "sessionSwitcher.actionsHint": {
     "defaultMessage": "{archiveKey} ile arşivle · {endKey} ile sonlandır"
+  },
+  "sessionSwitcher.checkBackHint": {
+    "defaultMessage": "{key} kontrol saatine kadar ertele"
   },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ ile gezin · ↵ ile aç · {snoozeKey} ile ertele ({snoozeUntilKey} ile saat seç) · esc ile kapat"

@@ -28,6 +28,7 @@ export interface KeyboardShortcuts {
   previousSession: string | null;
   endSession: string | null;
   archiveSession: string | null;
+  snoozeSuggested: string | null;
 }
 
 export type DefaultKeyboardShortcuts = {
@@ -87,6 +88,7 @@ export const defaultKeyboardShortcuts: DefaultKeyboardShortcuts = {
   previousSession: 'Control+Shift+Tab',
   endSession: 'CommandOrControl+Shift+E',
   archiveSession: 'CommandOrControl+Shift+A',
+  snoozeSuggested: 'CommandOrControl+Alt+S',
 };
 
 export const defaultSettings: Settings = {

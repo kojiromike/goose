@@ -1904,6 +1904,12 @@
   "keyboardShortcuts.shortcutConflictToggleMessage": {
     "defaultMessage": "El atajo {shortcut} ya está asignado a \"{conflictLabel}\"."
   },
+  "keyboardShortcuts.snoozeSuggestedDescription": {
+    "defaultMessage": "Posponer el chat actual hasta la hora de revisión que indicó su agente"
+  },
+  "keyboardShortcuts.snoozeSuggestedLabel": {
+    "defaultMessage": "Posponer hasta la hora de revisión"
+  },
   "keyboardShortcuts.toggleNavigationDescription": {
     "defaultMessage": "Mostrar u ocultar el menú de navegación"
   },
@@ -2666,6 +2672,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "No hay chats recientes"
   },
+  "navigationPanel.noCheckBack": {
+    "defaultMessage": "“{name}” no indicó una hora de revisión"
+  },
   "navigationPanel.notLive": {
     "defaultMessage": "“{name}” no tiene ningún agente en ejecución que finalizar"
   },
@@ -2686,6 +2695,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Posponer"
+  },
+  "navigationPanel.snoozedUntilCheckBack": {
+    "defaultMessage": "“{name}” pospuesta hasta las {time}"
   },
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” sigue trabajando; deténgala primero"
@@ -4150,6 +4162,9 @@
   },
   "sessionSwitcher.actionsHint": {
     "defaultMessage": "{archiveKey} para archivar · {endKey} para finalizar"
+  },
+  "sessionSwitcher.checkBackHint": {
+    "defaultMessage": "{key} para posponer hasta su hora de revisión"
   },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ para moverte · ↵ para abrir · {snoozeKey} para posponer ({snoozeUntilKey} con hora) · esc para cerrar"

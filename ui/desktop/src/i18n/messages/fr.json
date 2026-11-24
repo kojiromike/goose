@@ -1904,6 +1904,12 @@
   "keyboardShortcuts.shortcutConflictToggleMessage": {
     "defaultMessage": "Le raccourci {shortcut} est déjà attribué à « {conflictLabel} »."
   },
+  "keyboardShortcuts.snoozeSuggestedDescription": {
+    "defaultMessage": "Mettre en veille la discussion actuelle jusqu’à l’heure de contrôle indiquée par son agent"
+  },
+  "keyboardShortcuts.snoozeSuggestedLabel": {
+    "defaultMessage": "Mettre en veille jusqu’au point de contrôle"
+  },
   "keyboardShortcuts.toggleNavigationDescription": {
     "defaultMessage": "Afficher ou masquer le menu de navigation"
   },
@@ -2666,6 +2672,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Aucune discussion récente"
   },
+  "navigationPanel.noCheckBack": {
+    "defaultMessage": "“{name}” n’a indiqué aucune heure de contrôle"
+  },
   "navigationPanel.notLive": {
     "defaultMessage": "“{name}” n’a aucun agent en cours à terminer"
   },
@@ -2686,6 +2695,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Mettre en veille"
+  },
+  "navigationPanel.snoozedUntilCheckBack": {
+    "defaultMessage": "“{name}” en veille jusqu’à {time}"
   },
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” est toujours en cours ; arrêtez-la d’abord"
@@ -4150,6 +4162,9 @@
   },
   "sessionSwitcher.actionsHint": {
     "defaultMessage": "{archiveKey} pour archiver · {endKey} pour terminer"
+  },
+  "sessionSwitcher.checkBackHint": {
+    "defaultMessage": "{key} pour mettre en veille jusqu’à son heure de contrôle"
   },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ pour naviguer · ↵ pour ouvrir · {snoozeKey} pour mettre en veille ({snoozeUntilKey} avec une heure) · échap pour fermer"

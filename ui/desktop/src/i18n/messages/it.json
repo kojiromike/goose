@@ -1904,6 +1904,12 @@
   "keyboardShortcuts.shortcutConflictToggleMessage": {
     "defaultMessage": "La scorciatoia {shortcut} è già assegnata a \"{conflictLabel}\"."
   },
+  "keyboardShortcuts.snoozeSuggestedDescription": {
+    "defaultMessage": "Posticipa la chat corrente fino all’ora di verifica indicata dal suo agente"
+  },
+  "keyboardShortcuts.snoozeSuggestedLabel": {
+    "defaultMessage": "Posticipa fino all’ora di verifica"
+  },
   "keyboardShortcuts.toggleNavigationDescription": {
     "defaultMessage": "Mostra o nascondi il menu di navigazione"
   },
@@ -2666,6 +2672,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Nessuna chat recente"
   },
+  "navigationPanel.noCheckBack": {
+    "defaultMessage": "“{name}” non ha indicato un’ora di verifica"
+  },
   "navigationPanel.notLive": {
     "defaultMessage": "“{name}” non ha alcun agente in esecuzione da terminare"
   },
@@ -2686,6 +2695,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Posticipa"
+  },
+  "navigationPanel.snoozedUntilCheckBack": {
+    "defaultMessage": "“{name}” posticipata fino alle {time}"
   },
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” è ancora al lavoro; interrompila prima"
@@ -4150,6 +4162,9 @@
   },
   "sessionSwitcher.actionsHint": {
     "defaultMessage": "{archiveKey} per archiviare · {endKey} per terminare"
+  },
+  "sessionSwitcher.checkBackHint": {
+    "defaultMessage": "{key} per posticipare fino alla sua ora di verifica"
   },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ per spostarti · ↵ per aprire · {snoozeKey} per posticipare ({snoozeUntilKey} con orario) · esc per chiudere"

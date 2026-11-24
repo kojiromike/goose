@@ -1904,6 +1904,12 @@
   "keyboardShortcuts.shortcutConflictToggleMessage": {
     "defaultMessage": "快捷键 {shortcut} 已分配给“{conflictLabel}”。"
   },
+  "keyboardShortcuts.snoozeSuggestedDescription": {
+    "defaultMessage": "将当前聊天暂停提醒至其代理给出的回看时间"
+  },
+  "keyboardShortcuts.snoozeSuggestedLabel": {
+    "defaultMessage": "暂停提醒至回看时间"
+  },
   "keyboardShortcuts.toggleNavigationDescription": {
     "defaultMessage": "显示或隐藏导航菜单"
   },
@@ -2666,6 +2672,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "没有最近的聊天"
   },
+  "navigationPanel.noCheckBack": {
+    "defaultMessage": "“{name}”没有给出回看时间"
+  },
   "navigationPanel.notLive": {
     "defaultMessage": "“{name}”没有可结束的运行中代理"
   },
@@ -2686,6 +2695,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "暂停提醒"
+  },
+  "navigationPanel.snoozedUntilCheckBack": {
+    "defaultMessage": "已将“{name}”暂停提醒至 {time}"
   },
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}”仍在运行；请先停止"
@@ -4150,6 +4162,9 @@
   },
   "sessionSwitcher.actionsHint": {
     "defaultMessage": "{archiveKey} 归档 · {endKey} 结束"
+  },
+  "sessionSwitcher.checkBackHint": {
+    "defaultMessage": "{key} 暂停提醒至回看时间"
   },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ 移动 · ↵ 打开 · {snoozeKey} 暂停提醒（{snoozeUntilKey} 指定时间） · esc 关闭"

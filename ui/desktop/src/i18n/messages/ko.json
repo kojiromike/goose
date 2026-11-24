@@ -1904,6 +1904,12 @@
   "keyboardShortcuts.shortcutConflictToggleMessage": {
     "defaultMessage": "단축키 {shortcut}은 이미 \"{conflictLabel}\"에 할당되어 있습니다."
   },
+  "keyboardShortcuts.snoozeSuggestedDescription": {
+    "defaultMessage": "현재 채팅을 에이전트가 알려 준 확인 시각까지 다시 알림으로 미루기"
+  },
+  "keyboardShortcuts.snoozeSuggestedLabel": {
+    "defaultMessage": "확인 시각까지 다시 알림"
+  },
   "keyboardShortcuts.toggleNavigationDescription": {
     "defaultMessage": "탐색 메뉴를 표시하거나 숨깁니다."
   },
@@ -2666,6 +2672,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "최근 채팅 없음"
   },
+  "navigationPanel.noCheckBack": {
+    "defaultMessage": "“{name}”에 확인 시각이 없습니다"
+  },
   "navigationPanel.notLive": {
     "defaultMessage": "“{name}”에는 종료할 실행 중인 에이전트가 없습니다"
   },
@@ -2686,6 +2695,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "다시 알림"
+  },
+  "navigationPanel.snoozedUntilCheckBack": {
+    "defaultMessage": "“{name}”을(를) {time}까지 미룸"
   },
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}”이(가) 아직 작업 중입니다. 먼저 중지하세요"
@@ -4150,6 +4162,9 @@
   },
   "sessionSwitcher.actionsHint": {
     "defaultMessage": "{archiveKey} 보관 · {endKey} 종료"
+  },
+  "sessionSwitcher.checkBackHint": {
+    "defaultMessage": "{key} 확인 시각까지 다시 알림"
   },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ 이동 · ↵ 열기 · {snoozeKey} 다시 알림 ({snoozeUntilKey} 시간 지정) · esc 닫기"

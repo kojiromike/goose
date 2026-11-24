@@ -22,6 +22,7 @@ function entry(id: string, name: string, workingDir = '/work'): SwitcherEntry {
 const shortcuts = {
   endSession: 'CommandOrControl+Shift+E',
   archiveSession: 'CommandOrControl+Shift+A',
+  snoozeSuggested: 'CommandOrControl+Alt+S',
 };
 
 const entries = [entry('a', 'Fix login bug'), entry('b', 'Release notes'), entry('c', 'Triage')];
@@ -33,6 +34,7 @@ function renderSwitcher(
   const onOpenChange = vi.fn();
   const onToggleSnooze = vi.fn();
   const onSnooze = vi.fn();
+  const onSnoozeSuggested = vi.fn(() => true);
   const onEnd = vi.fn();
   const onArchive = vi.fn();
   const view = render(
@@ -44,6 +46,7 @@ function renderSwitcher(
         onSelect={onSelect}
         onToggleSnooze={onToggleSnooze}
         onSnooze={onSnooze}
+        onSnoozeSuggested={onSnoozeSuggested}
         shortcuts={shortcuts}
         onEnd={onEnd}
         onArchive={onArchive}
@@ -57,6 +60,7 @@ function renderSwitcher(
     onOpenChange,
     onToggleSnooze,
     onSnooze,
+    onSnoozeSuggested,
     onEnd,
     onArchive,
     input: screen.getByRole('textbox'),
@@ -103,6 +107,7 @@ describe('SessionSwitcher', () => {
           onSelect={onSelect}
           onToggleSnooze={onToggleSnooze}
           onSnooze={vi.fn()}
+          onSnoozeSuggested={vi.fn(() => true)}
           shortcuts={shortcuts}
           onEnd={vi.fn()}
           onArchive={vi.fn()}
@@ -127,6 +132,7 @@ describe('SessionSwitcher', () => {
           onSelect={onSelect}
           onToggleSnooze={onToggleSnooze}
           onSnooze={vi.fn()}
+          onSnoozeSuggested={vi.fn(() => true)}
           shortcuts={shortcuts}
           onEnd={vi.fn()}
           onArchive={vi.fn()}
@@ -157,6 +163,18 @@ describe('SessionSwitcher', () => {
   it('lists the archive and end keys in the hint', () => {
     renderSwitcher();
     expect(screen.getByText('⌘⇧A to archive · ⌘⇧E to end')).toBeInTheDocument();
+    expect(screen.getByText('⌘⌥S to snooze until its check-back time')).toBeInTheDocument();
+  });
+
+  it('snoozes the selected session to its check-back time on ⌘⌥S', () => {
+    const { input, onSnoozeSuggested, onToggleSnooze, onSnooze, onOpenChange } = renderSwitcher();
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    // Option turns the S key into ß on a Mac; the match goes by physical key.
+    fireEvent.keyDown(input, { key: 'ß', code: 'KeyS', metaKey: true, altKey: true });
+    expect(onSnoozeSuggested).toHaveBeenCalledWith('b');
+    expect(onToggleSnooze).not.toHaveBeenCalled();
+    expect(onSnooze).not.toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalled();
   });
 
   it('picks a wake time on ⌘⇧S, and esc backs out without closing', () => {

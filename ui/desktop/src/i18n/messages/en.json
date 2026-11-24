@@ -1904,6 +1904,12 @@
   "keyboardShortcuts.shortcutConflictToggleMessage": {
     "defaultMessage": "The shortcut {shortcut} is already assigned to \"{conflictLabel}\"."
   },
+  "keyboardShortcuts.snoozeSuggestedDescription": {
+    "defaultMessage": "Snooze the current chat until the check-back time its agent gave"
+  },
+  "keyboardShortcuts.snoozeSuggestedLabel": {
+    "defaultMessage": "Snooze Until Check-Back"
+  },
   "keyboardShortcuts.toggleNavigationDescription": {
     "defaultMessage": "Show or hide the navigation menu"
   },
@@ -2672,6 +2678,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "No recent chats"
   },
+  "navigationPanel.noCheckBack": {
+    "defaultMessage": "“{name}” gave no check-back time to snooze to"
+  },
   "navigationPanel.notLive": {
     "defaultMessage": "“{name}” has no running agent to end"
   },
@@ -2698,6 +2707,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Snooze"
+  },
+  "navigationPanel.snoozedUntilCheckBack": {
+    "defaultMessage": "Snoozed “{name}” until {time}"
   },
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” is still working; stop it first"
@@ -4168,6 +4180,9 @@
   },
   "sessionSwitcher.actionsHint": {
     "defaultMessage": "{archiveKey} to archive · {endKey} to end"
+  },
+  "sessionSwitcher.checkBackHint": {
+    "defaultMessage": "{key} to snooze until its check-back time"
   },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ to move · ↵ to open · {snoozeKey} to snooze ({snoozeUntilKey} for a time) · esc to close"

@@ -138,6 +138,14 @@ const i18n = defineMessages({
     id: 'keyboardShortcuts.archiveSessionDescription',
     defaultMessage: 'End and archive the current chat, then open the next one',
   },
+  snoozeSuggestedLabel: {
+    id: 'keyboardShortcuts.snoozeSuggestedLabel',
+    defaultMessage: 'Snooze Until Check-Back',
+  },
+  snoozeSuggestedDescription: {
+    id: 'keyboardShortcuts.snoozeSuggestedDescription',
+    defaultMessage: 'Snooze the current chat until the check-back time its agent gave',
+  },
 
   // Category labels and descriptions
   categoryGlobal: {
@@ -355,6 +363,12 @@ const shortcutConfigs: ShortcutConfig[] = [
     key: 'archiveSession',
     label: i18n.archiveSessionLabel,
     description: i18n.archiveSessionDescription,
+    category: 'application',
+  },
+  {
+    key: 'snoozeSuggested',
+    label: i18n.snoozeSuggestedLabel,
+    description: i18n.snoozeSuggestedDescription,
     category: 'application',
   },
 ];

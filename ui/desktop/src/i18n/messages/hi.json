@@ -1904,6 +1904,12 @@
   "keyboardShortcuts.shortcutConflictToggleMessage": {
     "defaultMessage": "शॉर्टकट {shortcut} पहले से ही \"{conflictLabel}\" को सौंपा गया है।"
   },
+  "keyboardShortcuts.snoozeSuggestedDescription": {
+    "defaultMessage": "मौजूदा चैट को उसके एजेंट द्वारा बताए गए जाँच के समय तक स्नूज़ करें"
+  },
+  "keyboardShortcuts.snoozeSuggestedLabel": {
+    "defaultMessage": "जाँच के समय तक स्नूज़ करें"
+  },
   "keyboardShortcuts.toggleNavigationDescription": {
     "defaultMessage": "नेविगेशन मेनू दिखाएँ या छिपाएँ"
   },
@@ -2666,6 +2672,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "कोई हालिया चैट नहीं"
   },
+  "navigationPanel.noCheckBack": {
+    "defaultMessage": "“{name}” ने जाँच का कोई समय नहीं बताया"
+  },
   "navigationPanel.notLive": {
     "defaultMessage": "“{name}” में समाप्त करने के लिए कोई चालू एजेंट नहीं है"
   },
@@ -2686,6 +2695,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "स्नूज़ करें"
+  },
+  "navigationPanel.snoozedUntilCheckBack": {
+    "defaultMessage": "“{name}” को {time} तक स्नूज़ किया गया"
   },
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” अभी भी काम कर रहा है; पहले उसे रोकें"
@@ -4150,6 +4162,9 @@
   },
   "sessionSwitcher.actionsHint": {
     "defaultMessage": "{archiveKey} से संग्रहित करें · {endKey} से समाप्त करें"
+  },
+  "sessionSwitcher.checkBackHint": {
+    "defaultMessage": "{key} से उसके जाँच के समय तक स्नूज़ करें"
   },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ से चलें · ↵ से खोलें · {snoozeKey} से स्नूज़ करें ({snoozeUntilKey} समय के साथ) · esc से बंद करें"

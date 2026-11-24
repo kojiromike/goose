@@ -1904,6 +1904,12 @@
   "keyboardShortcuts.shortcutConflictToggleMessage": {
     "defaultMessage": "Сочетание {shortcut} уже назначено «{conflictLabel}»."
   },
+  "keyboardShortcuts.snoozeSuggestedDescription": {
+    "defaultMessage": "Отложить текущий чат до времени проверки, которое назвал его агент"
+  },
+  "keyboardShortcuts.snoozeSuggestedLabel": {
+    "defaultMessage": "Отложить до времени проверки"
+  },
   "keyboardShortcuts.toggleNavigationDescription": {
     "defaultMessage": "Показать или скрыть меню навигации"
   },
@@ -2666,6 +2672,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "Нет недавних чатов"
   },
+  "navigationPanel.noCheckBack": {
+    "defaultMessage": "«{name}» не назвал время проверки"
+  },
   "navigationPanel.notLive": {
     "defaultMessage": "У «{name}» нет запущенного агента, который можно завершить"
   },
@@ -2686,6 +2695,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "Отложить"
+  },
+  "navigationPanel.snoozedUntilCheckBack": {
+    "defaultMessage": "«{name}» отложен до {time}"
   },
   "navigationPanel.stillBusy": {
     "defaultMessage": "«{name}» ещё работает; сначала остановите его"
@@ -4150,6 +4162,9 @@
   },
   "sessionSwitcher.actionsHint": {
     "defaultMessage": "{archiveKey} — архивировать · {endKey} — завершить"
+  },
+  "sessionSwitcher.checkBackHint": {
+    "defaultMessage": "{key} — отложить до времени проверки"
   },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ — перемещение · ↵ — открыть · {snoozeKey} — отложить ({snoozeUntilKey} — на время) · esc — закрыть"

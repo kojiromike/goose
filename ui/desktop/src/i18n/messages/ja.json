@@ -1904,6 +1904,12 @@
   "keyboardShortcuts.shortcutConflictToggleMessage": {
     "defaultMessage": "ショートカット {shortcut} はすでに「{conflictLabel}」に割り当てられています。"
   },
+  "keyboardShortcuts.snoozeSuggestedDescription": {
+    "defaultMessage": "現在のチャットをエージェントが示した確認予定時刻までスヌーズ"
+  },
+  "keyboardShortcuts.snoozeSuggestedLabel": {
+    "defaultMessage": "確認予定時刻までスヌーズ"
+  },
   "keyboardShortcuts.toggleNavigationDescription": {
     "defaultMessage": "ナビゲーションメニューの表示を切り替える"
   },
@@ -2666,6 +2672,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "最近のチャットはありません"
   },
+  "navigationPanel.noCheckBack": {
+    "defaultMessage": "「{name}」には確認予定時刻がありません"
+  },
   "navigationPanel.notLive": {
     "defaultMessage": "「{name}」には終了できる実行中のエージェントがありません"
   },
@@ -2686,6 +2695,9 @@
   },
   "navigationPanel.snooze": {
     "defaultMessage": "スヌーズ"
+  },
+  "navigationPanel.snoozedUntilCheckBack": {
+    "defaultMessage": "「{name}」を {time} までスヌーズしました"
   },
   "navigationPanel.stillBusy": {
     "defaultMessage": "「{name}」はまだ作業中です。先に停止してください"
@@ -4150,6 +4162,9 @@
   },
   "sessionSwitcher.actionsHint": {
     "defaultMessage": "{archiveKey} でアーカイブ · {endKey} で終了"
+  },
+  "sessionSwitcher.checkBackHint": {
+    "defaultMessage": "{key} で確認予定時刻までスヌーズ"
   },
   "sessionSwitcher.hint": {
     "defaultMessage": "↑↓ で移動 · ↵ で開く · {snoozeKey} でスヌーズ（{snoozeUntilKey} で時間指定） · esc で閉じる"
