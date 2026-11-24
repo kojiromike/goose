@@ -2609,6 +2609,9 @@
   "navigationPanel.archiveSuccess": {
     "defaultMessage": "“{name}” diarkibkan"
   },
+  "navigationPanel.archivedMarker": {
+    "defaultMessage": "Diarkibkan, tetapi ejennya masih berjalan"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "Sembang"
   },

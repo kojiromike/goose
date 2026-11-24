@@ -2609,6 +2609,9 @@
   "navigationPanel.archiveSuccess": {
     "defaultMessage": "“{name}” diarsipkan"
   },
+  "navigationPanel.archivedMarker": {
+    "defaultMessage": "Diarsipkan, tetapi agennya masih berjalan"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "Obrolan"
   },

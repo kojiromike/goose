@@ -2609,6 +2609,9 @@
   "navigationPanel.archiveSuccess": {
     "defaultMessage": "“{name}” संग्रहित किया गया"
   },
+  "navigationPanel.archivedMarker": {
+    "defaultMessage": "संग्रहित, लेकिन इसका एजेंट अभी भी चल रहा है"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "चैट"
   },

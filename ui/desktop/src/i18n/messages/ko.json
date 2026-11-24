@@ -2609,6 +2609,9 @@
   "navigationPanel.archiveSuccess": {
     "defaultMessage": "“{name}” 보관됨"
   },
+  "navigationPanel.archivedMarker": {
+    "defaultMessage": "보관됨. 하지만 에이전트가 아직 실행 중입니다"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "채팅"
   },

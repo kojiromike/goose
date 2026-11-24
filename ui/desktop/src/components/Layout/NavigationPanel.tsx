@@ -187,6 +187,10 @@ const i18n = defineMessages({
     id: 'navigationPanel.archiveFailed',
     defaultMessage: 'Failed to archive session: {error}',
   },
+  archivedMarker: {
+    id: 'navigationPanel.archivedMarker',
+    defaultMessage: 'Archived, but its agent is still running',
+  },
   unarchive: {
     id: 'navigationPanel.unarchive',
     defaultMessage: 'Unarchive',
@@ -515,7 +519,10 @@ const SessionRow: React.FC<SessionRowProps> = ({
             placeholder={intl.formatMessage(i18n.untitledSession)}
             singleClickEdit={false}
             editRequestSignal={editSignal}
-            className="truncate text-text-primary flex-1 !px-0 !py-0 hover:bg-transparent"
+            className={cn(
+              'truncate flex-1 !px-0 !py-0 hover:bg-transparent',
+              session.archivedAt ? 'text-text-tertiary italic' : 'text-text-primary'
+            )}
             editClassName="!text-sm"
             onEditStart={() => setIsEditing(true)}
             onEditEnd={() => setIsEditing(false)}
@@ -525,6 +532,16 @@ const SessionRow: React.FC<SessionRowProps> = ({
               className="w-3.5 h-3.5 flex-shrink-0 text-blue-500"
               aria-label={intl.formatMessage(i18n.returnToActiveLiveVoice)}
             />
+          )}
+          {session.archivedAt && (
+            // Only a chat whose agent outlived the archive reaches the sidebar,
+            // so say so; otherwise it reads as an ordinary chat to pick back up.
+            <Archive
+              className="w-3 h-3 flex-shrink-0 text-text-tertiary"
+              aria-label={intl.formatMessage(i18n.archivedMarker)}
+            >
+              <title>{intl.formatMessage(i18n.archivedMarker)}</title>
+            </Archive>
           )}
           <SessionIndicators activity={activity} now={now} snooze={snooze} />
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>

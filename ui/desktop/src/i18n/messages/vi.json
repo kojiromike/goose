@@ -2609,6 +2609,9 @@
   "navigationPanel.archiveSuccess": {
     "defaultMessage": "Đã lưu trữ “{name}”"
   },
+  "navigationPanel.archivedMarker": {
+    "defaultMessage": "Đã lưu trữ, nhưng tác tử vẫn đang chạy"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "Cuộc trò chuyện"
   },

@@ -2609,6 +2609,9 @@
   "navigationPanel.archiveSuccess": {
     "defaultMessage": "已封存「{name}」"
   },
+  "navigationPanel.archivedMarker": {
+    "defaultMessage": "已封存，但其代理程式仍在執行"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "交談"
   },

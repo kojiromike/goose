@@ -2609,6 +2609,9 @@
   "navigationPanel.archiveSuccess": {
     "defaultMessage": "「{name}」をアーカイブしました"
   },
+  "navigationPanel.archivedMarker": {
+    "defaultMessage": "アーカイブ済みですが、エージェントはまだ実行中です"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "チャット"
   },

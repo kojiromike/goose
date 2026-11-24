@@ -2609,6 +2609,9 @@
   "navigationPanel.archiveSuccess": {
     "defaultMessage": "«{name}» архивирован"
   },
+  "navigationPanel.archivedMarker": {
+    "defaultMessage": "В архиве, но агент всё ещё работает"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "Чаты"
   },

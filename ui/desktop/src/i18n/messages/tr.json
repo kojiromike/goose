@@ -2609,6 +2609,9 @@
   "navigationPanel.archiveSuccess": {
     "defaultMessage": "“{name}” arşivlendi"
   },
+  "navigationPanel.archivedMarker": {
+    "defaultMessage": "Arşivlendi, ancak ajanı hâlâ çalışıyor"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "Sohbetler"
   },

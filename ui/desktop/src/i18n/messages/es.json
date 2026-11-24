@@ -2609,6 +2609,9 @@
   "navigationPanel.archiveSuccess": {
     "defaultMessage": "“{name}” archivada"
   },
+  "navigationPanel.archivedMarker": {
+    "defaultMessage": "Archivada, pero su agente sigue en ejecución"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "Chats"
   },
