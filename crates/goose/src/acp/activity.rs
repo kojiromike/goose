@@ -20,14 +20,22 @@
 //! the agent is busy produces no update at all. So a Monitor counts as running
 //! from its announcement until the agent next resumes unprompted or stops it,
 //! and a missed report lasts until the client's age limit.
+//!
+//! Some background tasks do no work of their own: they wait on CI, a review,
+//! a timer, or a log line. A client shows a session whose only background
+//! tasks are waits differently from one that is busy, because the user can
+//! act on it. A Monitor always counts as a wait, since it only watches. A
+//! backgrounded command counts when the agent describes it as a wait, or when
+//! it runs a known waiting tool such as `wait-for.py`; anything else counts as
+//! work, which is what every task showed as before.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use agent_client_protocol::schema::v1::{
     Content, ContentBlock, SessionUpdate, ToolCallContent, ToolCallStatus, ToolCallUpdate,
 };
-use goose_providers::base::ProviderActivity;
+use goose_providers::base::{BackgroundWait, ProviderActivity};
 
 const BACKGROUND_COMMAND_MARKER: &str = "Command running in background with ID: ";
 const MONITOR_MARKER: &str = "Monitor started (task ";
@@ -44,6 +52,18 @@ const CYCLE_ORIGIN_META_KEY: &str = "_claude/origin";
 
 /// Enough for any real session; bounds the list if completions are missed.
 const MAX_TRACKED_BACKGROUND_TASKS: usize = 32;
+
+/// Open tool calls whose input is kept; bounds the map if results are missed.
+const MAX_TRACKED_CALL_INPUTS: usize = 64;
+
+/// A description starting with one of these words names a wait.
+const WAIT_VERBS: &[&str] = &["wait", "waiting", "watch", "watching", "poll", "polling"];
+
+/// Commands that only wait, wherever they appear in a command line.
+const WAIT_COMMANDS: &[&str] = &["wait-for.py", "gh run watch", "kubectl wait"];
+
+/// Labels longer than this are cut, so one call cannot bloat every report.
+const MAX_WAIT_LABEL_CHARS: usize = 120;
 
 #[derive(Clone, Default)]
 pub(crate) struct AcpActivity {
@@ -69,6 +89,10 @@ struct ActivityState {
     /// announces a call before its input streams in, and the update that
     /// carries the input does not repeat the title that marks it as a stop.
     stop_calls: HashSet<String>,
+    /// The input of open tool calls, by tool call id. A launch is reported in
+    /// the call's result, and the input that says what the task is arrived in
+    /// an earlier update.
+    call_inputs: HashMap<String, CallInput>,
     last_turn_error: Option<String>,
     consecutive_failed_turns: u32,
 }
@@ -78,6 +102,17 @@ struct BackgroundTask {
     started_at: i64,
     /// Set when the agent will report the task's end with `terminal_exit`.
     terminal_id: Option<String>,
+    /// Set when the task only waits on something, to what it waits on.
+    wait: Option<WaitLabel>,
+}
+
+/// What a wait is waiting on, when the agent said.
+struct WaitLabel(Option<String>);
+
+#[derive(Default)]
+struct CallInput {
+    description: Option<String>,
+    command: Option<String>,
 }
 
 pub(crate) fn now_ms() -> i64 {
@@ -100,6 +135,16 @@ impl AcpActivity {
                 .background_tasks
                 .iter()
                 .map(|task| task.started_at)
+                .collect(),
+            background_waits: state
+                .background_tasks
+                .iter()
+                .filter_map(|task| {
+                    task.wait.as_ref().map(|WaitLabel(label)| BackgroundWait {
+                        started_at: task.started_at,
+                        label: label.clone(),
+                    })
+                })
                 .collect(),
             last_turn_error: state.last_turn_error.clone(),
             consecutive_failed_turns: state.consecutive_failed_turns,
@@ -134,6 +179,7 @@ impl AcpActivity {
             if let Some(stopped) = stopped_background_task(&mut state.stop_calls, update) {
                 state.background_tasks.retain(|task| task.id != stopped);
             }
+            record_call_input(&mut state.call_inputs, update);
             if let Some(launched) = launched_background_task(update) {
                 if !state
                     .background_tasks
@@ -141,13 +187,17 @@ impl AcpActivity {
                     .any(|task| task.id == launched.id)
                     && state.background_tasks.len() < MAX_TRACKED_BACKGROUND_TASKS
                 {
+                    let input = state.call_inputs.get(&launched.call_id);
+                    let wait = wait_label(input, launched.terminal_id.is_none());
                     state.background_tasks.push(BackgroundTask {
                         id: launched.id,
                         started_at: now,
                         terminal_id: launched.terminal_id,
+                        wait,
                     });
                 }
             }
+            forget_finished_call(&mut state.call_inputs, update);
             if let Some(exited) = exited_terminal(update) {
                 state
                     .background_tasks
@@ -233,16 +283,25 @@ fn is_cycle_result(update: &SessionUpdate) -> bool {
 
 struct LaunchedTask {
     id: String,
+    /// The tool call that launched it.
+    call_id: String,
     terminal_id: Option<String>,
 }
 
 fn launched_background_task(update: &SessionUpdate) -> Option<LaunchedTask> {
     match update {
-        SessionUpdate::ToolCall(call) => {
-            launched_monitor(call.status, Some(call.content.as_slice()))
-        }
-        SessionUpdate::ToolCallUpdate(update) => launched_command(update)
-            .or_else(|| launched_monitor(update.fields.status?, update.fields.content.as_deref())),
+        SessionUpdate::ToolCall(call) => launched_monitor(
+            &call.tool_call_id.0,
+            call.status,
+            Some(call.content.as_slice()),
+        ),
+        SessionUpdate::ToolCallUpdate(update) => launched_command(update).or_else(|| {
+            launched_monitor(
+                &update.tool_call_id.0,
+                update.fields.status?,
+                update.fields.content.as_deref(),
+            )
+        }),
         _ => None,
     }
 }
@@ -252,6 +311,7 @@ fn launched_command(update: &ToolCallUpdate) -> Option<LaunchedTask> {
     let data = output.get("data")?.as_str()?;
     Some(LaunchedTask {
         id: task_id_after_marker(data, BACKGROUND_COMMAND_MARKER)?,
+        call_id: update.tool_call_id.0.to_string(),
         terminal_id: Some(output.get("terminal_id")?.as_str()?.to_string()),
     })
 }
@@ -259,6 +319,7 @@ fn launched_command(update: &ToolCallUpdate) -> Option<LaunchedTask> {
 /// Only the start of a block counts: a read of a log or of this file quotes
 /// the marker without starting anything.
 fn launched_monitor(
+    call_id: &str,
     status: ToolCallStatus,
     content: Option<&[ToolCallContent]>,
 ) -> Option<LaunchedTask> {
@@ -271,6 +332,7 @@ fn launched_monitor(
             ..
         }) => task_id_after_marker(&text.text, MONITOR_MARKER).map(|id| LaunchedTask {
             id,
+            call_id: call_id.to_string(),
             terminal_id: None,
         }),
         _ => None,
@@ -284,6 +346,89 @@ fn task_id_after_marker(text: &str, marker: &str) -> Option<String> {
         .take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
         .collect();
     (!id.is_empty()).then_some(id)
+}
+
+/// Keep the description and command of a call as its input streams in.
+fn record_call_input(inputs: &mut HashMap<String, CallInput>, update: &SessionUpdate) {
+    let (call_id, raw_input) = match update {
+        SessionUpdate::ToolCall(call) => (&call.tool_call_id, call.raw_input.as_ref()),
+        SessionUpdate::ToolCallUpdate(update) => {
+            (&update.tool_call_id, update.fields.raw_input.as_ref())
+        }
+        _ => return,
+    };
+    let Some(input) = raw_input.and_then(|value| value.as_object()) else {
+        return;
+    };
+    let text = |key: &str| {
+        input
+            .get(key)
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(str::to_string)
+    };
+    let (description, command) = (text("description"), text("command"));
+    if description.is_none() && command.is_none() {
+        return;
+    }
+    if inputs.len() >= MAX_TRACKED_CALL_INPUTS && !inputs.contains_key(&*call_id.0) {
+        inputs.clear();
+    }
+    let entry = inputs.entry(call_id.0.to_string()).or_default();
+    entry.description = description.or(entry.description.take());
+    entry.command = command.or(entry.command.take());
+}
+
+fn forget_finished_call(inputs: &mut HashMap<String, CallInput>, update: &SessionUpdate) {
+    let (call_id, status) = match update {
+        SessionUpdate::ToolCall(call) => (&call.tool_call_id, Some(call.status)),
+        SessionUpdate::ToolCallUpdate(update) => (&update.tool_call_id, update.fields.status),
+        _ => return,
+    };
+    if matches!(
+        status,
+        Some(ToolCallStatus::Completed | ToolCallStatus::Failed)
+    ) {
+        inputs.remove(&*call_id.0);
+    }
+}
+
+/// `Some` when a newly launched task only waits: always for a Monitor, and for
+/// a command when its description or command line says so.
+fn wait_label(input: Option<&CallInput>, is_monitor: bool) -> Option<WaitLabel> {
+    let description = input.and_then(|input| input.description.as_deref());
+    let command = input.and_then(|input| input.command.as_deref());
+    let waits = is_monitor
+        || description.is_some_and(describes_wait)
+        || command.is_some_and(runs_wait_command);
+    waits.then(|| {
+        let label = description.or_else(|| command.and_then(|c| c.lines().next()));
+        WaitLabel(label.map(truncate_label))
+    })
+}
+
+fn describes_wait(description: &str) -> bool {
+    let first_word: String = description
+        .chars()
+        .take_while(|c| c.is_alphabetic())
+        .collect::<String>()
+        .to_lowercase();
+    WAIT_VERBS.contains(&first_word.as_str())
+}
+
+fn runs_wait_command(command: &str) -> bool {
+    WAIT_COMMANDS.iter().any(|wait| command.contains(wait))
+        || (command.contains("gh pr checks") && command.contains("--watch"))
+}
+
+fn truncate_label(label: &str) -> String {
+    if label.chars().count() <= MAX_WAIT_LABEL_CHARS {
+        return label.to_string();
+    }
+    let mut cut: String = label.chars().take(MAX_WAIT_LABEL_CHARS - 1).collect();
+    cut.push('…');
+    cut
 }
 
 fn exited_terminal(update: &SessionUpdate) -> Option<&str> {
@@ -755,6 +900,168 @@ mod tests {
         activity.record_update(&SessionUpdate::ToolCallUpdate(input), 3_000);
 
         assert_eq!(activity.snapshot().background_tasks_started_at, vec![1_000]);
+    }
+
+    fn call_input(call_id: &str, input: serde_json::Value) -> SessionUpdate {
+        SessionUpdate::ToolCallUpdate(ToolCallUpdate::new(
+            ToolCallId::new(call_id.to_string()),
+            ToolCallUpdateFields::new().raw_input(input),
+        ))
+    }
+
+    fn waits(activity: &AcpActivity) -> Vec<(i64, Option<String>)> {
+        activity
+            .snapshot()
+            .background_waits
+            .into_iter()
+            .map(|wait| (wait.started_at, wait.label))
+            .collect()
+    }
+
+    #[test]
+    fn a_wait_for_command_is_a_wait() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.record_update(
+            &call_input(
+                "bw1",
+                serde_json::json!({
+                    "command": "~/.claude/tools/wait-for.py pr openemr/openemr 9687 --until checks",
+                    "description": "Check on PR 9687",
+                    "run_in_background": true,
+                }),
+            ),
+            500,
+        );
+        launch_command(&activity, "bw1", 1_000);
+        assert_eq!(activity.snapshot().background_tasks_started_at, vec![1_000]);
+        assert_eq!(
+            waits(&activity),
+            vec![(1_000, Some("Check on PR 9687".to_string()))]
+        );
+    }
+
+    #[test]
+    fn a_command_described_as_a_wait_is_a_wait() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.record_update(
+            &call_input(
+                "bw2",
+                serde_json::json!({
+                    "command": "tmp/watch-job.sh dbarchive-1",
+                    "description": "Watch dbarchive-1 for another 28 minutes",
+                }),
+            ),
+            500,
+        );
+        launch_command(&activity, "bw2", 1_000);
+        assert_eq!(
+            waits(&activity),
+            vec![(
+                1_000,
+                Some("Watch dbarchive-1 for another 28 minutes".to_string())
+            )]
+        );
+    }
+
+    #[test]
+    fn other_background_commands_are_work() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.record_update(
+            &call_input(
+                "bp1",
+                serde_json::json!({
+                    "command": "CI=true just package-ui > tmp/package-ui.log 2>&1",
+                    "description": "Package the app in place",
+                }),
+            ),
+            500,
+        );
+        launch_command(&activity, "bp1", 1_000);
+        assert_eq!(activity.snapshot().background_tasks_started_at, vec![1_000]);
+        assert!(waits(&activity).is_empty());
+    }
+
+    #[test]
+    fn a_command_without_input_is_work() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        launch_command(&activity, "bn1", 1_000);
+        assert!(waits(&activity).is_empty());
+    }
+
+    #[test]
+    fn a_monitor_is_a_wait_labeled_by_its_description() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.record_update(
+            &call_input(
+                "toolu_monitor",
+                serde_json::json!({
+                    "command": "until grep -q 'unit exit' log; do sleep 10; done",
+                    "description": "Unit gate summary",
+                }),
+            ),
+            500,
+        );
+        activity.record_update(&monitor_result("bhrfdag21"), 1_000);
+        assert_eq!(
+            waits(&activity),
+            vec![(1_000, Some("Unit gate summary".to_string()))]
+        );
+    }
+
+    #[test]
+    fn a_monitor_without_input_is_still_a_wait() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.record_update(&monitor_result("bhrfdag21"), 1_000);
+        assert_eq!(waits(&activity), vec![(1_000, None)]);
+    }
+
+    #[test]
+    fn a_finished_call_forgets_its_input() {
+        let activity = AcpActivity::default();
+        activity.turn_started(0);
+        activity.record_update(
+            &call_input(
+                "bf1",
+                serde_json::json!({ "description": "Wait for PR 1 checks" }),
+            ),
+            500,
+        );
+        activity.record_update(&command_result_with_exit("bf1"), 600);
+        activity.with_state(|state| assert!(state.call_inputs.is_empty()));
+    }
+
+    #[test]
+    fn a_long_label_is_cut() {
+        let label = wait_label(
+            Some(&CallInput {
+                description: Some(format!("Wait for {}", "x".repeat(300))),
+                command: None,
+            }),
+            false,
+        );
+        let WaitLabel(Some(label)) = label.expect("a wait") else {
+            panic!("no label");
+        };
+        assert_eq!(label.chars().count(), MAX_WAIT_LABEL_CHARS);
+        assert!(label.ends_with('…'));
+    }
+
+    #[test]
+    fn wait_words_must_lead_the_description() {
+        assert!(describes_wait("Wait for the apply to finish"));
+        assert!(describes_wait("Polling review-gate on 454"));
+        assert!(!describes_wait("Run the tests, then wait"));
+        assert!(!describes_wait("Watchdog restart"));
+        assert!(runs_wait_command(
+            "gh pr checks 15418 -R openemr/openemr --watch --interval 120"
+        ));
+        assert!(!runs_wait_command("gh pr checks 15418 -R openemr/openemr"));
     }
 
     #[test]

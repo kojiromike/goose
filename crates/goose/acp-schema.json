@@ -625,6 +625,14 @@
           "description": "Unix milliseconds at which each background command the agent launched,\nand is not known to have finished, started.",
           "default": []
         },
+        "backgroundWaits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BackgroundWaitDto"
+          },
+          "description": "The background tasks above that only wait on something outside the\nagent, such as CI or a timer, rather than doing work themselves.",
+          "default": []
+        },
         "lastTurnError": {
           "type": [
             "string",
@@ -644,6 +652,26 @@
         "runningTurn"
       ],
       "description": "A session the server is holding open."
+    },
+    "BackgroundWaitDto": {
+      "type": "object",
+      "properties": {
+        "startedAt": {
+          "type": "integer",
+          "description": "Unix milliseconds; matches its entry in `background_tasks_started_at`."
+        },
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "What it waits on, from the agent's description of the call."
+        }
+      },
+      "required": [
+        "startedAt"
+      ],
+      "description": "A background task that only waits, such as a CI watch or a timer."
     },
     "ConfigureLlmBackendRequest_unstable": {
       "type": "object",

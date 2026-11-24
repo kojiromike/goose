@@ -4151,6 +4151,12 @@
   "sessionIndicators.waitingForYouUnread": {
     "defaultMessage": "आपकी प्रतीक्षा में (नया उत्तर)"
   },
+  "sessionIndicators.watching": {
+    "defaultMessage": "{more, plural, =0 {प्रतीक्षा में: {what}} one {प्रतीक्षा में: {what} (+# और)} other {प्रतीक्षा में: {what} (+# और)}}"
+  },
+  "sessionIndicators.watchingUnlabeled": {
+    "defaultMessage": "{count, plural, one {एक पृष्ठभूमि जाँच की प्रतीक्षा में} other {# पृष्ठभूमि जाँचों की प्रतीक्षा में}}"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },

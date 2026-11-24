@@ -18,6 +18,14 @@ impl AcpConnection {
                 last_unprompted_activity_at: activity.last_unprompted_update_at,
                 agent_exited: activity.exited,
                 background_tasks_started_at: activity.background_tasks_started_at,
+                background_waits: activity
+                    .background_waits
+                    .into_iter()
+                    .map(|wait| BackgroundWaitDto {
+                        started_at: wait.started_at,
+                        label: wait.label,
+                    })
+                    .collect(),
                 last_turn_error: activity.last_turn_error,
                 consecutive_failed_turns: activity.consecutive_failed_turns,
                 session_id,

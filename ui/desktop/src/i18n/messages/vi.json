@@ -4151,6 +4151,12 @@
   "sessionIndicators.waitingForYouUnread": {
     "defaultMessage": "Đang chờ bạn (có trả lời mới)"
   },
+  "sessionIndicators.watching": {
+    "defaultMessage": "{more, plural, =0 {Đang chờ: {what}} one {Đang chờ: {what} (+# mục khác)} other {Đang chờ: {what} (+# mục khác)}}"
+  },
+  "sessionIndicators.watchingUnlabeled": {
+    "defaultMessage": "{count, plural, one {Đang chờ một lần kiểm tra trong nền} other {Đang chờ # lần kiểm tra trong nền}}"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },

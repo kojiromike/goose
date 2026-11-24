@@ -182,6 +182,14 @@ export const zSetToolPermissionsResponse_unstable = z.record(z.string(), z.unkno
 export const zListLiveSessionsRequest_unstable = z.record(z.string(), z.unknown());
 
 /**
+ * A background task that only waits, such as a CI watch or a timer.
+ */
+export const zBackgroundWaitDto = z.object({
+    startedAt: z.int(),
+    label: z.string().nullish()
+});
+
+/**
  * A session the server is holding open.
  */
 export const zLiveSessionDto = z.object({
@@ -193,6 +201,7 @@ export const zLiveSessionDto = z.object({
     lastUnpromptedActivityAt: z.int().nullish(),
     agentExited: z.boolean().optional().default(false),
     backgroundTasksStartedAt: z.array(z.int()).optional().default([]),
+    backgroundWaits: z.array(zBackgroundWaitDto).optional().default([]),
     lastTurnError: z.string().nullish(),
     consecutiveFailedTurns: z.int().gte(0).optional().default(0)
 });

@@ -4169,6 +4169,12 @@
   "sessionIndicators.waitingForYouUnread": {
     "defaultMessage": "Waiting for you (new reply)"
   },
+  "sessionIndicators.watching": {
+    "defaultMessage": "{more,plural,other{Waiting: {what} (+# more)} =0{Waiting: {what}}}"
+  },
+  "sessionIndicators.watchingUnlabeled": {
+    "defaultMessage": "{count,plural,one{Waiting on a background check} other{Waiting on # background checks}}"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },

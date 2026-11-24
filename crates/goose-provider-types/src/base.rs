@@ -547,10 +547,22 @@ pub struct ProviderActivity {
     /// Start times of background commands the agent launched that are not known
     /// to have finished.
     pub background_tasks_started_at: Vec<i64>,
+    /// The background tasks above that only wait on something outside the
+    /// agent, such as CI or a timer, rather than doing work themselves.
+    pub background_waits: Vec<BackgroundWait>,
     /// Why the latest turn failed, if it did.
     pub last_turn_error: Option<String>,
     /// Turns that failed in a row, counting the latest.
     pub consecutive_failed_turns: u32,
+}
+
+/// A background task that only waits, such as a CI watch or a timer.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct BackgroundWait {
+    /// Unix milliseconds; matches its entry in `background_tasks_started_at`.
+    pub started_at: i64,
+    /// What it waits on, from the agent's description of the call.
+    pub label: Option<String>,
 }
 
 /// Base trait for AI providers (OpenAI, Anthropic, etc)

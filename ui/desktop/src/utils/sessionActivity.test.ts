@@ -90,6 +90,59 @@ describe('deriveSessionActivity', () => {
     ).toMatchObject({ state: 'working', reason: 'background', backgroundTasks: 1 });
   });
 
+  it('is watching, not working, when every background command only waits', () => {
+    const started = NOW - 5 * 60_000;
+    expect(
+      activity({
+        runningTurn: false,
+        backgroundTasksStartedAt: [started, NOW - 60_000],
+        backgroundWaits: [
+          { startedAt: started, label: 'Wait for PR 9687 checks' },
+          { startedAt: NOW - 60_000, label: 'Watch the deploy' },
+        ],
+      })
+    ).toEqual({
+      state: 'waiting',
+      reason: 'watching',
+      unread: false,
+      backgroundTasks: 2,
+      since: started,
+      waitLabel: 'Watch the deploy',
+    });
+  });
+
+  it('is working in the background when any background command does work beside a wait', () => {
+    expect(
+      activity({
+        runningTurn: false,
+        backgroundTasksStartedAt: [NOW - 60_000, NOW - 60_000],
+        backgroundWaits: [{ startedAt: NOW - 60_000, label: 'Wait for the build' }],
+      })
+    ).toMatchObject({ state: 'working', reason: 'background', backgroundTasks: 1 });
+  });
+
+  it('is working while the agent reports on its own, even with only waits running', () => {
+    expect(
+      activity({
+        runningTurn: false,
+        lastUnpromptedActivityAt: NOW - 5_000,
+        backgroundTasksStartedAt: [NOW - 60_000],
+        backgroundWaits: [{ startedAt: NOW - 60_000 }],
+      })
+    ).toMatchObject({ state: 'working', reason: 'background' });
+  });
+
+  it('stops trusting a wait it never heard back about', () => {
+    const old = NOW - BACKGROUND_TASK_MAX_AGE_MS;
+    expect(
+      activity({
+        runningTurn: false,
+        backgroundTasksStartedAt: [old],
+        backgroundWaits: [{ startedAt: old }],
+      })
+    ).toMatchObject({ state: 'waiting', reason: 'turnEnded' });
+  });
+
   it('stops trusting a background command it never heard back about', () => {
     expect(
       activity({ runningTurn: false, backgroundTasksStartedAt: [NOW - BACKGROUND_TASK_MAX_AGE_MS] })

@@ -4151,6 +4151,12 @@
   "sessionIndicators.waitingForYouUnread": {
     "defaultMessage": "あなたの入力待ち（新しい返信）"
   },
+  "sessionIndicators.watching": {
+    "defaultMessage": "{more, plural, =0 {待機中: {what}} one {待機中: {what} （他 # 件）} other {待機中: {what} （他 # 件）}}"
+  },
+  "sessionIndicators.watchingUnlabeled": {
+    "defaultMessage": "{count, plural, one {バックグラウンドのチェックを待機中} other {バックグラウンドのチェック #件を待機中}}"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },

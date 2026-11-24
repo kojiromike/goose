@@ -4151,6 +4151,12 @@
   "sessionIndicators.waitingForYouUnread": {
     "defaultMessage": "Ждёт вас (новый ответ)"
   },
+  "sessionIndicators.watching": {
+    "defaultMessage": "{more, plural, =0 {Ожидание: {what}} one {Ожидание: {what} (ещё #)} other {Ожидание: {what} (ещё #)}}"
+  },
+  "sessionIndicators.watchingUnlabeled": {
+    "defaultMessage": "{count, plural, one {Ожидает фоновую проверку} other {Ожидает фоновых проверок: #}}"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import type { SessionActivity } from '../utils/sessionActivity';
-import { SessionIndicators } from './SessionIndicators';
+import { describeWaitTarget, SessionIndicators } from './SessionIndicators';
 
 const NOW = 1_800_000_000_000;
 
@@ -35,6 +35,41 @@ describe('SessionIndicators', () => {
     expect(
       screen.getByLabelText('Working in the background (2 background commands)')
     ).toBeInTheDocument();
+  });
+
+  it('says what a watching session waits on', () => {
+    const { unmount } = renderIndicators({
+      state: 'waiting',
+      reason: 'watching',
+      backgroundTasks: 1,
+      waitLabel: 'Wait for PR 9687 checks',
+    });
+    expect(screen.getByLabelText('Waiting: PR 9687 checks')).toBeInTheDocument();
+    unmount();
+
+    const second = renderIndicators({
+      state: 'waiting',
+      reason: 'watching',
+      backgroundTasks: 3,
+      waitLabel: 'Watch dbarchive-1 for another 28 minutes',
+    });
+    expect(
+      screen.getByLabelText('Waiting: dbarchive-1 for another 28 minutes (+2 more)')
+    ).toBeInTheDocument();
+    second.unmount();
+
+    renderIndicators({ state: 'waiting', reason: 'watching', backgroundTasks: 2 });
+    expect(screen.getByLabelText('Waiting on 2 background checks')).toBeInTheDocument();
+  });
+
+  it('keeps a wait label that is only a verb, or does not lead with one', () => {
+    expect(describeWaitTarget('Wait in the background for PR 665 to merge')).toBe(
+      'PR 665 to merge'
+    );
+    expect(describeWaitTarget('Wait, then confirm Dependabot')).toBe(
+      'Wait, then confirm Dependabot'
+    );
+    expect(describeWaitTarget('Unit gate summary')).toBe('Unit gate summary');
   });
 
   it('asks for approval', () => {

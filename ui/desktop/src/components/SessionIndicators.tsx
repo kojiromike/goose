@@ -1,4 +1,4 @@
-import { AlertCircle, AlertTriangle, BellOff, Hand, Loader2 } from 'lucide-react';
+import { AlertCircle, AlertTriangle, BellOff, Hand, Hourglass, Loader2 } from 'lucide-react';
 import React from 'react';
 import type { IntlShape } from 'react-intl';
 import { defineMessages, useIntl } from '../i18n';
@@ -14,6 +14,15 @@ const i18n = defineMessages({
     id: 'sessionIndicators.workingInBackground',
     defaultMessage:
       '{count, plural, =0 {Working in the background} one {Working in the background (# background command)} other {Working in the background (# background commands)}}',
+  },
+  watching: {
+    id: 'sessionIndicators.watching',
+    defaultMessage: '{more, plural, =0 {Waiting: {what}} other {Waiting: {what} (+# more)}}',
+  },
+  watchingUnlabeled: {
+    id: 'sessionIndicators.watchingUnlabeled',
+    defaultMessage:
+      '{count, plural, one {Waiting on a background check} other {Waiting on # background checks}}',
   },
   needsApproval: {
     id: 'sessionIndicators.needsApproval',
@@ -69,7 +78,21 @@ function showsSnoozed(
   activity: SessionActivity,
   snooze: SessionSnooze | undefined
 ): snooze is SessionSnooze {
-  return snooze !== undefined && (activity.reason === 'turnEnded' || activity.reason === 'none');
+  return (
+    snooze !== undefined &&
+    (activity.reason === 'turnEnded' ||
+      activity.reason === 'watching' ||
+      activity.reason === 'none')
+  );
+}
+
+/** "Wait in the background for PR 665 to merge" says it waits; keep what on. */
+const LEADING_WAIT =
+  /^(?:wait(?:ing)?|watch(?:ing)?|poll(?:ing)?)(?:\s+in\s+(?:the\s+)?background)?(?:\s+(?:for|until|on))?\s+/i;
+
+export function describeWaitTarget(label: string): string {
+  const target = label.replace(LEADING_WAIT, '');
+  return target === '' ? label : target;
 }
 
 /** A wake time: the time alone when it is today, with the weekday otherwise. */
@@ -108,6 +131,15 @@ export function describeSessionActivity(
       return intl.formatMessage(i18n.workingInBackground, {
         count: activity.backgroundTasks ?? 0,
       });
+    case 'watching': {
+      const count = activity.backgroundTasks ?? 1;
+      return activity.waitLabel
+        ? intl.formatMessage(i18n.watching, {
+            what: describeWaitTarget(activity.waitLabel),
+            more: Math.max(0, count - 1),
+          })
+        : intl.formatMessage(i18n.watchingUnlabeled, { count });
+    }
     case 'approval':
       return intl.formatMessage(i18n.needsApproval);
     case 'turnEnded':
@@ -141,9 +173,9 @@ interface SessionIndicatorsProps {
 
 /**
  * One marker per session state: a blue spinner while it works, a slower amber
- * one while the work is in the background, amber when it needs the user, red
- * when it is stuck, nothing when idle, and a muted bell when the user snoozed
- * it.
+ * one while the work is in the background, an hourglass when all it has
+ * running is a wait, amber when it needs the user, red when it is stuck,
+ * nothing when idle, and a muted bell when the user snoozed it.
  */
 export const SessionIndicators = React.memo<SessionIndicatorsProps>(({ activity, now, snooze }) => {
   const intl = useIntl();
@@ -160,6 +192,13 @@ export const SessionIndicators = React.memo<SessionIndicatorsProps>(({ activity,
         return (
           <Loader2
             className="w-3 h-3 text-amber-500 animate-spin [animation-duration:2.5s]"
+            aria-label={label}
+          />
+        );
+      case 'watching':
+        return (
+          <Hourglass
+            className={`w-3 h-3 ${activity.unread ? 'text-amber-500' : 'text-amber-500/60'}`}
             aria-label={label}
           />
         );

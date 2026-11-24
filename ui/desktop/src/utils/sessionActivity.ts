@@ -3,8 +3,10 @@
  *
  * - `working`: the agent is making progress and needs nothing from the user —
  *   answering a prompt, or running background work that will bring it back.
- * - `waiting`: the agent needs the user — a permission request is open, or its
- *   turn ended and it is the user's move.
+ * - `waiting`: the agent needs the user — a permission request is open, its
+ *   turn ended and it is the user's move, or all it has running is a wait on
+ *   something outside it (CI, a review, a timer), which the user may want to
+ *   look in on.
  * - `stuck`: the session claims to be running but is not making progress, its
  *   agent process is gone, or its turns are failing.
  * - `idle`: nothing to report (a session with no agent loaded and nothing new).
@@ -14,6 +16,7 @@ export type SessionActivityState = 'working' | 'waiting' | 'stuck' | 'idle';
 export type SessionActivityReason =
   | 'turn'
   | 'background'
+  | 'watching'
   | 'approval'
   | 'turnEnded'
   | 'stalled'
@@ -31,8 +34,13 @@ export interface SessionActivity {
   error?: string;
   /** Turns failed in a row, for `failing`. */
   failedTurns?: number;
-  /** Background commands believed to be running, for `background`. */
+  /**
+   * Background commands believed to be running: those doing work, for
+   * `background`, and the waits, for `watching`.
+   */
   backgroundTasks?: number;
+  /** What the newest wait waits on, in the agent's words, for `watching`. */
+  waitLabel?: string;
   /** New activity the user has not looked at yet. */
   unread: boolean;
 }
@@ -48,6 +56,8 @@ export interface LiveSessionSignals {
   lastUnpromptedActivityAt?: number | null;
   agentExited?: boolean;
   backgroundTasksStartedAt?: number[];
+  /** The background tasks above that only wait, with what they wait on. */
+  backgroundWaits?: { startedAt: number; label?: string | null }[];
   lastTurnError?: string | null;
   consecutiveFailedTurns?: number;
 }
@@ -127,19 +137,37 @@ export function deriveSessionActivity({
     };
   }
 
-  const backgroundStarts = (live?.backgroundTasksStartedAt ?? []).filter(
-    (startedAt) => now - startedAt < BACKGROUND_TASK_MAX_AGE_MS
-  );
+  const isFresh = (startedAt: number) => now - startedAt < BACKGROUND_TASK_MAX_AGE_MS;
+  const waits = (live?.backgroundWaits ?? []).filter((wait) => isFresh(wait.startedAt));
+  // Every wait is also a background task; match them by start time so that
+  // only the tasks doing work count as work.
+  const workStarts = (live?.backgroundTasksStartedAt ?? []).filter(isFresh);
+  for (const wait of waits) {
+    const index = workStarts.indexOf(wait.startedAt);
+    if (index !== -1) workStarts.splice(index, 1);
+  }
   const unpromptedAt = live?.lastUnpromptedActivityAt;
   const workingUnprompted = !!unpromptedAt && now - unpromptedAt < UNPROMPTED_WORK_WINDOW_MS;
-  if (backgroundStarts.length > 0 || workingUnprompted) {
+  if (workStarts.length > 0 || workingUnprompted) {
     return {
       state: 'working',
       reason: 'background',
       unread,
-      ...(backgroundStarts.length > 0
-        ? { backgroundTasks: backgroundStarts.length, since: Math.min(...backgroundStarts) }
+      ...(workStarts.length > 0
+        ? { backgroundTasks: workStarts.length, since: Math.min(...workStarts) }
         : {}),
+    };
+  }
+
+  if (waits.length > 0) {
+    const newest = waits.reduce((a, b) => (b.startedAt >= a.startedAt ? b : a));
+    return {
+      state: 'waiting',
+      reason: 'watching',
+      unread,
+      backgroundTasks: waits.length,
+      since: Math.min(...waits.map((wait) => wait.startedAt)),
+      ...(newest.label ? { waitLabel: newest.label } : {}),
     };
   }
 

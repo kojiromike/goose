@@ -4151,6 +4151,12 @@
   "sessionIndicators.waitingForYouUnread": {
     "defaultMessage": "Menunggu anda (balasan baharu)"
   },
+  "sessionIndicators.watching": {
+    "defaultMessage": "{more, plural, =0 {Menunggu: {what}} one {Menunggu: {what} (+# lagi)} other {Menunggu: {what} (+# lagi)}}"
+  },
+  "sessionIndicators.watchingUnlabeled": {
+    "defaultMessage": "{count, plural, one {Menunggu semakan latar belakang} other {Menunggu # semakan latar belakang}}"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },

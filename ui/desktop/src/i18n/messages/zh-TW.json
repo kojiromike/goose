@@ -4151,6 +4151,12 @@
   "sessionIndicators.waitingForYouUnread": {
     "defaultMessage": "等待你的回覆（有新回覆）"
   },
+  "sessionIndicators.watching": {
+    "defaultMessage": "{more, plural, =0 {等待中：{what}} one {等待中：{what} （另有 # 項）} other {等待中：{what} （另有 # 項）}}"
+  },
+  "sessionIndicators.watchingUnlabeled": {
+    "defaultMessage": "{count, plural, one {正在等待一項背景檢查} other {正在等待 # 項背景檢查}}"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}：{error}"
   },

@@ -2486,12 +2486,27 @@ pub struct LiveSessionDto {
     /// and is not known to have finished, started.
     #[serde(default)]
     pub background_tasks_started_at: Vec<i64>,
+    /// The background tasks above that only wait on something outside the
+    /// agent, such as CI or a timer, rather than doing work themselves.
+    #[serde(default)]
+    pub background_waits: Vec<BackgroundWaitDto>,
     /// Why the latest turn failed, if it did.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_turn_error: Option<String>,
     /// Turns that failed in a row, counting the latest.
     #[serde(default)]
     pub consecutive_failed_turns: u32,
+}
+
+/// A background task that only waits, such as a CI watch or a timer.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BackgroundWaitDto {
+    /// Unix milliseconds; matches its entry in `background_tasks_started_at`.
+    pub started_at: i64,
+    /// What it waits on, from the agent's description of the call.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
 }
 
 /// List the sessions with an agent in memory. Unlike the session list, which

@@ -4151,6 +4151,12 @@
   "sessionIndicators.waitingForYouUnread": {
     "defaultMessage": "Sizi bekliyor (yeni yanıt)"
   },
+  "sessionIndicators.watching": {
+    "defaultMessage": "{more, plural, =0 {Bekliyor: {what}} one {Bekliyor: {what} (+# tane daha)} other {Bekliyor: {what} (+# tane daha)}}"
+  },
+  "sessionIndicators.watchingUnlabeled": {
+    "defaultMessage": "{count, plural, one {Bir arka plan denetimini bekliyor} other {# arka plan denetimini bekliyor}}"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },

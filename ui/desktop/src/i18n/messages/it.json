@@ -4151,6 +4151,12 @@
   "sessionIndicators.waitingForYouUnread": {
     "defaultMessage": "In attesa di te (nuova risposta)"
   },
+  "sessionIndicators.watching": {
+    "defaultMessage": "{more, plural, =0 {In attesa: {what}} one {In attesa: {what} (+# altro)} other {In attesa: {what} (+# altri)}}"
+  },
+  "sessionIndicators.watchingUnlabeled": {
+    "defaultMessage": "{count, plural, one {In attesa di un controllo in background} other {In attesa di # controlli in background}}"
+  },
   "sessionIndicators.withError": {
     "defaultMessage": "{label}: {error}"
   },

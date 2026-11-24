@@ -319,6 +319,11 @@ export type LiveSessionDto = {
      */
     backgroundTasksStartedAt?: Array<number>;
     /**
+     * The background tasks above that only wait on something outside the
+     * agent, such as CI or a timer, rather than doing work themselves.
+     */
+    backgroundWaits?: Array<BackgroundWaitDto>;
+    /**
      * Why the latest turn failed, if it did.
      */
     lastTurnError?: string | null;
@@ -326,6 +331,20 @@ export type LiveSessionDto = {
      * Turns that failed in a row, counting the latest.
      */
     consecutiveFailedTurns?: number;
+};
+
+/**
+ * A background task that only waits, such as a CI watch or a timer.
+ */
+export type BackgroundWaitDto = {
+    /**
+     * Unix milliseconds; matches its entry in `background_tasks_started_at`.
+     */
+    startedAt: number;
+    /**
+     * What it waits on, from the agent's description of the call.
+     */
+    label?: string | null;
 };
 
 /**
