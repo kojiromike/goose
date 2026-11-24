@@ -2687,6 +2687,15 @@
   "navigationPanel.stillBusy": {
     "defaultMessage": "«{name}» ещё работает; сначала остановите его"
   },
+  "navigationPanel.unarchive": {
+    "defaultMessage": "Разархивировать"
+  },
+  "navigationPanel.unarchiveFailed": {
+    "defaultMessage": "Не удалось разархивировать сеанс: {error}"
+  },
+  "navigationPanel.unarchiveSuccess": {
+    "defaultMessage": "«{name}» разархивирован"
+  },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Не откладывать"
   },

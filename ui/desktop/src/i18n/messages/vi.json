@@ -2687,6 +2687,15 @@
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” vẫn đang hoạt động; hãy dừng trước"
   },
+  "navigationPanel.unarchive": {
+    "defaultMessage": "Bỏ lưu trữ"
+  },
+  "navigationPanel.unarchiveFailed": {
+    "defaultMessage": "Không thể bỏ lưu trữ phiên: {error}"
+  },
+  "navigationPanel.unarchiveSuccess": {
+    "defaultMessage": "Đã bỏ lưu trữ “{name}”"
+  },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Bỏ tạm ẩn"
   },

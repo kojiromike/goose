@@ -2687,6 +2687,15 @@
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” ainda está trabalhando; pare-a primeiro"
   },
+  "navigationPanel.unarchive": {
+    "defaultMessage": "Desarquivar"
+  },
+  "navigationPanel.unarchiveFailed": {
+    "defaultMessage": "Falha ao desarquivar a sessão: {error}"
+  },
+  "navigationPanel.unarchiveSuccess": {
+    "defaultMessage": "“{name}” desarquivada"
+  },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Cancelar adiamento"
   },

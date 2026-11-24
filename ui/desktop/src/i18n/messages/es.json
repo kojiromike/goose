@@ -2687,6 +2687,15 @@
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” sigue trabajando; deténgala primero"
   },
+  "navigationPanel.unarchive": {
+    "defaultMessage": "Desarchivar"
+  },
+  "navigationPanel.unarchiveFailed": {
+    "defaultMessage": "No se pudo desarchivar la sesión: {error}"
+  },
+  "navigationPanel.unarchiveSuccess": {
+    "defaultMessage": "“{name}” desarchivada"
+  },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Dejar de posponer"
   },

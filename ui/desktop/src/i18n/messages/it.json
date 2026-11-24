@@ -2687,6 +2687,15 @@
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” è ancora al lavoro; interrompila prima"
   },
+  "navigationPanel.unarchive": {
+    "defaultMessage": "Rimuovi dall’archivio"
+  },
+  "navigationPanel.unarchiveFailed": {
+    "defaultMessage": "Impossibile rimuovere la sessione dall’archivio: {error}"
+  },
+  "navigationPanel.unarchiveSuccess": {
+    "defaultMessage": "“{name}” rimossa dall’archivio"
+  },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Annulla posticipo"
   },

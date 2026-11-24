@@ -2687,6 +2687,15 @@
   "navigationPanel.stillBusy": {
     "defaultMessage": "„{name}“ arbeitet noch; zuerst stoppen"
   },
+  "navigationPanel.unarchive": {
+    "defaultMessage": "Dearchivieren"
+  },
+  "navigationPanel.unarchiveFailed": {
+    "defaultMessage": "Sitzung konnte nicht dearchiviert werden: {error}"
+  },
+  "navigationPanel.unarchiveSuccess": {
+    "defaultMessage": "„{name}“ dearchiviert"
+  },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Schlummern beenden"
   },

@@ -2687,6 +2687,15 @@
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}”이(가) 아직 작업 중입니다. 먼저 중지하세요"
   },
+  "navigationPanel.unarchive": {
+    "defaultMessage": "보관 취소"
+  },
+  "navigationPanel.unarchiveFailed": {
+    "defaultMessage": "세션 보관을 취소하지 못했습니다: {error}"
+  },
+  "navigationPanel.unarchiveSuccess": {
+    "defaultMessage": "“{name}” 보관 취소됨"
+  },
   "navigationPanel.unsnooze": {
     "defaultMessage": "다시 알림 해제"
   },

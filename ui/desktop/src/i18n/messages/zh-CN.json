@@ -2687,6 +2687,15 @@
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}”仍在运行；请先停止"
   },
+  "navigationPanel.unarchive": {
+    "defaultMessage": "取消归档"
+  },
+  "navigationPanel.unarchiveFailed": {
+    "defaultMessage": "取消归档会话失败：{error}"
+  },
+  "navigationPanel.unarchiveSuccess": {
+    "defaultMessage": "已取消归档“{name}”"
+  },
   "navigationPanel.unsnooze": {
     "defaultMessage": "恢复提醒"
   },

@@ -2687,6 +2687,15 @@
   "navigationPanel.stillBusy": {
     "defaultMessage": "「{name}」仍在執行；請先停止"
   },
+  "navigationPanel.unarchive": {
+    "defaultMessage": "取消封存"
+  },
+  "navigationPanel.unarchiveFailed": {
+    "defaultMessage": "取消封存工作階段失敗：{error}"
+  },
+  "navigationPanel.unarchiveSuccess": {
+    "defaultMessage": "已取消封存「{name}」"
+  },
   "navigationPanel.unsnooze": {
     "defaultMessage": "恢復提醒"
   },

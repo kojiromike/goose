@@ -2687,6 +2687,15 @@
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” hâlâ çalışıyor; önce durdurun"
   },
+  "navigationPanel.unarchive": {
+    "defaultMessage": "Arşivden çıkar"
+  },
+  "navigationPanel.unarchiveFailed": {
+    "defaultMessage": "Oturum arşivden çıkarılamadı: {error}"
+  },
+  "navigationPanel.unarchiveSuccess": {
+    "defaultMessage": "“{name}” arşivden çıkarıldı"
+  },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Ertelemeyi kaldır"
   },

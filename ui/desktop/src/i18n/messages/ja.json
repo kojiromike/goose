@@ -2687,6 +2687,15 @@
   "navigationPanel.stillBusy": {
     "defaultMessage": "「{name}」はまだ作業中です。先に停止してください"
   },
+  "navigationPanel.unarchive": {
+    "defaultMessage": "アーカイブ解除"
+  },
+  "navigationPanel.unarchiveFailed": {
+    "defaultMessage": "セッションのアーカイブを解除できませんでした: {error}"
+  },
+  "navigationPanel.unarchiveSuccess": {
+    "defaultMessage": "「{name}」のアーカイブを解除しました"
+  },
   "navigationPanel.unsnooze": {
     "defaultMessage": "スヌーズを解除"
   },

@@ -2699,6 +2699,15 @@
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” is still working; stop it first"
   },
+  "navigationPanel.unarchive": {
+    "defaultMessage": "Unarchive"
+  },
+  "navigationPanel.unarchiveFailed": {
+    "defaultMessage": "Failed to unarchive session: {error}"
+  },
+  "navigationPanel.unarchiveSuccess": {
+    "defaultMessage": "Unarchived “{name}”"
+  },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Unsnooze"
   },

@@ -2687,6 +2687,15 @@
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” अभी भी काम कर रहा है; पहले उसे रोकें"
   },
+  "navigationPanel.unarchive": {
+    "defaultMessage": "संग्रह से निकालें"
+  },
+  "navigationPanel.unarchiveFailed": {
+    "defaultMessage": "सत्र संग्रह से नहीं निकाला जा सका: {error}"
+  },
+  "navigationPanel.unarchiveSuccess": {
+    "defaultMessage": "“{name}” संग्रह से निकाला गया"
+  },
   "navigationPanel.unsnooze": {
     "defaultMessage": "स्नूज़ हटाएँ"
   },

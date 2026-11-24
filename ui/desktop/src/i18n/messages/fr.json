@@ -2687,6 +2687,15 @@
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” est toujours en cours ; arrêtez-la d’abord"
   },
+  "navigationPanel.unarchive": {
+    "defaultMessage": "Désarchiver"
+  },
+  "navigationPanel.unarchiveFailed": {
+    "defaultMessage": "Échec du désarchivage de la session : {error}"
+  },
+  "navigationPanel.unarchiveSuccess": {
+    "defaultMessage": "“{name}” désarchivée"
+  },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Réactiver"
   },

@@ -2687,6 +2687,15 @@
   "navigationPanel.stillBusy": {
     "defaultMessage": "“{name}” masih berjalan; hentikannya dahulu"
   },
+  "navigationPanel.unarchive": {
+    "defaultMessage": "Nyaharkibkan"
+  },
+  "navigationPanel.unarchiveFailed": {
+    "defaultMessage": "Gagal menyaharkibkan sesi: {error}"
+  },
+  "navigationPanel.unarchiveSuccess": {
+    "defaultMessage": "“{name}” dinyaharkibkan"
+  },
   "navigationPanel.unsnooze": {
     "defaultMessage": "Batalkan tunda"
   },

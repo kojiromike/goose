@@ -3,6 +3,7 @@ import { useLocation } from 'react-router';
 import {
   AppWindow,
   Archive,
+  ArchiveRestore,
   AudioLines,
   ChevronDown,
   ChevronRight,
@@ -49,6 +50,7 @@ import {
 } from '../../utils/sessionSwitcher';
 import {
   acpArchiveSession,
+  acpUnarchiveSession,
   acpCloseSession,
   acpDeleteSession,
   acpRenameSession,
@@ -185,6 +187,18 @@ const i18n = defineMessages({
     id: 'navigationPanel.archiveFailed',
     defaultMessage: 'Failed to archive session: {error}',
   },
+  unarchive: {
+    id: 'navigationPanel.unarchive',
+    defaultMessage: 'Unarchive',
+  },
+  unarchiveSuccess: {
+    id: 'navigationPanel.unarchiveSuccess',
+    defaultMessage: 'Unarchived “{name}”',
+  },
+  unarchiveFailed: {
+    id: 'navigationPanel.unarchiveFailed',
+    defaultMessage: 'Failed to unarchive session: {error}',
+  },
   deleteTitle: {
     id: 'navigationPanel.deleteTitle',
     defaultMessage: 'Delete chat',
@@ -262,6 +276,24 @@ async function archiveSession(intl: IntlShape, session: SessionListItem): Promis
   });
   toast.success(intl.formatMessage(i18n.archiveSuccess, { name: session.name }));
   return true;
+}
+
+// An archived chat reaches the sidebar only while its agent is still running,
+// so this restores it without a trip through Session History.
+async function unarchiveSession(intl: IntlShape, session: SessionListItem): Promise<void> {
+  try {
+    await acpUnarchiveSession(session.id);
+  } catch (error) {
+    toast.error(
+      intl.formatMessage(i18n.unarchiveFailed, { error: errorMessage(error, 'Unknown error') })
+    );
+    return;
+  }
+  dispatchSessionLifecycleEvent(AppEvents.SESSION_ARCHIVED, {
+    sessionId: session.id,
+    archived: false,
+  });
+  toast.success(intl.formatMessage(i18n.unarchiveSuccess, { name: session.name }));
 }
 
 const navItemClass = (active: boolean) =>
@@ -429,6 +461,7 @@ const SessionRow: React.FC<SessionRowProps> = ({
   };
 
   const handleArchive = useCallback(() => archiveSession(intl, session), [intl, session]);
+  const handleUnarchive = useCallback(() => unarchiveSession(intl, session), [intl, session]);
 
   const handleRetitle = async () => {
     setIsRetitling(true);
@@ -560,11 +593,18 @@ const SessionRow: React.FC<SessionRowProps> = ({
                   <ShortcutHint accelerator={shortcuts?.endSession} />
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem disabled={isBusy} onSelect={() => void handleArchive()}>
-                <Archive className="w-4 h-4" />
-                {intl.formatMessage(i18n.archive)}
-                <ShortcutHint accelerator={shortcuts?.archiveSession} />
-              </DropdownMenuItem>
+              {session.archivedAt ? (
+                <DropdownMenuItem onSelect={() => void handleUnarchive()}>
+                  <ArchiveRestore className="w-4 h-4" />
+                  {intl.formatMessage(i18n.unarchive)}
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem disabled={isBusy} onSelect={() => void handleArchive()}>
+                  <Archive className="w-4 h-4" />
+                  {intl.formatMessage(i18n.archive)}
+                  <ShortcutHint accelerator={shortcuts?.archiveSession} />
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 variant="destructive"
