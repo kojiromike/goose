@@ -15,6 +15,17 @@ use crate::session::Session;
 type SessionSlot = Arc<tokio::sync::Mutex<Option<Arc<dyn Provider>>>>;
 type SharedProviders = HashMap<String, (u64, Arc<dyn Provider>)>;
 
+/// An archived session gets no agent process of its own: reading it (a load, a
+/// reconnect restoring open chats) must not start one. Prompting it unarchives it
+/// first, and the turn then builds the agent.
+#[derive(Debug, thiserror::Error)]
+#[error("session {0} is archived; it has no agent until it is sent a message")]
+pub struct ArchivedSessionError(pub String);
+
+pub fn is_archived_session_error(error: &anyhow::Error) -> bool {
+    error.is::<ArchivedSessionError>()
+}
+
 #[derive(Default)]
 pub struct ProviderManager {
     shared: tokio::sync::Mutex<SharedProviders>,
@@ -42,6 +53,9 @@ impl ProviderManager {
             let provider = self.shared(&name, &entry).await?;
             *slot = None;
             return Ok(provider);
+        }
+        if session.archived_at.is_some() {
+            return Err(ArchivedSessionError(session.id.clone()).into());
         }
 
         let extensions = EnabledExtensionsState::extensions_or_default(
@@ -150,4 +164,25 @@ pub fn model_config_for(session: &Session) -> Result<ModelConfig> {
         .map_err(|_| anyhow!("Could not resolve model config: missing model"))?;
     crate::model_config::model_config_from_user_config(&provider_name, &model_name)
         .map_err(|e| anyhow!("Could not resolve model config: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn archived_session_gets_no_agent_of_its_own() {
+        let session = Session {
+            id: "archived".to_string(),
+            provider_name: Some("claude-acp".to_string()),
+            archived_at: Some(chrono::Utc::now()),
+            ..Session::default()
+        };
+        let providers = ProviderManager::default();
+
+        let error = providers.provider_for(&session).await.err().unwrap();
+
+        assert!(is_archived_session_error(&error), "{error}");
+        assert!(providers.loaded().is_empty());
+    }
 }

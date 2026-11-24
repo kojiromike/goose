@@ -424,12 +424,16 @@ impl AcpConnection {
                 .is_some_and(has_unapplied_tool_confirmation_response);
         let extension_results = self.prepare_acp_session(cx, &session).await?;
         self.register_acp_session(session_id_str.clone()).await;
-        let provider = self
-            .services
-            .provider(&session.id)
-            .await
-            .internal_err_ctx("Failed to get provider while loading ACP session")?;
-        resume_saved_provider_session(&provider, session.conversation.as_ref()).await;
+        match self.services.provider(&session.id).await {
+            Ok(provider) => {
+                resume_saved_provider_session(&provider, session.conversation.as_ref()).await;
+            }
+            Err(error) if is_archived_session_error(&error) => {}
+            Err(error) => {
+                return Err(error)
+                    .internal_err_ctx("Failed to get provider while loading ACP session");
+            }
+        }
         session = self
             .services
             .session_manager

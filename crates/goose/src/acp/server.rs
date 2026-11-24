@@ -12,6 +12,7 @@ use crate::acp::{PermissionDecision, ACP_CURRENT_MODEL};
 use crate::agents::extension::{Envs, PLATFORM_EXTENSIONS};
 use crate::agents::extension_manager::ClientContext;
 use crate::agents::mcp_client::GooseMcpHostInfo;
+use crate::agents::provider_manager::is_archived_session_error;
 use crate::agents::state_machine::{
     has_unapplied_tool_confirmation_response, pending_tool_confirmations,
 };
@@ -1177,6 +1178,9 @@ impl AcpConnection {
     /// blocking work such as a synchronous keychain read while resolving the
     /// provider's inventory identity.
     fn spawn_provider_inventory_refresh(&self, goose_session: &Session) {
+        if goose_session.archived_at.is_some() {
+            return;
+        }
         let Some(provider_name) = goose_session.provider_name.clone() else {
             return;
         };
@@ -1250,7 +1254,7 @@ impl AcpConnection {
         session: &Session,
     ) -> Result<Vec<ExtensionLoadResult>, agent_client_protocol::Error> {
         self.attach_session(cx, &session.id).await;
-        if session.provider_name.is_some() {
+        if session.provider_name.is_some() && session.archived_at.is_none() {
             if let Err(error) = self.services.restore_provider_from_session(session).await {
                 if crate::acp::is_auth_required(&error) {
                     return Err(agent_client_protocol::Error::auth_required());
@@ -2518,6 +2522,12 @@ impl AcpConnection {
             return Err(error);
         }
 
+        if let Err(error) = self.unarchive_for_prompt(&session_id).await {
+            self.clear_active_run(&session_id, &run_id).await;
+            let _ = Self::send_active_run_update(cx, &args.session_id, None);
+            return Err(error);
+        }
+
         if let Err(error) = self
             .send_local_inference_progress_update(cx, &args.session_id, &session_id)
             .await
@@ -2575,6 +2585,40 @@ impl AcpConnection {
             response = response.usage(usage);
         }
         Ok(response)
+    }
+
+    /// Archived sessions are loaded without an agent, so a prompt is what brings one
+    /// back. The active run registered first keeps a concurrent archive out.
+    async fn unarchive_for_prompt(
+        &self,
+        session_id: &str,
+    ) -> Result<(), agent_client_protocol::Error> {
+        let mut session = self
+            .services
+            .session_manager
+            .get_session(session_id, false)
+            .await
+            .internal_err()?;
+        if session.archived_at.is_none() {
+            return Ok(());
+        }
+        self.services
+            .session_manager
+            .update(session_id)
+            .archived_at(None)
+            .apply()
+            .await
+            .internal_err()?;
+        session.archived_at = None;
+        if session.provider_name.is_some() {
+            if let Err(error) = self.services.restore_provider_from_session(&session).await {
+                if crate::acp::is_auth_required(&error) {
+                    return Err(agent_client_protocol::Error::auth_required());
+                }
+                warn!(session_id = %session.id, %error, "Failed to restore provider");
+            }
+        }
+        Ok(())
     }
 
     async fn on_steer_session(

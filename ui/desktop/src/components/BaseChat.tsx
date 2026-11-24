@@ -335,13 +335,6 @@ export default function BaseChat({
       .reverse();
   }, [messages]);
 
-  const chatInputSubmit = (input: UserInput) => {
-    if (recipe && input.msg.trim()) {
-      setHasStartedUsingRecipe(true);
-    }
-    handleSubmit(input);
-  };
-
   const isArchived = !!session?.archived_at;
   const [isUnarchiving, setIsUnarchiving] = useState(false);
   const handleUnarchive = useCallback(async () => {
@@ -365,6 +358,18 @@ export default function BaseChat({
       setIsUnarchiving(false);
     }
   }, [session, updateSession, intl]);
+
+  // An archived chat has no agent; the server unarchives it when the prompt
+  // arrives, and restoring it here too updates this banner and every sidebar.
+  const chatInputSubmit = (input: UserInput) => {
+    if (recipe && input.msg.trim()) {
+      setHasStartedUsingRecipe(true);
+    }
+    if (isArchived && !isUnarchiving) {
+      void handleUnarchive();
+    }
+    handleSubmit(input);
+  };
 
   const sessionModel = session?.model_config?.model_name ?? null;
   const sessionProvider = session?.provider_name ?? null;

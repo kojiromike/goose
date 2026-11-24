@@ -1797,3 +1797,54 @@ fn test_manual_compaction_refusal_fails_without_replacing_context() {
         );
     });
 }
+
+#[test]
+fn test_prompt_unarchives_archived_session() {
+    run_test(async {
+        let data_root = tempfile::tempdir().unwrap();
+        let openai = OpenAiFixture::new(
+            vec![(
+                format!("what is 1+1{TURN_CONTEXT_OPEN}"),
+                include_str!("acp_test_data/openai_basic.txt"),
+            )],
+            <AcpServerConnection as Connection>::expected_session_id(),
+        )
+        .await;
+        let conn = <AcpServerConnection as Connection>::new(
+            TestConnectionConfig {
+                data_root: data_root.path().to_path_buf(),
+                ..Default::default()
+            },
+            openai,
+        )
+        .await;
+        let work_dir = tempfile::tempdir().unwrap();
+        let session_id = new_session_with_meta(&conn, work_dir.path(), serde_json::Map::new())
+            .await
+            .unwrap();
+        let session_manager = SessionManager::new(data_root.path().to_path_buf());
+        session_manager
+            .update(&session_id)
+            .archived_at(Some(chrono::Utc::now()))
+            .apply()
+            .await
+            .unwrap();
+
+        let response = conn
+            .cx()
+            .send_request(PromptRequest::new(
+                agent_client_protocol::schema::v1::SessionId::new(session_id.clone()),
+                vec![ContentBlock::Text(TextContent::new("what is 1+1"))],
+            ))
+            .block_task()
+            .await
+            .unwrap();
+
+        assert_eq!(response.stop_reason, StopReason::EndTurn);
+        let session = session_manager
+            .get_session(&session_id, false)
+            .await
+            .unwrap();
+        assert!(session.archived_at.is_none());
+    });
+}
